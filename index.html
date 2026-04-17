@@ -27,19 +27,19 @@
     /* Focus states for better accessibility */
     .btn:focus,.nav-item:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:2px}
     /* Smooth page transitions */
-    .page{animation:pageIn .3s cubic-bezier(.4,0,.2,1)}
-    @keyframes pageIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    .page{animation:pageIn .25s ease-out}
+    @keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
     /* Improved hover and interactive states */
-    .card{transition:all .2s cubic-bezier(.4,0,.2,1)}
+    .card{transition:all .2s ease}
     .card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);transform:translateY(-2px)}
     .card:active{box-shadow:var(--shadow);transform:translateY(0)}
     /* Better button states */
-    .btn{transition:all .15s cubic-bezier(.4,0,.2,1)}
+    .btn{transition:all .15s ease}
     .btn:hover{transform:translateY(-1px)}
     .btn:active{transform:translateY(0)}
     /* Loading pulse for better feedback */
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
-    .loading{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}
+    .loading{animation:pulse 2s ease-in-out infinite}
   </style>
 </head>
 <body>
