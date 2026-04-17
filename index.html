@@ -21,16 +21,25 @@
   <link rel="stylesheet" href="css/styles.css">
   <style>
     body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overscroll-behavior-y:contain}
-    /* Loading state */
-    #mainContent:empty::before{content:'';display:block;height:400px;background:linear-gradient(90deg,#f1f5f9 25%,#f8fafc 50%,#f1f5f9 75%);background-size:200% 100%;animation:loading 1.5s infinite;border-radius:8px}
+    /* Loading state with improved animation */
+    #mainContent:empty::before{content:'';display:block;height:400px;background:linear-gradient(90deg,#f1f5f9 25%,#f8fafc 50%,#f1f5f9 75%);background-size:200% 100%;animation:loading 1.5s infinite;border-radius:8px;margin:0}
     @keyframes loading{0%{background-position:200% 0}100%{background-position:-200% 0}}
     /* Focus states for better accessibility */
     .btn:focus,.nav-item:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:2px}
-    /* Better page transitions */
-    .page{animation:pageIn .25s ease-out}
-    @keyframes pageIn{from{opacity:0}to{opacity:1}}
-    /* Improved hover states */
+    /* Smooth page transitions */
+    .page{animation:pageIn .3s cubic-bezier(.4,0,.2,1)}
+    @keyframes pageIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    /* Improved hover and interactive states */
+    .card{transition:all .2s cubic-bezier(.4,0,.2,1)}
+    .card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);transform:translateY(-2px)}
     .card:active{box-shadow:var(--shadow);transform:translateY(0)}
+    /* Better button states */
+    .btn{transition:all .15s cubic-bezier(.4,0,.2,1)}
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:translateY(0)}
+    /* Loading pulse for better feedback */
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+    .loading{animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite}
   </style>
 </head>
 <body>
