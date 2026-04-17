@@ -19,7 +19,19 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
-  <style>body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overscroll-behavior-y:contain}</style>
+  <style>
+    body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overscroll-behavior-y:contain}
+    /* Loading state */
+    #mainContent:empty::before{content:'';display:block;height:400px;background:linear-gradient(90deg,#f1f5f9 25%,#f8fafc 50%,#f1f5f9 75%);background-size:200% 100%;animation:loading 1.5s infinite;border-radius:8px}
+    @keyframes loading{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    /* Focus states for better accessibility */
+    .btn:focus,.nav-item:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:2px}
+    /* Better page transitions */
+    .page{animation:pageIn .25s ease-out}
+    @keyframes pageIn{from{opacity:0}to{opacity:1}}
+    /* Improved hover states */
+    .card:active{box-shadow:var(--shadow);transform:translateY(0)}
+  </style>
 </head>
 <body>
   <div id="app">

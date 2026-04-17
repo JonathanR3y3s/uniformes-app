@@ -153,5 +153,31 @@ textarea.form-input{resize:vertical;min-height:60px}
 @media(max-width:1024px){.form-row.c3,.form-row.c4{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:768px){.sidebar{transform:translateX(-100%);width:var(--sidebar-w);box-shadow:none;z-index:150}.sidebar.mobile-open{transform:translateX(0);box-shadow:var(--shadow-xl)}.main{margin-left:0!important}.topbar-hamburger{display:flex}.page{padding:16px}.form-row.c2,.form-row.c3,.form-row.c4,.grid-2,.grid-3{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}.chart-grid{grid-template-columns:1fr}.page-head{flex-direction:column}.tablero-header{padding:20px}.tablero-header h1{font-size:20px}table.dt{font-size:12px}table.dt th{padding:8px 10px;font-size:10px}table.dt td{padding:8px 10px}}
 @media(max-width:480px){.kpi-grid{grid-template-columns:1fr}.notif-wrap{left:12px;right:12px;max-width:none}}
-.mobile-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:140;display:none}
+.mobile-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:140;display:none;animation:fadeIn .2s}
 .mobile-overlay.show{display:block}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideInDown{from{transform:translateY(-10px);opacity:0}to{transform:translateY(0);opacity:1}}
+.btn{animation:slideInDown .3s ease}
+.card{animation:slideInDown .4s ease}
+.kpi{transition:all .2s ease}
+table.dt tbody tr{transition:background-color .15s ease}
+.nav-item{transition:all .2s cubic-bezier(.4,0,.2,1)}
+input[type=text],input[type=email],input[type=number],select,textarea{transition:border-color .2s,box-shadow .2s}
+.btn:active{transform:scale(.95) !important}
+.card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+.page-head{animation:fadeIn .3s ease}
+.topbar{box-shadow:var(--shadow);border-bottom-color:rgba(226,232,240,.5)}
+.sidebar{border-right-color:rgba(255,255,255,.1)}
+@media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+/* Accessibility improvements */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Better disabled state visibility */
+button:disabled,input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
+/* Improved skeleton loading for better perceived performance */
+.skeleton{background:linear-gradient(90deg,#f1f5f9 25%,#f8fafc 50%,#f1f5f9 75%);background-size:200% 100%;animation:skeletonLoading 1.5s infinite}
+@keyframes skeletonLoading{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* Better text selection */
+::selection{background:var(--accent);color:#fff}
+::-moz-selection{background:var(--accent);color:#fff}
+/* Improved link contrast */
+a:focus{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
