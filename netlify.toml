@@ -1,0 +1,26 @@
+[build]
+command = "echo 'Static app - no build needed'"
+publish = "."
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
+
+[[headers]]
+for = "/sw.js"
+[headers.values]
+Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+for = "/manifest.json"
+[headers.values]
+Content-Type = "application/manifest+json"
+
+[[headers]]
+for = "/(js|css)/*"
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"
+
+[context.production]
+environment = { NODE_ENV = "production" }

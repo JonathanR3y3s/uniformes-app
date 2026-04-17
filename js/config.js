@@ -1,0 +1,38 @@
+export const VERSION='5.0';
+export const STORAGE_KEY='uniformes_assa_abloy_2026_v4';
+export const TALLAS={ROPA:['XCH','CH','M','G','XG','XXG','XXXG'],PANTALON:['26','28','30','32','34','36','38','40','42','44'],CALZADO:['22','23','24','25','26','27','28','29','30','31'],UNITALLA:['UNITALLA']};
+export const TIPO_TALLA={'PLAYERA POLO TIPO A':'ROPA','PLAYERA POLO TIPO B':'ROPA','CAMISOLA':'ROPA','CHALECO':'ROPA','PLAYERA PANTS':'ROPA','PANTS':'ROPA','CHAMARRA':'ROPA','PANTALON':'PANTALON','ZAPATO NORMAL':'CALZADO','ZAPATO ESPECIAL':'CALZADO','ZAPATO SEGURIDAD':'CALZADO','BOTA':'CALZADO','CHOCLO':'CALZADO','TENIS':'CALZADO','SANDALIAS':'CALZADO','TOALLA':'UNITALLA','TERMO':'UNITALLA','GORRA':'UNITALLA','SOMBRILLA':'UNITALLA'};
+export const REGLAS={
+'PLANTA':{prendas:['PLAYERA POLO TIPO A','PANTALON','BOTA_O_CHOCLO','PLAYERA PANTS','PANTS','TENIS','CHALECO_O_CHAMARRA','TOALLA','TERMO','GORRA','SOMBRILLA','SANDALIAS'],cantidades:{'PLAYERA POLO TIPO A':3,'PANTALON':3,'BOTA_O_CHOCLO':1,'PLAYERA PANTS':1,'PANTS':1,'TENIS':1,'CHALECO_O_CHAMARRA':1,'TOALLA':2,'TERMO':1,'GORRA':1,'SOMBRILLA':1,'SANDALIAS':1},opciones:{'BOTA_O_CHOCLO':['BOTA','CHOCLO'],'CHALECO_O_CHAMARRA':['CHALECO','CHAMARRA']},usaTallaZapatos:['SANDALIAS']},
+'MATERIA PRIMA':{prendas:['PLAYERA POLO TIPO B','PANTALON','BOTA'],cantidades:{'PLAYERA POLO TIPO B':2,'PANTALON':2,'BOTA':1}},
+'TULTITLAN':{prendas:['PLAYERA POLO TIPO B','PANTALON','BOTA'],cantidades:{'PLAYERA POLO TIPO B':2,'PANTALON':2,'BOTA':1}},
+'MANTENIMIENTO':{prendas:['CAMISOLA','PANTALON','ZAPATO ESPECIAL'],cantidades:{'CAMISOLA':2,'PANTALON':2,'ZAPATO ESPECIAL':1}},
+'TALLER MECANICO':{prendas:['CAMISOLA','PANTALON','ZAPATO_NORMAL_O_ESPECIAL'],cantidades:{'CAMISOLA':2,'PANTALON':2,'ZAPATO_NORMAL_O_ESPECIAL':1},opciones:{'ZAPATO_NORMAL_O_ESPECIAL':['BOTA','CHOCLO','ZAPATO ESPECIAL']}},
+'PUERTAS':{prendas:['CAMISOLA','PANTALON','BOTA'],cantidades:{'CAMISOLA':2,'PANTALON':2,'BOTA':1}},
+'BRUKEN':{prendas:['PLAYERA POLO TIPO B','PANTALON','BOTA','CHALECO'],cantidades:{'PLAYERA POLO TIPO B':2,'PANTALON':2,'BOTA':1,'CHALECO':1}},
+'SUPERVISORES':{prendas:[],cantidades:{},esFlexible:true,prendasDisponibles:['BOTA','CHOCLO','ZAPATO ESPECIAL','PANTALON','PLAYERA POLO TIPO A','PLAYERA POLO TIPO B','CAMISOLA','CHALECO']}
+};
+export const PERFILES={
+'AUTO':null,
+'PLANTA_SINDICALIZADO':{prendas:['CAMISOLA','PANTALON','BOTA_O_CHOCLO','PLAYERA PANTS','PANTS','TENIS','CHALECO_O_CHAMARRA','TOALLA','TERMO','GORRA','SOMBRILLA','SANDALIAS'],cantidades:{'CAMISOLA':3,'PANTALON':3,'BOTA_O_CHOCLO':1,'PLAYERA PANTS':1,'PANTS':1,'TENIS':1,'CHALECO_O_CHAMARRA':1,'TOALLA':2,'TERMO':1,'GORRA':1,'SOMBRILLA':1,'SANDALIAS':1},opciones:{'BOTA_O_CHOCLO':['BOTA','CHOCLO'],'CHALECO_O_CHAMARRA':['CHALECO','CHAMARRA']},usaTallaZapatos:['SANDALIAS']},
+'PUERTAS_NO_SINDICALIZADO':null
+};
+export const CATEGORIAS={'BOTA':'CALZADO','CHOCLO':'CALZADO','ZAPATO ESPECIAL':'CALZADO','TENIS':'CALZADO','SANDALIAS':'CALZADO','PLAYERA POLO TIPO A':'ROPA','PLAYERA POLO TIPO B':'ROPA','PLAYERA PANTS':'ROPA','PANTALON':'ROPA','PANTS':'ROPA','CAMISOLA':'ROPA','CHALECO':'ROPA','CHAMARRA':'ROPA','GORRA':'ACCESORIOS','TERMO':'ACCESORIOS','TOALLA':'ACCESORIOS','SOMBRILLA':'ACCESORIOS'};
+export const NAV=[
+{section:'OPERACIÓN'},
+{id:'dashboard',icon:'fa-chart-pie',label:'Dashboard'},
+{id:'captura',icon:'fa-user-edit',label:'Captura de Tallas'},
+{id:'entregas',icon:'fa-hand-holding',label:'Entregas'},
+{id:'totales',icon:'fa-calculator',label:'Totales'},
+{id:'tablero',icon:'fa-th-large',label:'Tablero Maestro'},
+{section:'GESTIÓN'},
+{id:'empleados',icon:'fa-users',label:'Empleados'},
+{id:'proveedores',icon:'fa-truck',label:'Proveedores'},
+{id:'inventario',icon:'fa-boxes',label:'Inventario'},
+{id:'salidas',icon:'fa-sign-out-alt',label:'Salidas'},
+{section:'SISTEMA'},
+{id:'importar',icon:'fa-file-import',label:'Importar Excel'},
+{id:'exportar',icon:'fa-file-export',label:'Exportar'},
+{id:'catalogo',icon:'fa-sitemap',label:'Catálogo Áreas'},
+{id:'config',icon:'fa-cog',label:'Configuración'}
+];
