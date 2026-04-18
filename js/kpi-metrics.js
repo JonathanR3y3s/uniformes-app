@@ -164,7 +164,7 @@ export function getFinancialMetrics(dateFrom, dateTo) {
     topEmpleados,
     topAreas,
     topPrendas,
-    proyeccionPendiente: calculateProjec tion(empleados, deliveries),
+    proyeccionPendiente: calculateProjection(empleados, deliveries),
   };
 }
 
