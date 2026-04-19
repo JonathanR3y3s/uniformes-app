@@ -1,4 +1,4 @@
-import{REGLAS,VERSION}from'./config.js';import{init as initStorage}from'./storage.js';import{initOfflineStorage}from'./offline-storage.js';import{initUserRoles}from'./user-roles.js';import{initDeliveryEvidence}from'./delivery-evidence.js';import{buildNav,setupEvents,destroyCharts}from'./ui.js';
+import{REGLAS,VERSION}from'./config.js';import{init as initStorage}from'./storage.js';import{initOfflineStorage}from'./offline-storage.js';import{initUserRoles}from'./user-roles.js';import{initDeliveryEvidence}from'./delivery-evidence.js';import{buildNav,setupEvents,destroyCharts}from'./ui.js';import{initAuth}from'./mod-auth.js';
 import{render as renderDashboard,init as initDashboard}from'./dashboard.js';
 import{render as renderEmpleados,init as initEmpleados}from'./empleados.js';
 import{render as renderCaptura,init as initCaptura}from'./captura.js';
@@ -20,4 +20,4 @@ let currentView='dashboard';
 function navigate(v){currentView=v;history.pushState({v},'','#'+v);buildNav(currentView);render();}
 function render(){destroyCharts();const m=document.getElementById('mainContent');const view=views[currentView]||views.dashboard;m.innerHTML=view.render();if(view.init)view.init();}
 window.addEventListener('popstate',e=>{const v=(e.state&&e.state.v)||location.hash.slice(1)||'dashboard';currentView=views[v]?v:'dashboard';buildNav(currentView);render();});
-(async function(){initStorage(REGLAS);initUserRoles();initDeliveryEvidence();await initOfflineStorage().catch(e=>console.warn('[OFFLINE]',e));const v=location.hash.slice(1)||'dashboard';currentView=views[v]?v:'dashboard';buildNav(currentView);setupEvents(navigate);render();console.log('[ASSA ABLOY] Sistema de Uniformes v'+VERSION+' — Listo.');})();
+(async function(){initStorage(REGLAS);initUserRoles();if(!initAuth()){return;}initDeliveryEvidence();await initOfflineStorage().catch(e=>console.warn('[OFFLINE]',e));const v=location.hash.slice(1)||'dashboard';currentView=views[v]?v:'dashboard';buildNav(currentView);setupEvents(navigate);render();console.log('[ASSA ABLOY] Sistema de Uniformes v'+VERSION+' — Listo.');})();
