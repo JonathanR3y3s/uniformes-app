@@ -1,7 +1,7 @@
 import{REGLAS,PERFILES}from'./config.js';
 import{getStore,saveEmployees,log}from'./storage.js';
 import{getReglas,verificarCaptura}from'./rules.js';
-import{esc,genId,getTallasOpts,normTalla}from'./utils.js';
+import{esc,genId,getTallasOpts,normTalla,fmtDate,fmt}from'./utils.js';
 import{buildAreaBadge,buildStatusBadge,notify,modal,confirm}from'./ui.js';
 
 function avatarHTML(emp,size){
@@ -61,6 +61,7 @@ function filterEmp(){
       +'<td><span class="badge '+(baja?'badge-neutral':e.estado==='activo'?'badge-success':'badge-warning')+'">'+e.estado.toUpperCase()+'</span></td>'
       +'<td>'+buildStatusBadge(e)+'</td>'
       +'<td><div class="flex gap-2">'
+      +'<button class="btn btn-ghost btn-sm view-emp" data-id="'+e.id+'" title="Ver ficha"><i class="fas fa-eye"></i></button>'
       +'<button class="btn btn-accent btn-sm edit-emp" data-id="'+e.id+'" title="Editar"><i class="fas fa-edit"></i></button>'
       +'<button class="btn btn-ghost btn-sm del-emp" data-id="'+e.id+'" title="Eliminar"><i class="fas fa-trash"></i></button>'
       +'</div></td></tr>';
@@ -188,12 +189,91 @@ export function openEditEmp(id){
     const p=document.getElementById('empAvatarPreview');
     if(p)p.innerHTML=src?'<img src="'+src+'" style="width:100%;height:100%;object-fit:cover">':'<span style="font-size:22px;font-weight:700;color:var(--text-muted)">'+((emp.nombre||'?')[0]).toUpperCase()+'</span>';
   }
+  // Galería — sin voltear
   function loadFile(file){if(!file)return;const r=new FileReader();r.onload=e=>setPreview(e.target.result);r.readAsDataURL(file);}
-  document.getElementById('fotoCapture')?.addEventListener('change',function(){loadFile(this.files[0]);});
+  // Cámara frontal — voltear horizontalmente (corrección espejo)
+  function loadFileFront(file){
+    if(!file)return;
+    const r=new FileReader();
+    r.onload=function(ev){
+      const img=new Image();
+      img.onload=function(){
+        const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
+        const ctx=c.getContext('2d');ctx.translate(img.width,0);ctx.scale(-1,1);ctx.drawImage(img,0,0);
+        setPreview(c.toDataURL('image/jpeg',0.88));
+      };
+      img.src=ev.target.result;
+    };
+    r.readAsDataURL(file);
+  }
+  document.getElementById('fotoCapture')?.addEventListener('change',function(){loadFileFront(this.files[0]);});
   document.getElementById('fotoUpload')?.addEventListener('change',function(){loadFile(this.files[0]);});
   document.getElementById('fotoRemove')?.addEventListener('click',()=>setPreview(null));
   document.getElementById('mCancel').addEventListener('click',()=>modal.close());
   document.getElementById('mSaveEdit').addEventListener('click',()=>saveEditEmp(id,fotoB64,()=>fotoB64));
+}
+
+function openFichaEmp(id){
+  const emp=getStore().employees.find(e=>e.id===id);
+  if(!emp)return;
+  const entregas=getStore().entregas.filter(e=>e.empleadoId===id);
+  const lastEnt=entregas.slice(-1)[0];
+  const colors=['#004B87','#16a34a','#ca8a04','#7c3aed','#dc2626'];
+  const ci=Math.abs((emp.id||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0))%colors.length;
+  const stBadge=emp.estado==='activo'?'badge-success':['baja','movimiento','incapacidad'].includes(emp.estado)?'badge-neutral':'badge-warning';
+
+  let h='<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-bottom:20px">';
+  // Foto grande
+  h+='<div style="flex-shrink:0">';
+  if(emp.foto){
+    h+='<div style="width:108px;height:108px;border-radius:14px;overflow:hidden;border:2px solid var(--border);box-shadow:var(--shadow-lg)"><img src="'+emp.foto+'" style="width:100%;height:100%;object-fit:cover"></div>';
+  } else {
+    h+='<div style="width:108px;height:108px;border-radius:14px;background:'+colors[ci]+';display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;color:#fff;box-shadow:var(--shadow-lg)">'+((emp.nombre||'?')[0]).toUpperCase()+'</div>';
+  }
+  h+='</div>';
+  // Info
+  h+='<div style="flex:1;min-width:0">';
+  h+='<h2 style="font-size:18px;font-weight:700;margin-bottom:6px">'+esc((emp.nombre||'')+' '+(emp.paterno||'')+' '+(emp.materno||''))+'</h2>';
+  h+='<div class="flex gap-2 flex-wrap" style="margin-bottom:10px">';
+  h+='<span class="badge badge-neutral" style="font-family:monospace"># '+esc(emp.id)+'</span>';
+  h+='<span class="area-badge">'+esc(emp.area)+'</span>';
+  h+='<span class="badge '+stBadge+'">'+emp.estado.toUpperCase()+'</span>';
+  h+='</div>';
+  h+='<div class="flex gap-4" style="font-size:12px;color:var(--text-muted)">';
+  h+='<span><i class="fas fa-hand-holding mr-1"></i>'+entregas.length+' entrega'+(entregas.length!==1?'s':'')+'</span>';
+  if(lastEnt)h+='<span><i class="fas fa-calendar-check mr-1"></i>Última: '+fmtDate(lastEnt.fecha)+'</span>';
+  h+='</div></div></div>';
+
+  // Tallas
+  const tallas=Object.entries(emp.tallas||{}).filter(([,v])=>v);
+  if(tallas.length){
+    h+='<div class="divider-label">Tallas capturadas</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:10px">';
+    tallas.forEach(([p,t])=>{
+      h+='<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px">';
+      h+='<div style="font-size:9px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">'+esc(p)+'</div>';
+      h+='<div style="font-size:20px;font-weight:700;color:var(--text)">'+esc(t)+'</div></div>';
+    });
+    h+='</div>';
+  } else {
+    h+='<div class="empty-state" style="padding:24px"><i class="fas fa-ruler"></i><p>Sin tallas capturadas todavía</p></div>';
+  }
+
+  // Última entrega
+  if(lastEnt){
+    const pc=(lastEnt.prendas||[]).length;
+    h+='<div class="divider-label mt-4">Última entrega</div>';
+    h+='<div class="card mt-2" style="background:var(--surface-2)"><div class="card-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">';
+    h+='<div><p class="font-bold">'+fmtDate(lastEnt.fecha)+'</p>';
+    h+='<p class="text-xs text-muted">'+pc+' pieza'+(pc!==1?'s':'')+' · '+esc(lastEnt.tipo||'')+(lastEnt.firma?' · <span style="color:var(--success)"><i class="fas fa-signature"></i> Firmada</span>':'')+'</p></div>';
+    if(lastEnt.firma)h+='<img src="'+lastEnt.firma+'" style="height:44px;max-width:140px;object-fit:contain;border:1px solid var(--border);border-radius:6px">';
+    h+='</div></div>';
+  }
+
+  modal.open(esc((emp.nombre||'')+' '+(emp.paterno||'')),h,
+    '<button class="btn btn-ghost" id="mCancel">Cerrar</button><button class="btn btn-accent" id="mFichaEdit"><i class="fas fa-edit"></i> Editar tallas</button>','md');
+  document.getElementById('mCancel')?.addEventListener('click',()=>modal.close());
+  document.getElementById('mFichaEdit')?.addEventListener('click',()=>{modal.close();openEditEmp(id);});
 }
 
 function saveEditEmp(id,_foto,getFoto){
@@ -240,7 +320,8 @@ export function init(){
     window.location.hash='importar';window.dispatchEvent(new PopStateEvent('popstate',{state:{v:'importar'}}));
   });
   document.getElementById('empT')?.addEventListener('click',function(e){
-    const eb=e.target.closest('.edit-emp');const db=e.target.closest('.del-emp');
+    const vb=e.target.closest('.view-emp');const eb=e.target.closest('.edit-emp');const db=e.target.closest('.del-emp');
+    if(vb)openFichaEmp(vb.dataset.id);
     if(eb)openEditEmp(eb.dataset.id);
     if(db)delEmp(db.dataset.id);
   });
