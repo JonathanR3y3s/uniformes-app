@@ -33,6 +33,7 @@ export const NAV=[
 {id:'totales',icon:'fa-calculator',label:'Totales'},
 {id:'exportar',icon:'fa-file-export',label:'Exportar'},
 {section:'SISTEMA'},
+{id:'areas',icon:'fa-layer-group',label:'Áreas y Dotaciones'},
 {id:'usuarios',icon:'fa-user-shield',label:'Usuarios'},
 {id:'importar',icon:'fa-file-import',label:'Importar Excel'},
 {id:'config',icon:'fa-cog',label:'Configuración'}

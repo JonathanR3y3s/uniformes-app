@@ -1,5 +1,13 @@
-import{REGLAS,PERFILES,CATEGORIAS}from'./config.js';import{getStore}from'./storage.js';import{normPrenda}from'./utils.js';
-export function getReglas(emp){const perfil=(emp&&emp.perfilDotacion)||'AUTO';if(perfil&&perfil!=='AUTO'){if(perfil==='PUERTAS_NO_SINDICALIZADO')return REGLAS['PUERTAS'];return PERFILES[perfil]||REGLAS[emp.area];}return REGLAS[emp.area];}
+import{REGLAS,PERFILES,CATEGORIAS}from'./config.js';import{getStore}from'./storage.js';import{normPrenda}from'./utils.js';import{getAreaRule,initAreasRules}from'./areas-config.js';
+export function getReglas(emp){
+  initAreasRules();
+  const perfil=(emp&&emp.perfilDotacion)||'AUTO';
+  if(perfil&&perfil!=='AUTO'){
+    if(perfil==='PUERTAS_NO_SINDICALIZADO')return getAreaRule('PUERTAS')||REGLAS['PUERTAS'];
+    return PERFILES[perfil]||getAreaRule(emp&&emp.area)||REGLAS[emp&&emp.area];
+  }
+  return getAreaRule(emp&&emp.area)||REGLAS[emp&&emp.area];
+}
 export function verificarCaptura(emp){const r=getReglas(emp);if(!r)return false;if(r.esFlexible)return emp.capturadoManual===true;if(!emp.tallas)return false;for(const prenda of r.prendas){if(r.opciones&&r.opciones[prenda]){if(!r.opciones[prenda].some(op=>emp.tallas[op]&&emp.tallas[op].trim()!==''))return false;}else{if(!emp.tallas[prenda]||emp.tallas[prenda].trim()==='')return false;}}return true;}
 export function getCantPrenda(emp,prendaOriginal){const r=getReglas(emp);if(!r)return 1;if(r.cantidades&&r.cantidades[prendaOriginal])return r.cantidades[prendaOriginal];for(const g in(r.opciones||{})){if((r.opciones[g]||[]).includes(prendaOriginal))return(r.cantidades&&r.cantidades[g])||1;}return 1;}
 export function calcStats(){const s=getStore();const act=s.employees.filter(e=>e.estado==='activo');const bajas=s.employees.filter(e=>['baja','movimiento','incapacidad'].includes(e.estado));const cap=act.filter(e=>verificarCaptura(e));return{total:s.employees.length,activos:act.length,bajas:bajas.length,capturados:cap.length,pendientes:act.length-cap.length,pct:act.length?((cap.length/act.length)*100).toFixed(1):'0'};}

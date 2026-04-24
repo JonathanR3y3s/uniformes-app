@@ -1,4 +1,4 @@
-import{REGLAS,PERFILES}from'./config.js';
+import{REGLAS,PERFILES}from'./config.js';import{getAreaNames}from'./areas-config.js';
 import{getStore,saveEmployees,log}from'./storage.js';
 import{getReglas,verificarCaptura}from'./rules.js';
 import{esc,genId,getTallasOpts,normTalla,fmtDate,fmt}from'./utils.js';
@@ -15,7 +15,7 @@ function avatarHTML(emp,size){
 }
 
 export function render(){
-  const areas=Object.keys(REGLAS);
+  const areas=getAreaNames();
   let h='';
   h+='<div class="page-head"><div class="page-title"><h1>Empleados</h1><p>'+getStore().employees.length+' registros</p></div>';
   h+='<div class="flex gap-2"><button class="btn btn-ghost btn-sm" id="btnImpEmp"><i class="fas fa-file-import"></i> Importar</button><button class="btn btn-primary" id="btnNewEmp"><i class="fas fa-user-plus"></i> Nuevo</button></div></div>';
@@ -69,7 +69,7 @@ function filterEmp(){
 }
 
 export function openNewEmp(){
-  const areas=Object.keys(REGLAS);
+  const areas=getAreaNames();
   const body='<div class="form-row c2">'
     +'<div class="form-group"><label class="form-label">ID (opcional)</label><input class="form-input" id="neId" placeholder="Se genera automáticamente"></div>'
     +'<div class="form-group"><label class="form-label">Área *</label><select class="form-select" id="neArea">'+areas.map(a=>'<option>'+a+'</option>').join('')+'</select></div>'
