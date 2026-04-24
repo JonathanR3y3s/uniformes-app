@@ -1,4 +1,4 @@
-const CACHE_NAME='uniformes-aa-v5';
+const CACHE_NAME='uniformes-aa-v6';
 const ICONS_CACHE='uniformes-aa-icons-v1';
 const APP_SHELL=['./','./index.html','./css/styles.css','./js/app.js','./js/config.js','./js/utils.js','./js/storage.js','./js/rules.js','./js/ui.js','./js/dashboard.js','./js/empleados.js','./js/captura.js','./js/entregas.js','./js/totales.js','./js/tablero.js','./js/proveedores.js','./js/inventario.js','./js/salidas.js','./js/importar.js','./js/exportar.js','./js/catalogo.js','./js/config-view.js','./js/user-roles.js','./js/delivery-evidence.js','./js/kpi-metrics.js','./js/signature-capture.js','./js/offline-storage.js','./js/operator-delivery.js','./js/admin-dashboard.js','./js/advanced-reports.js','./js/mod-auth.js','./js/mod-entregas-v2.js','./js/mod-entregas-v2-ui.js','./js/mod-costos-base.js','./manifest.json'];
 const CDN_ASSETS=['https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js','https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js','https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css','https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'];

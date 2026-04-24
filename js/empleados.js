@@ -146,21 +146,38 @@ export function openEditEmp(id){
     const mk=emp.capturadoManual||(emp.tallas&&Object.keys(emp.tallas).length>0);
     h+='<div class="card mt-4" style="background:var(--warning-bg);border-color:var(--warning)"><div class="card-body"><label class="flex items-center gap-3" style="cursor:pointer"><input type="checkbox" id="eeMan" '+(mk?'checked':'')+' style="width:18px;height:18px"><div><p class="font-bold text-sm">Marcar como capturado</p><p class="text-xs text-muted">Aunque no tenga todas las tallas</p></div></label></div></div>';
   } else {
-    h+='<div class="form-row c3">';
-    r.prendas.forEach(prenda=>{
-      if(r.opciones&&r.opciones[prenda]){
-        h+='<div style="grid-column:span 3" class="card mb-3"><div class="card-body"><p class="font-bold text-sm mb-3" style="color:var(--info)">'+prenda.replace(/_/g,' ')+' — elige uno:</p><div class="form-row c3">';
-        r.opciones[prenda].forEach(op=>{
-          const opts=getTallasOpts(op);const val=(emp.tallas||{})[op]||'';
-          h+='<div class="form-group"><label class="form-label">'+esc(op)+'</label><select class="form-select" id="et_'+op.replace(/ /g,'_')+'"><option value="">— No —</option>'+opts.map(t=>'<option'+(val===t?' selected':'')+'>'+t+'</option>').join('')+'</select></div>';
-        });
-        h+='</div></div></div>';
-      } else {
+    // Separar prendas: opciones (BOTA_O_CHOCLO etc.), UNITALLA auto, normales
+    const prendasNorm=[];const prendasOpt=[];const prendasUT=[];
+    r.prendas.forEach(p=>{
+      if(r.opciones&&r.opciones[p])prendasOpt.push(p);
+      else{const opts=getTallasOpts(p);if(opts.length===1&&opts[0]==='UNITALLA')prendasUT.push(p);else prendasNorm.push(p);}
+    });
+    // Grid de prendas normales
+    if(prendasNorm.length){
+      h+='<div class="form-row c3 mb-4">';
+      prendasNorm.forEach(prenda=>{
         const opts=getTallasOpts(prenda);const val=(emp.tallas||{})[prenda]||'';
         h+='<div class="form-group"><label class="form-label">'+esc(prenda)+'</label><select class="form-select" id="et_'+prenda.replace(/ /g,'_')+'"><option value="">Seleccionar</option>'+opts.map(t=>'<option'+(val===t?' selected':'')+'>'+t+'</option>').join('')+'</select></div>';
-      }
+      });
+      h+='</div>';
+    }
+    // Opciones "elige uno" (BOTA_O_CHOCLO, CHALECO_O_CHAMARRA) — tarjetas separadas
+    prendasOpt.forEach(prenda=>{
+      h+='<div class="card mb-3"><div class="card-body"><p class="font-bold text-sm mb-3" style="color:var(--info)"><i class="fas fa-exchange-alt"></i> '+prenda.replace(/_/g,' ')+' — elige uno:</p><div class="form-row c3">';
+      r.opciones[prenda].forEach(op=>{
+        const opts=getTallasOpts(op);const val=(emp.tallas||{})[op]||'';
+        h+='<div class="form-group"><label class="form-label">'+esc(op)+'</label><select class="form-select" id="et_'+op.replace(/ /g,'_')+'"><option value="">— No —</option>'+opts.map(t=>'<option'+(val===t?' selected':'')+'>'+t+'</option>').join('')+'</select></div>';
+      });
+      h+='</div></div></div>';
     });
-    h+='</div>';
+    // UNITALLA: automático, no requiere selección
+    if(prendasUT.length){
+      h+='<div class="card mb-3" style="background:var(--success-light);border-color:var(--success)"><div class="card-body"><p class="font-bold text-sm mb-3" style="color:var(--success)"><i class="fas fa-tag"></i> Talla única — seleccionadas automáticamente</p><div class="form-row c4">';
+      prendasUT.forEach(p=>{
+        h+='<div class="form-group"><label class="form-label">'+esc(p)+'</label><input type="hidden" id="et_'+p.replace(/ /g,'_')+'" value="UNITALLA"><div style="padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--success);font-weight:600"><i class="fas fa-check-circle"></i> UNITALLA</div></div>';
+      });
+      h+='</div></div></div>';
+    }
   }
 
   modal.open('Editar — '+emp.nombre,h,'<button class="btn btn-ghost" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSaveEdit"><i class="fas fa-save"></i> Guardar cambios</button>','lg');
