@@ -84,7 +84,7 @@ export function render() {
         border-radius: 8px;
         padding: 12px;
         margin-bottom: 10px;
-        background: var(--surface-alt);
+        background: var(--surface-2);
       }
       .entrega-header {
         display: flex;

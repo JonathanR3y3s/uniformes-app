@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#0c0c0c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Uniformes AA">
+  <meta name="apple-mobile-web-app-title" content="Control Store Pro">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="description" content="Sistema de gestión de uniformes — ASSA ABLOY México 2026">
+  <meta name="description" content="Control Store Pro — Sistema de gestión de almacén y uniformes ASSA ABLOY">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230f172a'/%3E%3Ctext x='50' y='68' font-family='Arial Black,sans-serif' font-size='50' font-weight='900' text-anchor='middle' fill='%232563eb'%3EAA%3C/text%3E%3C/svg%3E">
-  <title>Uniformes ASSA ABLOY</title>
+  <title>Control Store Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -19,44 +19,27 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
-  <style>
-    body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overscroll-behavior-y:contain}
-    /* Loading state with improved animation */
-    #mainContent:empty::before{content:'';display:block;height:400px;background:linear-gradient(90deg,#f1f5f9 25%,#f8fafc 50%,#f1f5f9 75%);background-size:200% 100%;animation:loading 1.5s infinite;border-radius:8px;margin:0}
-    @keyframes loading{0%{background-position:200% 0}100%{background-position:-200% 0}}
-    /* Focus states for better accessibility */
-    .btn:focus,.nav-item:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:2px}
-    /* Smooth page transitions */
-    .page{animation:pageIn .25s ease-out}
-    @keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-    /* Improved hover and interactive states */
-    .card{transition:all .2s ease}
-    .card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);transform:translateY(-2px)}
-    .card:active{box-shadow:var(--shadow);transform:translateY(0)}
-    /* Better button states */
-    .btn{transition:all .15s ease}
-    .btn:hover{transform:translateY(-1px)}
-    .btn:active{transform:translateY(0)}
-    /* Loading pulse for better feedback */
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
-    .loading{animation:pulse 2s ease-in-out infinite}
-  </style>
+  <style>body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}</style>
 </head>
 <body>
   <div id="app">
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
-        <div class="sidebar-logo"><i class="fas fa-vest"></i></div>
-        <div class="sidebar-brand"><div class="sidebar-title">ASSA ABLOY</div><div class="sidebar-sub">Gestión de Uniformes</div></div>
+        <div class="sidebar-logo"><i class="fas fa-boxes"></i></div>
+        <div class="sidebar-brand"><div class="sidebar-title">Control Store Pro</div><div class="sidebar-sub">ASSA ABLOY México</div></div>
       </div>
       <nav class="sidebar-nav" id="sidebarNav"></nav>
-      <div class="sidebar-footer"><button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-chevron-left" id="sidebarIcon"></i><span class="sidebar-label">Colapsar</span></button></div>
+      <div class="sidebar-footer" id="sidebarFooter"></div>
     </aside>
     <main class="main" id="main">
       <header class="topbar" id="topbar">
         <button class="topbar-hamburger" id="hamburger"><i class="fas fa-bars"></i></button>
         <div class="topbar-title" id="topbarTitle">Dashboard</div>
-        <div class="topbar-right"><span class="topbar-badge" id="topbarBadge">v5.0</span></div>
+        <div class="topbar-right">
+          <span class="topbar-user" id="topbarUser"></span>
+          <button class="btn btn-ghost btn-sm" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span class="sidebar-label">Salir</span></button>
+          <span class="topbar-badge">v5.0</span>
+        </div>
       </header>
       <div id="mainContent" class="page"></div>
     </main>

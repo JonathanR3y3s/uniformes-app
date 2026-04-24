@@ -1,28 +1,28 @@
 {
-  "name": "Uniformes ASSA ABLOY",
-  "short_name": "Uniformes AA",
-  "description": "Sistema de gestión de uniformes — ASSA ABLOY México 2026",
-  "start_url": "/uniformes-app/",
-  "scope": "/uniformes-app/",
+  "name": "Control Store Pro",
+  "short_name": "CSP",
+  "description": "Sistema de gestión de almacén y uniformes — ASSA ABLOY México",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#1a1f2e",
+  "theme_color": "#1a1f2e",
   "lang": "es",
   "categories": ["business", "productivity"],
   "icons": [
-    {"src":"/uniformes-app/icons/icon-72.png","sizes":"72x72","type":"image/png","purpose":"any"},
-    {"src":"/uniformes-app/icons/icon-96.png","sizes":"96x96","type":"image/png","purpose":"any"},
-    {"src":"/uniformes-app/icons/icon-128.png","sizes":"128x128","type":"image/png","purpose":"any"},
-    {"src":"/uniformes-app/icons/icon-144.png","sizes":"144x144","type":"image/png","purpose":"any"},
-    {"src":"/uniformes-app/icons/icon-152.png","sizes":"152x152","type":"image/png","purpose":"any"},
-    {"src":"/uniformes-app/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
-    {"src":"/uniformes-app/icons/icon-384.png","sizes":"384x384","type":"image/png","purpose":"any"},
-    {"src":"/uniformes-app/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+    {"src":"icons/icon-72.png","sizes":"72x72","type":"image/png","purpose":"any"},
+    {"src":"icons/icon-96.png","sizes":"96x96","type":"image/png","purpose":"any"},
+    {"src":"icons/icon-128.png","sizes":"128x128","type":"image/png","purpose":"any"},
+    {"src":"icons/icon-144.png","sizes":"144x144","type":"image/png","purpose":"any"},
+    {"src":"icons/icon-152.png","sizes":"152x152","type":"image/png","purpose":"any"},
+    {"src":"icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"icons/icon-384.png","sizes":"384x384","type":"image/png","purpose":"any"},
+    {"src":"icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
   ],
   "shortcuts": [
-    {"name":"Dashboard","short_name":"Dashboard","url":"/uniformes-app/#/dashboard","description":"Ver dashboard principal"},
-    {"name":"Captura de Tallas","short_name":"Captura","url":"/uniformes-app/#/captura","description":"Capturar tallas de empleados"},
-    {"name":"Tablero Maestro","short_name":"Tablero","url":"/uniformes-app/#/tablero","description":"Reporte ejecutivo"}
+    {"name":"Dashboard","short_name":"Dashboard","url":"./#dashboard","description":"Ver dashboard principal"},
+    {"name":"Captura de Tallas","short_name":"Captura","url":"./#captura","description":"Capturar tallas de empleados"},
+    {"name":"Entregas","short_name":"Entregas","url":"./#entregas","description":"Gestión de entregas"}
   ]
 }
