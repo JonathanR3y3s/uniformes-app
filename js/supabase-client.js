@@ -52,7 +52,7 @@ export async function getClient() {
       realtime: { enabled: false }, // deshabilitado por ahora
     });
     // Prueba de conexión rápida
-    const { error } = await _client.from('datos_csp').select('collection').limit(1);
+    const { error } = await _client.from('datos_csp').select('*').limit(1);
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows (OK)
       throw error;
     }
