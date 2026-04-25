@@ -272,15 +272,44 @@ table.dt tr.capturado td:first-child{border-left:2px solid var(--success)}
 .main{margin-left:0!important}
 .topbar-hamburger{display:flex}
 .chart-grid{grid-template-columns:1fr}
-.page{padding:16px 18px}}
+.page{padding:16px 18px}
+/* Grids de 2 columnas → 1 columna en tablet */
+.grid-2{grid-template-columns:1fr!important}
+/* Grids inline del dashboard → apilados */
+[style*="grid-template-columns:minmax(0,2fr) minmax"]{grid-template-columns:1fr!important}
+[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+/* Modal xl ajustado */
+.modal-box.xl{max-width:100%}
+.modal-box.lg{max-width:100%}
+/* Tabs: scroll horizontal si hay muchas */
+.tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}}
+
 @media(max-width:768px){
 .form-row.c4{grid-template-columns:1fr 1fr}
 .form-row.c3{grid-template-columns:1fr 1fr}
 .page{padding:14px 16px}
-.kpi-grid{grid-template-columns:1fr 1fr}}
+.kpi-grid{grid-template-columns:1fr 1fr}
+/* Modales full en móvil */
+.modal-overlay{padding:8px;align-items:flex-end}
+.modal-box{border-radius:var(--radius-lg) var(--radius-lg) 0 0;max-height:92vh}
+/* Tabla: fuente más pequeña */
+.dt{font-size:12px}
+.dt th,.dt td{padding:8px 10px}
+/* Page head apilado */
+.page-head{flex-direction:column;align-items:flex-start}
+/* Badge de versión oculto en móvil */
+.topbar-badge{display:none}}
+
 @media(max-width:480px){
 .form-row.c4,.form-row.c3,.form-row.c2{grid-template-columns:1fr}
-.kpi-grid{grid-template-columns:1fr}}
+.kpi-grid{grid-template-columns:1fr}
+.kpi{padding:14px 16px}
+.kpi-value{font-size:26px}
+/* Botones de acción en tabla: solo icono */
+.ent-detail span,.ent-del span{display:none}
+/* Ocultar columnas opcionales en tabla entregas */
+.dt .hide-sm{display:none}}
 
 /* ── Touch/iPad amigable ────────────────────────────────── */
 @media(hover:none)and(pointer:coarse){
