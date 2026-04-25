@@ -1,4 +1,4 @@
-import{VERSION}from'./config.js';import{getStore}from'./storage.js';import{calcStats,calcStatsArea}from'./rules.js';import{buildAreaBadge,createChart}from'./ui.js';import{getAreaNames}from'./areas-config.js';import{fmt,fmtMoney,esc}from'./utils.js';
+import{VERSION}from'./config.js';import{getStore}from'./storage.js';import{calcStats,calcStatsArea}from'./rules.js';import{buildAreaBadge}from'./ui.js';import{getAreaNames}from'./areas-config.js';import{fmt,fmtMoney,esc}from'./utils.js';
 
 function areaIcon(name){const n=(name||'').toUpperCase();if(n.includes('PLANT'))return{icon:'fa-industry',color:'#2563eb'};if(n.includes('MANTEN')||n.includes('MECANIC')||n.includes('TALLER'))return{icon:'fa-tools',color:'#d97706'};if(n.includes('SUPERV'))return{icon:'fa-user-tie',color:'#7c3aed'};if(n.includes('PUERTA'))return{icon:'fa-door-open',color:'#059669'};if(n.includes('MATERIA'))return{icon:'fa-boxes',color:'#0891b2'};if(n.includes('TULT'))return{icon:'fa-building',color:'#dc2626'};if(n.includes('BRUK'))return{icon:'fa-hard-hat',color:'#ea580c'};if(n.includes('ADMIN')||n.includes('OFIC'))return{icon:'fa-briefcase',color:'#475569'};if(n.includes('ALMAC'))return{icon:'fa-warehouse',color:'#854d0e'};if(n.includes('SEGUR'))return{icon:'fa-shield-alt',color:'#1d4ed8'};return{icon:'fa-layer-group',color:'#64748b'};}
 
@@ -25,14 +25,14 @@ export function render(){
   const sinEntrega=activos.filter(e=>!empConEntrega.has(e.id));
 
   let h='';
-  h+='<div class="page-head"><div class="page-title"><h1>Dashboard</h1><p>Control Store Pro — ASSA ABLOY México · '+mes+'</p></div><span style="background:#f1f5f9;color:#64748b;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:.05em">v'+VERSION+'</span></div>';
+  h+='<div class="page-head"><div class="page-title"><h1>Dashboard</h1><p>Control Store Pro — ASSA ABLOY México · '+mes+'</p></div><span style="background:rgba(59,130,246,.1);color:#60a5fa;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:.05em;border:1px solid rgba(59,130,246,.2)">v'+VERSION+'</span></div>';
 
   // Alert banner
   if(alertasStock>0||s.pendientes>0){
-    h+='<div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:var(--radius);padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">';
-    if(alertasStock>0)h+='<span style="font-size:13px;color:#92400e"><i class="fas fa-exclamation-triangle mr-2"></i><strong>'+alertasStock+'</strong> artículo'+(alertasStock>1?'s':'')+' con stock bajo en almacén</span>';
-    if(alertasStock>0&&s.pendientes>0)h+='<span style="color:#d1d5db;font-size:18px">·</span>';
-    if(s.pendientes>0)h+='<span style="font-size:13px;color:#92400e"><i class="fas fa-clock mr-2"></i><strong>'+s.pendientes+'</strong> empleado'+(s.pendientes>1?'s':'')+' sin captura de tallas</span>';
+    h+='<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.22);border-radius:var(--radius);padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">';
+    if(alertasStock>0)h+='<span style="font-size:13px;color:#fbbf24"><i class="fas fa-exclamation-triangle" style="margin-right:6px"></i><strong>'+alertasStock+'</strong> artículo'+(alertasStock>1?'s':'')+' con stock bajo en almacén</span>';
+    if(alertasStock>0&&s.pendientes>0)h+='<span style="color:rgba(255,255,255,.2);font-size:18px">·</span>';
+    if(s.pendientes>0)h+='<span style="font-size:13px;color:#fbbf24"><i class="fas fa-clock" style="margin-right:6px"></i><strong>'+s.pendientes+'</strong> empleado'+(s.pendientes>1?'s':'')+' sin captura de tallas</span>';
     h+='</div>';
   }
 
@@ -53,25 +53,25 @@ export function render(){
   areas.forEach(a=>{const st2=calcStatsArea(a);const p=parseInt(st2.pct,10);const bc=p>=80?'#059669':p>=50?'#d97706':'#dc2626';const bg=p>=80?'rgba(5,150,105,.06)':p>=50?'rgba(217,119,6,.06)':'rgba(220,38,38,.06)';const ai=areaIcon(a);h+='<div style="padding:12px;border-radius:8px;border:1px solid var(--border);background:'+bg+'"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:34px;height:34px;border-radius:8px;background:'+ai.color+';display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas '+ai.icon+'" style="color:#fff;font-size:14px"></i></div><div style="flex:1;min-width:0"><p style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0">'+a+'</p><p style="font-size:11px;color:var(--text-muted);margin:0">'+st2.total+' empleado'+(st2.total!==1?'s':'')+'</p></div></div><div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px"><span style="color:var(--success)"><i class="fas fa-check mr-1"></i>'+st2.capturados+' listos</span><span style="font-weight:800;color:'+bc+'">'+p+'%</span></div><div style="height:5px;background:var(--border);border-radius:999px;overflow:hidden"><div style="height:100%;width:'+p+'%;background:'+bc+';border-radius:999px;transition:width .5s ease"></div></div></div>';});
   h+='</div></div>';
   // Doughnut
-  h+='<div class="chart-box" style="display:flex;flex-direction:column"><div class="card-head" style="padding-bottom:8px"><h3><i class="fas fa-chart-pie mr-2" style="color:#059669"></i>Estado de Captura</h3></div><div style="height:185px;position:relative"><canvas id="chEstado"></canvas></div><div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0"><div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#6ee7b7;display:inline-block"></span><span style="font-size:12px">Capturados</span></div><strong style="color:#059669;font-size:14px">'+s.capturados+'</strong></div>';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0"><div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#fde68a;display:inline-block"></span><span style="font-size:12px">Pendientes</span></div><strong style="color:#d97706;font-size:14px">'+s.pendientes+'</strong></div>';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0"><div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#cbd5e1;display:inline-block"></span><span style="font-size:12px">Bajas / Mov.</span></div><strong style="color:#64748b;font-size:14px">'+s.bajas+'</strong></div>';
+  h+='<div class="chart-box" style="display:flex;flex-direction:column"><div class="card-head" style="padding-bottom:8px"><h3><i class="fas fa-chart-pie mr-2" style="color:#059669"></i>Estado de Captura</h3></div><div id="ecEstado" style="height:185px"></div><div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0"><div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#22c55e;display:inline-block"></span><span style="font-size:12px">Capturados</span></div><strong style="color:#22c55e;font-size:14px">'+s.capturados+'</strong></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0"><div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#f59e0b;display:inline-block"></span><span style="font-size:12px">Pendientes</span></div><strong style="color:#f59e0b;font-size:14px">'+s.pendientes+'</strong></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0"><div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:rgba(255,255,255,.15);display:inline-block"></span><span style="font-size:12px">Bajas / Mov.</span></div><strong style="color:var(--text-sec);font-size:14px">'+s.bajas+'</strong></div>';
   h+='</div></div>';
   h+='</div>';
 
   // Gráficas de entregas
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">';
   // Tendencia mensual (últimos 6 meses)
-  h+='<div class="chart-box"><div class="card-head"><h3><i class="fas fa-chart-bar mr-2" style="color:#2563eb"></i>Entregas por Mes</h3><span class="text-xs text-muted">Últimos 6 meses</span></div><div style="height:180px;position:relative"><canvas id="chTendencia"></canvas></div></div>';
+  h+='<div class="chart-box"><div class="card-head"><h3><i class="fas fa-chart-bar mr-2" style="color:#2563eb"></i>Entregas por Mes</h3><span class="text-xs text-muted">Últimos 6 meses</span></div><div id="ecTend" style="height:180px"></div></div>';
   // Tipos de entrega / últimas
   if(totalEnt>0){
     h+='<div style="display:grid;gap:12px">';
-    h+='<div class="chart-box"><div class="card-head"><h3><i class="fas fa-boxes mr-2" style="color:#d97706"></i>Tipo de Entregas</h3></div><div style="height:150px;position:relative"><canvas id="chEntregas"></canvas></div></div>';
+    h+='<div class="chart-box"><div class="card-head"><h3><i class="fas fa-boxes mr-2" style="color:#d97706"></i>Tipo de Entregas</h3></div><div id="ecEnt" style="height:150px"></div></div>';
     h+='</div>';
   } else {
     // Si no hay entregas, mostrar cobertura donut
-    h+='<div class="chart-box" style="display:flex;flex-direction:column"><div class="card-head"><h3><i class="fas fa-user-check mr-2" style="color:'+cobColor+'"></i>Cobertura de Entregas '+thisYear+'</h3></div><div style="height:150px;position:relative"><canvas id="chCobertura"></canvas></div><div style="margin-top:8px;border-top:1px solid var(--border);padding-top:10px">';
+    h+='<div class="chart-box" style="display:flex;flex-direction:column"><div class="card-head"><h3><i class="fas fa-user-check mr-2" style="color:'+cobColor+'"></i>Cobertura de Entregas '+thisYear+'</h3></div><div id="ecCob" style="height:150px"></div><div style="margin-top:8px;border-top:1px solid var(--border);padding-top:10px">';
     h+='<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span>Con entrega</span><strong style="color:'+cobColor+'">'+empConEntrega.size+'</strong></div>';
     h+='<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span>Sin entrega</span><strong style="color:#dc2626">'+sinEntrega.length+'</strong></div>';
     h+='</div></div>';
@@ -106,32 +106,89 @@ export function init(){
   const now=new Date();const thisYear=now.getFullYear().toString();
   const activos=st.employees.filter(e=>e.estado==='activo');
   const empConEntrega=new Set(st.entregas.filter(e=>e.fecha&&e.fecha.startsWith(thisYear)).map(e=>e.empleadoId));
+  const cobN=activos.length?Math.round(empConEntrega.size/activos.length*100):0;
+  const cobColor=cobN>=80?'#22c55e':cobN>=50?'#f59e0b':'#ef4444';
+  const EC=typeof echarts!=='undefined'?echarts:null;
+  const tooltip={backgroundColor:'rgba(17,17,24,.95)',borderColor:'rgba(255,255,255,.1)',textStyle:{color:'#e2e8f6',fontSize:12}};
 
-  // Doughnut captura
-  createChart('chEstado',{type:'doughnut',data:{labels:['Capturados','Pendientes','Bajas'],datasets:[{data:[s.capturados,s.pendientes,s.bajas],backgroundColor:['#6ee7b7','#fde68a','#cbd5e1'],borderWidth:4,borderColor:'var(--surface)',hoverOffset:10,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.label+': '+ctx.parsed}}}}});
+  // Donut Estado Captura (ECharts)
+  const elEstado=document.getElementById('ecEstado');
+  if(elEstado&&EC){
+    EC.init(elEstado).setOption({
+      backgroundColor:'transparent',
+      tooltip:{...tooltip,trigger:'item',formatter:'{b}: {c}'},
+      series:[{type:'pie',radius:['58%','80%'],center:['50%','50%'],
+        data:[
+          {value:s.capturados,name:'Capturados',itemStyle:{color:'#22c55e'}},
+          {value:s.pendientes,name:'Pendientes',itemStyle:{color:'#f59e0b'}},
+          {value:s.bajas,name:'Bajas/Mov.',itemStyle:{color:'rgba(255,255,255,.1)'}}
+        ],
+        label:{show:false},
+        emphasis:{scale:true,scaleSize:4},
+        itemStyle:{borderRadius:4,borderWidth:3,borderColor:'#111118'}
+      }]
+    });
+  }
 
-  // Tendencia mensual (últimos 6 meses)
+  // Tendencia mensual — barra con gradiente (ECharts)
   const months=lastMonths(6);
   const countsByMonth={};
   st.entregas.forEach(e=>{if(e.fecha){const mk=e.fecha.slice(0,7);if(!countsByMonth[mk])countsByMonth[mk]=0;countsByMonth[mk]++;}});
   const monthData=months.map(m=>countsByMonth[m.key]||0);
-  createChart('chTendencia',{type:'bar',data:{labels:months.map(m=>m.label),datasets:[{data:monthData,backgroundColor:'#2563eb',borderRadius:6,borderSkipped:false,label:'Entregas'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'Entregas: '+ctx.parsed.y}}},scales:{y:{beginAtZero:true,ticks:{precision:0,color:'#94a3b8'},grid:{color:'rgba(0,0,0,.06)'}},x:{ticks:{color:'#64748b'},grid:{display:false}}}}});
+  const elTend=document.getElementById('ecTend');
+  if(elTend&&EC){
+    EC.init(elTend).setOption({
+      backgroundColor:'transparent',
+      grid:{top:10,right:12,bottom:28,left:40},
+      tooltip:{...tooltip,trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:'rgba(255,255,255,.03)'}}},
+      xAxis:{type:'category',data:months.map(m=>m.label),axisLine:{lineStyle:{color:'rgba(255,255,255,.08)'}},axisTick:{show:false},axisLabel:{color:'rgba(226,232,246,.45)',fontSize:11}},
+      yAxis:{type:'value',minInterval:1,axisLabel:{color:'rgba(226,232,246,.4)',fontSize:10},splitLine:{lineStyle:{color:'rgba(255,255,255,.05)'}}},
+      series:[{type:'bar',data:monthData,barMaxWidth:44,
+        itemStyle:{borderRadius:[6,6,0,0],color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'#60a5fa'},{offset:1,color:'rgba(59,130,246,.5)'}]}},
+        emphasis:{itemStyle:{color:'#93c5fd'}}
+      }]
+    });
+  }
 
-  // Tipos de entrega
+  // Tipos de entrega (ECharts)
   const da=st.entregas.filter(e=>e.tipo==='DOTACION_ANUAL').length;
   const ni=st.entregas.filter(e=>e.tipo==='NUEVO_INGRESO').length;
   const su=st.entregas.filter(e=>e.tipo==='SUSTITUCION').length;
-  const otro=st.entregas.filter(e=>e.tipo==='OTRO'||!['DOTACION_ANUAL','NUEVO_INGRESO','SUSTITUCION'].includes(e.tipo)).length;
-  if(da+ni+su>0){
-    createChart('chEntregas',{type:'bar',data:{labels:['Dotación Anual','Nuevo Ingreso','Sustitución','Otro'],datasets:[{data:[da,ni,su,otro],backgroundColor:['#059669','#2563eb','#d97706','#94a3b8'],borderRadius:8,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0,color:'#94a3b8'},grid:{color:'rgba(0,0,0,.06)'}},x:{ticks:{color:'#64748b',font:{size:10}},grid:{display:false}}}}});
-  } else {
-    // Cobertura donut (sin entregas)
-    const sinEntrega=activos.length-empConEntrega.size;
-    createChart('chCobertura',{type:'doughnut',data:{labels:['Con entrega','Sin entrega'],datasets:[{data:[empConEntrega.size,sinEntrega],backgroundColor:['#6ee7b7','#fca5a5'],borderWidth:4,borderColor:'var(--surface)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false}}}});
+  const otro=st.entregas.filter(e=>!['DOTACION_ANUAL','NUEVO_INGRESO','SUSTITUCION'].includes(e.tipo)).length;
+  const elEnt=document.getElementById('ecEnt');
+  if(elEnt&&EC&&(da+ni+su>0)){
+    EC.init(elEnt).setOption({
+      backgroundColor:'transparent',
+      grid:{top:10,right:12,bottom:28,left:40},
+      tooltip:{...tooltip,trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:'rgba(255,255,255,.03)'}}},
+      xAxis:{type:'category',data:['Dotación','Nuevo Ingreso','Sustitución','Otro'],axisLine:{lineStyle:{color:'rgba(255,255,255,.08)'}},axisTick:{show:false},axisLabel:{color:'rgba(226,232,246,.45)',fontSize:10}},
+      yAxis:{type:'value',minInterval:1,axisLabel:{color:'rgba(226,232,246,.4)',fontSize:10},splitLine:{lineStyle:{color:'rgba(255,255,255,.05)'}}},
+      series:[{type:'bar',data:[
+        {value:da,itemStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'#4ade80'},{offset:1,color:'rgba(34,197,94,.5)'}]}}},
+        {value:ni,itemStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'#60a5fa'},{offset:1,color:'rgba(59,130,246,.5)'}]}}},
+        {value:su,itemStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'#fbbf24'},{offset:1,color:'rgba(245,158,11,.5)'}]}}},
+        {value:otro,itemStyle:{color:'rgba(148,163,184,.4)'}}
+      ],barMaxWidth:40,itemStyle:{borderRadius:[6,6,0,0]}}]
+    });
+  } else if(elEnt&&EC){
+    // Gauge cobertura cuando no hay entregas tipificadas
+    const sinEnt=activos.length-empConEntrega.size;
+    EC.init(elEnt).setOption({
+      backgroundColor:'transparent',
+      series:[{type:'gauge',startAngle:200,endAngle:-20,min:0,max:100,radius:'90%',
+        pointer:{show:false},
+        progress:{show:true,overlap:false,roundCap:true,width:14,itemStyle:{color:cobColor}},
+        axisLine:{lineStyle:{width:14,color:[[1,'rgba(255,255,255,.07)']]}},
+        axisTick:{show:false},splitLine:{show:false},axisLabel:{show:false},
+        detail:{offsetCenter:[0,'8%'],formatter:'{value}%',color:cobColor,fontSize:20,fontWeight:700,fontFamily:'Inter'},
+        title:{offsetCenter:[0,'36%'],color:'rgba(226,232,246,.45)',fontSize:10,fontFamily:'Inter'},
+        data:[{value:cobN,name:'Cobertura '+thisYear}]
+      }]
+    });
   }
 
   // Últimas entregas
-  const TIPOS_MAP={DOTACION_ANUAL:{c:'#059669',l:'Dotación'},NUEVO_INGRESO:{c:'#2563eb',l:'Nuevo'},SUSTITUCION:{c:'#d97706',l:'Sustitución'}};
+  const TIPOS_MAP={DOTACION_ANUAL:{c:'#22c55e',l:'Dotación'},NUEVO_INGRESO:{c:'#3b82f6',l:'Nuevo'},SUSTITUCION:{c:'#f59e0b',l:'Sustitución'}};
   const lb=document.getElementById('lastEntregas');
   if(lb){
     if(!st.entregas.length){lb.innerHTML='<p class="text-sm text-muted" style="padding:12px 0">Sin entregas registradas</p>';return;}
@@ -141,9 +198,9 @@ export function init(){
       const ti=TIPOS_MAP[ent.tipo]||{c:'#6b7280',l:ent.tipoCustom||ent.tipo||'—'};
       const pc=(ent.prendas||[]).length;
       return'<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">'
-        +'<span style="background:'+ti.c+';color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0">'+ti.l+'</span>'
+        +'<span style="background:'+ti.c+'22;color:'+ti.c+';border:1px solid '+ti.c+'44;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0">'+ti.l+'</span>'
         +'<span style="font-weight:600;font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(nom)+'</span>'
-        +'<span style="font-size:11px;color:var(--text-muted);white-space:nowrap">'+pc+' pzs'+(ent.firma?' ✓':'')+'</span>'
+        +'<span style="font-size:11px;color:var(--text-muted);white-space:nowrap">'+pc+' pzs'+(ent.firma?' <span style="color:#22c55e">✓</span>':'')+'</span>'
         +'</div>';
     }).join('');
   }
