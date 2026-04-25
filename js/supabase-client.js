@@ -52,7 +52,7 @@ export async function getClient() {
       realtime: { enabled: false }, // deshabilitado por ahora
     });
     // Prueba de conexión rápida
-    const { error } = await _client.from('csp_data').select('collection').limit(1);
+    const { error } = await _client.from('datos_csp').select('collection').limit(1);
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows (OK)
       throw error;
     }
@@ -77,7 +77,7 @@ export async function upsertItem(collection, item) {
   const client = await getClient();
   if (!client) return { ok: false, error: 'Sin conexión' };
   try {
-    const { error } = await client.from('csp_data').upsert({
+    const { error } = await client.from('datos_csp').upsert({
       collection,
       item_id: String(item.id),
       data: item,
@@ -106,7 +106,7 @@ export async function upsertCollection(collection, items) {
     }));
     const BATCH = 200; // Supabase recomienda lotes de <500 filas
     for (let i = 0; i < rows.length; i += BATCH) {
-      const { error } = await client.from('csp_data')
+      const { error } = await client.from('datos_csp')
         .upsert(rows.slice(i, i + BATCH), { onConflict: 'collection,item_id' });
       if (error) throw error;
     }
@@ -125,7 +125,7 @@ export async function fetchCollection(collection) {
   if (!client) return { ok: false, data: null, error: 'Sin conexión' };
   try {
     const { data, error } = await client
-      .from('csp_data')
+      .from('datos_csp')
       .select('item_id, data, updated_at')
       .eq('collection', collection)
       .eq('deleted', false)
@@ -145,7 +145,7 @@ export async function deleteItem(collection, itemId) {
   const client = await getClient();
   if (!client) return { ok: false };
   try {
-    const { error } = await client.from('csp_data')
+    const { error } = await client.from('datos_csp')
       .update({ deleted: true })
       .eq('collection', collection)
       .eq('item_id', String(itemId));
@@ -164,7 +164,7 @@ export async function upsertKV(key, value) {
   const client = await getClient();
   if (!client) return { ok: false };
   try {
-    const { error } = await client.from('csp_data').upsert({
+    const { error } = await client.from('datos_csp').upsert({
       collection: '_kv',
       item_id: key,
       data: { _key: key, _value: value },
@@ -181,7 +181,7 @@ export async function fetchKV(key) {
   const client = await getClient();
   if (!client) return { ok: false, value: null };
   try {
-    const { data, error } = await client.from('csp_data')
+    const { data, error } = await client.from('datos_csp')
       .select('data')
       .eq('collection', '_kv')
       .eq('item_id', key)
