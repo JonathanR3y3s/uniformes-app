@@ -1,4 +1,4 @@
-import{TIPO_TALLA}from'./config.js';import{getStore,saveProveedores,saveComprasAlmacen,log}from'./storage.js';import{esc,fmt,fmtMoney,fmtDate,today,getTallasOpts}from'./utils.js';import{notify,modal}from'./ui.js';
+import{TIPO_TALLA}from'./config.js';import{getStore,saveProveedores,saveComprasAlmacen,saveStockUniformes,saveInventario,log}from'./storage.js';import{esc,fmt,fmtMoney,fmtDate,today,getTallasOpts}from'./utils.js';import{notify,modal}from'./ui.js';
 let currentTab='compras';
 function getCats(){try{return JSON.parse(localStorage.getItem('_cats_provs')||'[]');}catch{return[];}}
 function saveCats(c){localStorage.setItem('_cats_provs',JSON.stringify(c));}
@@ -32,7 +32,33 @@ document.getElementById('pvModeOtro')?.addEventListener('click',()=>setMode('otr
 pvTallas();}
 function pvTallas(){const p=document.getElementById('pvPr')?.value;if(!p)return;const tallas=getTallasOpts(p);const sel=document.getElementById('pvT');if(sel)sel.innerHTML=tallas.map(t=>'<option>'+t+'</option>').join('');}
 function calcTotal(){const c=parseFloat(document.getElementById('pvC')?.value)||0;const pu=parseFloat(document.getElementById('pvPrU')?.value)||0;const tot=document.getElementById('pvTot');if(tot)tot.value='$'+(c*pu).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});}
-function saveCompra(){const isOtro=document.getElementById('pvOtroF')?.style.display!=='none';const sel=document.getElementById('pvP');const txt=document.getElementById('pvPText');const prov=((txt?.value||'').trim()||sel?.value||'').trim();if(!prov){notify('Escribe o selecciona un proveedor','warning');return;}const cant=parseInt(document.getElementById('pvC')?.value,10)||0;const precio=parseFloat(document.getElementById('pvPrU')?.value)||0;if(cant<=0||precio<=0){notify('Completa cantidad y precio unitario','warning');return;}const fecha=document.getElementById('pvF')?.value||today();const ref=document.getElementById('pvR')?.value||'';const obs=document.getElementById('pvO')?.value||'';if(isOtro){const art=(document.getElementById('pvArt')?.value||'').trim();if(!art){notify('Escribe el nombre del artículo','warning');return;}const cat=(document.getElementById('pvCatL')?.value||'').trim()||'General';const s=getStore();if(!s.comprasAlmacen)s.comprasAlmacen=[];s.comprasAlmacen.push({id:Date.now().toString(),fecha,articulo:art,categoria:cat,cantidad:cant,precioUnitario:precio,proveedor:prov,referencia:ref,observaciones:obs});saveComprasAlmacen();log('COMPRA_ALMACEN',cant+'x '+art+' de '+prov);modal.close();notify('Compra de almacén registrada','success');renderComprasRows();}else{const prenda=document.getElementById('pvPr')?.value;const talla=document.getElementById('pvT')?.value;if(!prenda||!talla){notify('Selecciona prenda y talla','warning');return;}getStore().proveedores.push({id:Date.now().toString(),proveedor:prov,prenda,talla,cantidad:cant,precioUnitario:precio,fecha,referencia:ref,observaciones:obs});saveProveedores();log('COMPRA',cant+'x '+prenda+' T:'+talla+' de '+prov);modal.close();notify('Compra de uniforme registrada','success');renderComprasRows();}}
+function saveCompra(){const isOtro=document.getElementById('pvOtroF')?.style.display!=='none';const sel=document.getElementById('pvP');const txt=document.getElementById('pvPText');const prov=((txt?.value||'').trim()||sel?.value||'').trim();if(!prov){notify('Escribe o selecciona un proveedor','warning');return;}const cant=parseInt(document.getElementById('pvC')?.value,10)||0;const precio=parseFloat(document.getElementById('pvPrU')?.value)||0;if(cant<=0||precio<=0){notify('Completa cantidad y precio unitario','warning');return;}const fecha=document.getElementById('pvF')?.value||today();const ref=document.getElementById('pvR')?.value||'';const obs=document.getElementById('pvO')?.value||'';if(isOtro){const art=(document.getElementById('pvArt')?.value||'').trim();if(!art){notify('Escribe el nombre del artículo','warning');return;}const cat=(document.getElementById('pvCatL')?.value||'').trim()||'General';const s=getStore();if(!s.comprasAlmacen)s.comprasAlmacen=[];const e5aid=Date.now().toString();
+s.comprasAlmacen.push({id:e5aid,fecha,articulo:art,categoria:cat,cantidad:cant,precioUnitario:precio,proveedor:prov,referencia:ref,observaciones:obs});
+saveComprasAlmacen();
+// ETAPA 5 — Actualizar inventario general
+if(!s.inventario)s.inventario=[];
+const e5item=s.inventario.find(i=>(i.nombre||'').toLowerCase().trim()===(art||'').toLowerCase().trim());
+if(e5item){
+  const e5ant=e5item.cantidad;
+  e5item.cantidad=e5ant+cant;
+  e5item.updatedAt=new Date().toISOString();
+  log('STOCK_ALM_COMPRA',art+' +'+cant+' ('+e5ant+'→'+e5item.cantidad+') Prov:'+prov,'PROVEEDORES');
+}else{
+  s.inventario.push({id:'inv_'+e5aid,nombre:art,categoria:'OTROS',cantidad:cant,unidad:'piezas',minStock:0,descripcion:'Creado desde compra',foto:null,updatedAt:new Date().toISOString()});
+  log('STOCK_ALM_NUEVO',art+' ×'+cant+' (artículo nuevo) Prov:'+prov,'PROVEEDORES');
+}
+saveInventario();
+log('COMPRA_ALMACEN',cant+'x '+art+' de '+prov);
+modal.close();notify('Compra registrada y stock actualizado ✓','success');renderComprasRows();}else{const prenda=document.getElementById('pvPr')?.value;const talla=document.getElementById('pvT')?.value;if(!prenda||!talla){notify('Selecciona prenda y talla','warning');return;}const e5id=Date.now().toString();
+getStore().proveedores.push({id:e5id,proveedor:prov,prenda,talla,cantidad:cant,precioUnitario:precio,fecha,referencia:ref,observaciones:obs});
+saveProveedores();
+// ETAPA 5 — Actualizar stockUniformes
+const s5u=getStore();if(!s5u.stockUniformes)s5u.stockUniformes=[];
+s5u.stockUniformes.push({id:'prov_'+e5id,prenda,talla,cantidad:cant,costoUnit:precio,fecha,proveedor:prov,factura:ref,observaciones:obs,registradoPor:'Compra',tipo:'entrada_compra'});
+saveStockUniformes();
+log('STOCK_UNIF_COMPRA',cant+'×'+prenda+' T'+talla+' → stockUniformes','PROVEEDORES');
+log('COMPRA',cant+'x '+prenda+' T:'+talla+' de '+prov);
+modal.close();notify('Compra registrada y stock actualizado ✓','success');renderComprasRows();}}
 function delCompra(id){if(!confirm('¿Eliminar este registro?'))return;const s=getStore();const idx=s.proveedores.findIndex(p=>p.id===id);if(idx>=0){s.proveedores.splice(idx,1);saveProveedores();log('DEL_COMPRA',id);notify('Eliminado','success');renderComprasRows();}}
 function delCompraAlm(id){if(!confirm('¿Eliminar este registro?'))return;const s=getStore();s.comprasAlmacen=s.comprasAlmacen||[];const idx=s.comprasAlmacen.findIndex(c=>c.id===id);if(idx>=0){s.comprasAlmacen.splice(idx,1);saveComprasAlmacen();log('DEL_COMPRA_ALM',id);notify('Eliminado','success');renderComprasRows();}}
 function attachComprasEvents(){document.getElementById('provNewCompra')?.addEventListener('click',openNuevaCompra);['pvFP'].forEach(id=>document.getElementById(id)?.addEventListener('change',renderComprasRows));document.getElementById('pvFS')?.addEventListener('input',renderComprasRows);document.getElementById('pvFClear')?.addEventListener('click',()=>{document.getElementById('pvFP').value='';document.getElementById('pvFS').value='';renderComprasRows();});document.getElementById('pvTB')?.addEventListener('click',e=>{const dl=e.target.closest('.pv-del');if(dl)delCompra(dl.dataset.id);const da=e.target.closest('.pv-del-alm');if(da)delCompraAlm(da.dataset.id);});}
