@@ -6,7 +6,10 @@
 
 const SUPABASE_URL = 'https://zyopidigmaftnzwesmr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_DkdlbZC0nFD1mf5TjXpo0Q_YvX-Qv8b';
-const CDN_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+const CDN_URLS = [
+  'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js',
+];
 
 let _client = null;
 let _status = 'disconnected'; // 'disconnected' | 'connecting' | 'connected' | 'error'
@@ -26,17 +29,24 @@ function setStatus(s) {
   _statusListeners.forEach(fn => { try { fn(s); } catch(e){} });
 }
 
-// ─── Load SDK from CDN (lazy) ─────────────────────────────────────────────────
+// ─── Load SDK from CDN (lazy, con fallback) ──────────────────────────────────
 function loadSDK() {
   if (_loadPromise) return _loadPromise;
   _loadPromise = new Promise((resolve, reject) => {
-    // Si ya está cargado globalmente
     if (window.supabase?.createClient) { resolve(); return; }
-    const script = document.createElement('script');
-    script.src = CDN_URL;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('No se pudo cargar Supabase SDK'));
-    document.head.appendChild(script);
+    let idx = 0;
+    function tryNext() {
+      if (idx >= CDN_URLS.length) { reject(new Error('No se pudo cargar Supabase SDK desde ningún CDN')); return; }
+      const script = document.createElement('script');
+      script.src = CDN_URLS[idx++];
+      script.onload = () => {
+        if (window.supabase?.createClient) { resolve(); }
+        else { console.warn('[SUPABASE] SDK cargado pero window.supabase no tiene createClient'); tryNext(); }
+      };
+      script.onerror = () => { console.warn('[SUPABASE] CDN falló, intentando siguiente…'); tryNext(); };
+      document.head.appendChild(script);
+    }
+    tryNext();
   });
   return _loadPromise;
 }
@@ -47,21 +57,19 @@ export async function getClient() {
   setStatus('connecting');
   try {
     await loadSDK();
-    _client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    const createFn = window.supabase?.createClient;
+    if (typeof createFn !== 'function') throw new Error('window.supabase.createClient no encontrado');
+    _client = createFn(SUPABASE_URL, SUPABASE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
-      realtime: { enabled: false }, // deshabilitado por ahora
     });
-    // Prueba de conexión rápida
-    const { error } = await _client.from('datos_csp').select('*').limit(1);
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows (OK)
-      throw error;
-    }
+    // Consideramos conectado en cuanto el cliente se crea sin error.
+    // Las operaciones CRUD reportarán errores de columnas/tabla individualmente.
     setStatus('connected');
-    console.log('[SUPABASE] Conectado correctamente');
+    console.log('[SUPABASE] Cliente inicializado —', SUPABASE_URL);
     return _client;
   } catch(e) {
     setStatus('error');
-    console.warn('[SUPABASE] Error de conexión:', e.message);
+    console.error('[SUPABASE] No se pudo inicializar el cliente:', e.message);
     return null;
   }
 }
