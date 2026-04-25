@@ -1,9 +1,9 @@
 :root{
---bg:#f4f3ef;
+--bg:#f0f1f5;
 --surface:#ffffff;
---surface-2:#f9f8f5;
---border:#e6e4df;
---border-2:#d0cec8;
+--surface-2:#f5f6f8;
+--border:#e2e4ea;
+--border-2:#c8ccd5;
 --text:#111111;
 --text-sec:#666666;
 --text-muted:#999999;
@@ -281,6 +281,20 @@ table.dt tr.capturado td:first-child{border-left:2px solid var(--success)}
 @media(max-width:480px){
 .form-row.c4,.form-row.c3,.form-row.c2{grid-template-columns:1fr}
 .kpi-grid{grid-template-columns:1fr}}
+
+/* ── Touch/iPad amigable ────────────────────────────────── */
+@media(hover:none)and(pointer:coarse){
+.btn{min-height:48px}
+.btn-sm{min-height:42px;padding:10px 14px}
+.form-input,.form-select,.form-textarea{min-height:48px;font-size:16px}
+.nav-item{min-height:52px;padding:14px 14px}
+.tab-btn{min-height:48px;padding:12px 18px}}
+/* Menú operador — ítems grandes (iPad) */
+.operador-nav .nav-item{min-height:64px;padding:18px 14px;font-size:15px}
+.operador-nav .nav-item i{font-size:16px}
+.operador-nav .nav-section{font-size:10px;padding-top:20px}
+/* Botones contextuales en topbar */
+.topbar-action-btn{min-height:38px;padding:9px 20px;font-size:13.5px;font-weight:700}
 
 .btn:focus-visible,.nav-item:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--text);outline-offset:2px}
 

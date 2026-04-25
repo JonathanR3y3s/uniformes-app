@@ -181,8 +181,8 @@ function buildCharts(g,all,yrs){
   // Distribución
   const catM={};g.forEach(x=>{catM[x.categoria]=(catM[x.categoria]||0)+x.total;});
   const ce=Object.entries(catM).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  const COL=['#004B87','#7c3aed','#059669','#d97706','#dc2626','#0891b2','#ea580c','#0f766e','#9333ea'];
-  if(ce.length)createChart('ccDist',{type:'doughnut',data:{labels:ce.map(([k])=>k),datasets:[{data:ce.map(([,v])=>v),backgroundColor:COL.slice(0,ce.length),borderWidth:3,borderColor:'var(--surface)',hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'bottom',labels:{padding:10,usePointStyle:true,font:{size:10},color:'#374151'}}}}});
+  const COL=['#93c5fd','#c4b5fd','#6ee7b7','#fde68a','#fca5a5','#7dd3fc','#fdba74','#86efac','#d8b4fe'];
+  if(ce.length)createChart('ccDist',{type:'doughnut',data:{labels:ce.map(([k])=>k),datasets:[{data:ce.map(([,v])=>v),backgroundColor:COL.slice(0,ce.length),borderWidth:3,borderColor:'var(--surface)',hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{position:'bottom',labels:{padding:10,usePointStyle:true,pointStyle:'rect',font:{size:10},color:'#374151'}}}}});
   // Comparativo anual
   if(yrs&&yrs.length>=2&&document.getElementById('ccAnual')){
     const yrLabels=yrs.slice().reverse();

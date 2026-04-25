@@ -3,6 +3,8 @@ import{getStore,saveEmployees,log}from'./storage.js';
 import{getReglas,verificarCaptura}from'./rules.js';
 import{esc,genId,getTallasOpts,normTalla,fmtDate,fmt}from'./utils.js';
 import{buildAreaBadge,buildStatusBadge,notify,modal,confirm}from'./ui.js';
+import{getUserRole,getUser}from'./user-roles.js';
+import{findUser}from'./users.js';
 
 function avatarHTML(emp,size){
   size=size||36;
@@ -18,7 +20,7 @@ export function render(){
   const areas=getAreaNames();
   let h='';
   h+='<div class="page-head"><div class="page-title"><h1>Empleados</h1><p>'+getStore().employees.length+' registros</p></div>';
-  h+='<div class="flex gap-2"><button class="btn btn-ghost btn-sm" id="btnImpEmp"><i class="fas fa-file-import"></i> Importar</button><button class="btn btn-primary" id="btnNewEmp"><i class="fas fa-user-plus"></i> Nuevo</button></div></div>';
+  h+='<div class="flex gap-2"><button class="btn btn-ghost btn-sm" id="btnImpEmp"><i class="fas fa-file-import"></i> Importar</button></div></div>';
   h+='<div class="card mb-4"><div class="card-body"><div class="form-row c4">';
   h+='<div><label class="form-label">Buscar</label><input class="form-input" id="empS" placeholder="Nombre, apellido o #"></div>';
   h+='<div><label class="form-label">Área</label><select class="form-select" id="empFA"><option value="">Todas las áreas</option>'+areas.map(a=>'<option>'+a+'</option>').join('')+'</select></div>';
@@ -63,7 +65,7 @@ function filterEmp(){
       +'<td><div class="flex gap-2">'
       +'<button class="btn btn-ghost btn-sm view-emp" data-id="'+e.id+'" title="Ver ficha"><i class="fas fa-eye"></i></button>'
       +'<button class="btn btn-accent btn-sm edit-emp" data-id="'+e.id+'" title="Editar"><i class="fas fa-edit"></i></button>'
-      +'<button class="btn btn-ghost btn-sm del-emp" data-id="'+e.id+'" title="Eliminar"><i class="fas fa-trash"></i></button>'
+      +(getUserRole()!=='operador'?'<button class="btn btn-ghost btn-sm del-emp" data-id="'+e.id+'" title="Eliminar"><i class="fas fa-trash"></i></button>':'')
       +'</div></td></tr>';
   }).join('');
 }
@@ -122,9 +124,10 @@ export function openEditEmp(id){
   h+='<div><p class="font-bold">'+esc(emp.nombre)+' '+esc(emp.paterno||'')+' '+esc(emp.materno||'')+'</p>';
   h+='<p class="text-xs text-muted mb-3">#'+esc(emp.id)+' — '+esc(emp.area)+'</p>';
   h+='<div class="flex gap-2 flex-wrap">';
+  const isOp=getUserRole()==='operador';
   h+='<label class="btn btn-ghost btn-sm" style="cursor:pointer"><i class="fas fa-camera"></i> Cámara<input type="file" id="fotoCapture" accept="image/*" capture="user" style="display:none"></label>';
-  h+='<label class="btn btn-ghost btn-sm" style="cursor:pointer"><i class="fas fa-image"></i> Galería<input type="file" id="fotoUpload" accept="image/*" style="display:none"></label>';
-  if(emp.foto)h+='<button class="btn btn-ghost btn-sm" id="fotoRemove"><i class="fas fa-trash"></i></button>';
+  if(!isOp)h+='<label class="btn btn-ghost btn-sm" style="cursor:pointer"><i class="fas fa-image"></i> Galería<input type="file" id="fotoUpload" accept="image/*" style="display:none"></label>';
+  if(emp.foto&&!isOp)h+='<button class="btn btn-ghost btn-sm" id="fotoRemove"><i class="fas fa-trash"></i></button>';
   h+='</div></div></div></div></div>';
 
   h+='<div class="form-row c2 mb-4">';
@@ -312,7 +315,24 @@ function saveEditEmp(id,_foto,getFoto){
   filterEmp();
 }
 
+function promptOpPass(callback){
+  modal.open('Verificar identidad','<p class="text-sm" style="color:var(--text-sec);margin-bottom:14px">Para editar este empleado, confirma tu contraseña de operador:</p><div class="form-group"><input type="password" class="form-input" id="opPassInput" placeholder="••••••••" style="font-size:18px;letter-spacing:.1em;text-align:center"></div>','<button class="btn btn-ghost" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mOpConfirm"><i class="fas fa-check"></i> Confirmar</button>');
+  document.getElementById('mCancel')?.addEventListener('click',()=>modal.close());
+  const doCheck=()=>{
+    const pass=document.getElementById('opPassInput')?.value||'';
+    const uid=getUser()?.id||'';
+    const u=findUser(uid);
+    if(u&&u.password===pass){modal.close();callback();}
+    else{notify('Contraseña incorrecta','error');document.getElementById('opPassInput').value='';}
+  };
+  document.getElementById('mOpConfirm')?.addEventListener('click',doCheck);
+  document.getElementById('opPassInput')?.addEventListener('keypress',e=>{if(e.key==='Enter')doCheck();});
+  setTimeout(()=>document.getElementById('opPassInput')?.focus(),120);
+}
 export function init(){
+  // Inyectar "Nuevo" en topbar
+  const ta=document.getElementById('topbarActions');
+  if(ta){ta.innerHTML='<button class="btn btn-primary topbar-action-btn" id="btnTopNewEmp"><i class="fas fa-user-plus"></i> Nuevo</button>';document.getElementById('btnTopNewEmp')?.addEventListener('click',openNewEmp);}
   document.getElementById('empS')?.addEventListener('input',filterEmp);
   ['empFA','empFE','empFC'].forEach(id=>document.getElementById(id)?.addEventListener('change',filterEmp));
   document.getElementById('btnNewEmp')?.addEventListener('click',openNewEmp);
@@ -322,7 +342,7 @@ export function init(){
   document.getElementById('empT')?.addEventListener('click',function(e){
     const vb=e.target.closest('.view-emp');const eb=e.target.closest('.edit-emp');const db=e.target.closest('.del-emp');
     if(vb)openFichaEmp(vb.dataset.id);
-    if(eb)openEditEmp(eb.dataset.id);
+    if(eb){const eid=eb.dataset.id;if(getUserRole()==='operador'){promptOpPass(()=>openEditEmp(eid));}else{openEditEmp(eid);}}
     if(db)delEmp(db.dataset.id);
   });
   filterEmp();

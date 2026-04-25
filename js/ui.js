@@ -9,7 +9,9 @@ export function buildNav(currentView){
   const nav=document.getElementById('sidebarNav');
   const role=getUserRole();
   const user=getUser();
-  const hiddenForOperador=['admin','reportes','config','proveedores','salidas','catalogo','tablero','totales','centro-costos','importar','exportar','usuarios','areas'];
+  // Clear context action buttons on view change
+  const ta=document.getElementById('topbarActions');if(ta)ta.innerHTML='';
+  const hiddenForOperador=['dashboard','admin','reportes','config','proveedores','salidas','catalogo','tablero','totales','centro-costos','importar','exportar','usuarios','areas'];
   let html='';let activeLabel='Dashboard';
   NAV.forEach(n=>{
     if(n.section){html+='<div class="nav-section">'+n.section+'</div>';return;}
@@ -19,6 +21,7 @@ export function buildNav(currentView){
     html+='<div class="nav-item'+active+'" data-view="'+n.id+'"><i class="fas '+n.icon+'"></i><span class="sidebar-label">'+n.label+'</span></div>';
   });
   nav.innerHTML=html;
+  if(role==='operador')nav.classList.add('operador-nav');else nav.classList.remove('operador-nav');
   const topTitle=document.getElementById('topbarTitle');
   if(topTitle)topTitle.textContent=activeLabel;
   const footer=document.getElementById('sidebarFooter');

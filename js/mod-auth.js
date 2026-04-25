@@ -13,7 +13,7 @@ export function initAuth(){
 
 export function showLoginScreen(){
   const loginHTML=`
-    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#f4f3ef;display:flex;align-items:center;justify-content:center;z-index:10000;font-family:Inter,-apple-system,sans-serif">
+    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#f0f1f5;display:flex;align-items:center;justify-content:center;z-index:10000;font-family:Inter,-apple-system,sans-serif">
       <div style="width:100%;max-width:360px;padding:16px">
         <div style="background:#0c0c0c;border-radius:12px;padding:32px 28px 28px;margin-bottom:12px">
           <div style="width:40px;height:40px;background:#004B87;border:1px solid rgba(0,100,200,.4);border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:20px">
