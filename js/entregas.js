@@ -1,4 +1,4 @@
-import{getStore,saveEntregas,log}from'./storage.js';import{esc,fmtDate,today}from'./utils.js';import{buildAreaBadge,notify,modal}from'./ui.js';import{initSignatureCapture,getSignatureData}from'./signature-capture.js';import{getUser,getUserRole}from'./user-roles.js';
+import{getStore,saveEntregas,saveStockUniformes,log}from'./storage.js';import{esc,fmtDate,today}from'./utils.js';import{buildAreaBadge,notify,modal}from'./ui.js';import{initSignatureCapture,getSignatureData}from'./signature-capture.js';import{getUser,getUserRole}from'./user-roles.js';
 const TIPOS={DOTACION_ANUAL:{label:'Dotación Anual',color:'#059669',bg:'#d1fae5',icon:'fa-boxes'},NUEVO_INGRESO:{label:'Nuevo Ingreso',color:'#2563eb',bg:'#dbeafe',icon:'fa-user-plus'},SUSTITUCION:{label:'Sustitución',color:'#d97706',bg:'#fef3c7',icon:'fa-exchange-alt'}};
 function badgeTipo(t,custom){if(t==='OTRO')return'<span style="background:#f3f4f6;color:#6b7280;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap"><i class="fas fa-tag mr-1"></i>'+esc(custom||'Otro')+'</span>';const x=TIPOS[t]||{label:t||'—',color:'#6b7280',bg:'#f3f4f6',icon:'fa-tag'};return'<span style="background:'+x.bg+';color:'+x.color+';padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap"><i class="fas '+x.icon+' mr-1"></i>'+x.label+'</span>';}
 
@@ -217,12 +217,53 @@ function saveEntrega(){
   const emp=getStore().employees.find(e=>e.id===empId);
   const area=document.getElementById('entArea')?.value||emp?.area||'';
   const prendas=Array.from(document.querySelectorAll('.entC:checked')).map(c=>({prenda:c.value,talla:emp?.tallas?.[c.value]||''}));
+  // ETAPA 4 — Verificar stock antes de confirmar
+  if(prendas.length){
+    const sNet={};
+    (getStore().stockUniformes||[]).forEach(m=>{const k=m.prenda+'||'+m.talla;sNet[k]=(sNet[k]||0)+(m.cantidad||0);});
+    const sinStk=prendas.filter(p=>(sNet[p.prenda+'||'+(p.talla||'')]||0)<=0);
+    if(sinStk.length){
+      const lista=sinStk.map(p=>p.prenda+(p.talla?' T'+p.talla:'')).join(', ');
+      if(getUserRole()==='operador'){
+        // Operador: bloqueo total, sin posibilidad de override
+        notify('Stock insuficiente para: '+lista+'. Solicita autorización de administrador.','error');
+        return;
+      } else {
+        // Admin: aviso con confirmación, puede forzar la entrega
+        if(!confirm('⚠️ Stock insuficiente para:\n• '+lista.split(', ').join('\n• ')+'\n\n¿Confirmar la entrega de todas formas?'))return;
+      }
+    }
+  }
   const firma=getSignatureData();
   const usuario=getUser();
   const campaniaId=document.getElementById('entCamp')?.value||'';
   const ent={id:Date.now().toString(),empleadoId:empId,tipo,tipoCustom,area,fecha:document.getElementById('entF')?.value||today(),prendas,firma:firma||null,observaciones:document.getElementById('entO')?.value||'',campaniaId,registradoPor:usuario?.name||'Sistema',registradoPorId:usuario?.id||''};
   getStore().entregas.push(ent);
   saveEntregas();
+  // ETAPA 4 — Decrementar stockUniformes por cada prenda entregada
+  if(prendas.length){
+    const s4=getStore();
+    if(!s4.stockUniformes)s4.stockUniformes=[];
+    const ts4=Date.now();
+    prendas.forEach((p,i)=>{
+      if(!p.prenda)return;
+      s4.stockUniformes.push({
+        id:'sal_ent_'+ts4+'_'+i,
+        prenda:p.prenda,
+        talla:p.talla||'',
+        cantidad:-1,
+        fecha:ent.fecha,
+        proveedor:'',
+        factura:'',
+        observaciones:'Entrega a emp#'+empId+' ('+tipo+')',
+        registradoPor:usuario?.name||'Sistema',
+        tipo:'salida_entrega',
+        entregaId:ent.id
+      });
+    });
+    saveStockUniformes();
+    log('STOCK_ENTREGA',prendas.length+' prendas descontadas — emp#'+empId,'STOCK UNIFORMES');
+  }
   log('ENTREGA_'+tipo,(prendas.length||0)+' prendas — emp#'+empId+(firma?' CON FIRMA':''));
   modal.close();
   notify('Entrega registrada'+(firma?' ✓ con firma':''),'success');
