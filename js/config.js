@@ -1,4 +1,4 @@
-export const VERSION='6.5';
+export const VERSION='6.6';
 export const STORAGE_KEY='uniformes_assa_abloy_2026_v4';
 export const TALLAS={ROPA:['XCH','CH','M','G','XG','XXG','XXXG'],PANTALON:['26','28','30','32','34','36','38','40','42','44'],CALZADO:['22','23','24','25','26','27','28','29','30','31','32','33'],UNITALLA:['UNITALLA']};
 export const TIPO_TALLA={'PLAYERA POLO TIPO A':'ROPA','PLAYERA POLO TIPO B':'ROPA','CAMISOLA':'ROPA','CHALECO':'ROPA','PLAYERA PANTS':'ROPA','PANTS':'ROPA','CHAMARRA':'ROPA','PANTALON':'PANTALON','ZAPATO NORMAL':'CALZADO','ZAPATO ESPECIAL':'CALZADO','ZAPATO SEGURIDAD':'CALZADO','BOTA':'CALZADO','CHOCLO':'CALZADO','TENIS':'CALZADO','SANDALIAS':'CALZADO','TOALLA':'UNITALLA','TERMO':'UNITALLA','GORRA':'UNITALLA','SOMBRILLA':'UNITALLA'};
@@ -38,6 +38,7 @@ export const NAV=[
 {section:'SISTEMA'},
 {id:'areas',icon:'fa-layer-group',label:'Áreas y Dotaciones'},
 {id:'usuarios',icon:'fa-user-shield',label:'Usuarios'},
+{id:'bitacora',icon:'fa-clipboard-list',label:'Bitácora'},
 {id:'importar',icon:'fa-file-import',label:'Importar Excel'},
 {id:'config',icon:'fa-cog',label:'Configuración'}
 ];
