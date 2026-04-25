@@ -1,8 +1,8 @@
-import{calcTotalesDetallados}from'./rules.js';import{getStore,saveInventario,saveComprasAlmacen,saveStockUniformes,log}from'./storage.js';import{esc,today,fmtMoney,fmtDate,getTallasOpts}from'./utils.js';import{notify,modal}from'./ui.js';import{getUserRole}from'./user-roles.js';
+import{calcTotalesDetallados}from'./rules.js';import{getStore,saveInventario,saveComprasAlmacen,saveStockUniformes,saveSalidas,log}from'./storage.js';import{esc,today,fmtMoney,fmtDate,getTallasOpts}from'./utils.js';import{notify,modal}from'./ui.js';import{getUserRole}from'./user-roles.js';
 const CATS={BEBIDAS:{icon:'☕',label:'Bebidas',color:'#92400e',bg:'#fef3c7'},PAPELERIA:{icon:'📄',label:'Papelería',color:'#1d4ed8',bg:'#dbeafe'},SOUVENIRS:{icon:'🎁',label:'Souvenirs',color:'#7c3aed',bg:'#ede9fe'},LIMPIEZA:{icon:'🧹',label:'Limpieza',color:'#065f46',bg:'#d1fae5'},ALIMENTOS:{icon:'🍽️',label:'Alimentos',color:'#b45309',bg:'#fef3c7'},OTROS:{icon:'📦',label:'Otros',color:'#374151',bg:'#f3f4f6'}};
 const PRENDAS_UNIFORME=['PLAYERA POLO TIPO A','PLAYERA POLO TIPO B','CAMISOLA','PLAYERA PANTS','PANTS','PANTALON','BOTA','CHOCLO','ZAPATO ESPECIAL','TENIS','SANDALIAS','CHALECO','CHAMARRA','GORRA','TOALLA','TERMO','SOMBRILLA'];
 let currentTab='uniformes';
-export function render(){let h='<div class="page-head"><div class="page-title"><h1>Inventario</h1><p>Uniformes y Almacén General</p></div><button class="btn btn-success" id="invNewBtn" style="display:none"><i class="fas fa-plus"></i> Nuevo Artículo</button><button class="btn btn-primary" id="recepcionBtn" style="display:none"><i class="fas fa-truck mr-1"></i> Recibir Mercancía</button></div>';h+='<div class="tabs mb-4"><button class="tab-btn active" data-tab="uniformes"><i class="fas fa-tshirt mr-2"></i>Uniformes</button><button class="tab-btn" data-tab="almacen"><i class="fas fa-boxes mr-2"></i>Almacén General</button></div>';h+='<div id="tabContent"></div>';return h;}
+export function render(){let h='<div class="page-head"><div class="page-title"><h1>Inventario</h1><p>Uniformes y Almacén General</p></div><button class="btn btn-success" id="invNewBtn" style="display:none"><i class="fas fa-plus"></i> Nuevo Artículo</button><button class="btn btn-primary" id="recepcionBtn" style="display:none"><i class="fas fa-truck mr-1"></i> Recibir Mercancía</button><button class="btn btn-danger" id="salidaAlmBtn" style="display:none"><i class="fas fa-sign-out-alt mr-1"></i> Registrar Salida</button></div>';h+='<div class="tabs mb-4"><button class="tab-btn active" data-tab="uniformes"><i class="fas fa-tshirt mr-2"></i>Uniformes</button><button class="tab-btn" data-tab="almacen"><i class="fas fa-boxes mr-2"></i>Almacén General</button></div>';h+='<div id="tabContent"></div>';return h;}
 function renderUniformes(){const det=calcTotalesDetallados();const rows=[];Object.entries(det).forEach(([prenda,tallas])=>{Object.entries(tallas).forEach(([talla,obj])=>{rows.push({prenda,talla,base:obj.base,stock:obj.stock,total:obj.total});});});const totalPiezas=rows.reduce((s,r)=>s+r.total,0);let h='<div class="kpi-grid"><div class="kpi info"><div class="kpi-label">Total Piezas Requeridas</div><div class="kpi-value">'+totalPiezas.toLocaleString('es-MX')+'</div></div></div>';h+='<div class="card"><div class="table-wrap"><table class="dt"><thead><tr><th>Prenda</th><th>Talla</th><th style="text-align:right">Empleados</th><th style="text-align:right">Stock Extra</th><th style="text-align:right">Total</th></tr></thead><tbody>';if(rows.length){rows.forEach(r=>{h+='<tr><td class="font-bold">'+esc(r.prenda)+'</td><td>'+r.talla+'</td><td style="text-align:right">'+r.base+'</td><td style="text-align:right">'+(r.stock?'<span class="badge badge-info">+'+r.stock+'</span>':'—')+'</td><td style="text-align:right;font-weight:700;color:var(--success)">'+r.total+'</td></tr>';}); }else{h+='<tr><td colspan="5" class="empty-state"><i class="fas fa-tshirt"></i><p>Sin datos de uniformes</p></td></tr>';}h+='</tbody></table></div></div>';document.getElementById('tabContent').innerHTML=h;document.getElementById('invNewBtn').style.display='none';}
 function renderAlmacen(){const items=getStore().inventario||[];const totalItems=items.length;const conStock=items.filter(i=>i.cantidad>0).length;const alertas=items.filter(i=>i.cantidad<=(i.minStock||0)).length;let h='<div class="kpi-grid"><div class="kpi"><div class="kpi-label">Total Artículos</div><div class="kpi-value">'+totalItems+'</div></div><div class="kpi success"><div class="kpi-label">Con Stock</div><div class="kpi-value">'+conStock+'</div></div>';if(alertas){h+='<div class="kpi warning"><div class="kpi-label"><i class="fas fa-exclamation-triangle mr-1"></i>Stock Bajo</div><div class="kpi-value" style="color:#d97706">'+alertas+'</div><div class="kpi-sub">Requieren reposición</div></div>';}h+='</div>';h+='<div class="card mb-4"><div class="card-body"><div class="form-row c3"><div><label class="form-label">Categoría</label><select class="form-select" id="almCat"><option value="">Todas</option>'+Object.entries(CATS).map(([k,v])=>'<option value="'+k+'">'+v.icon+' '+v.label+'</option>').join('')+'</select></div><div><label class="form-label">Buscar</label><input class="form-input" id="almSearch" placeholder="Nombre del artículo..."></div><div class="flex items-center" style="align-items:flex-end"><button class="btn btn-ghost" style="width:100%" id="almClear"><i class="fas fa-times"></i> Limpiar</button></div></div></div></div>';h+='<div id="almGrid" class="form-row c3" style="align-items:start"></div>';document.getElementById('tabContent').innerHTML=h;document.getElementById('invNewBtn').style.display='';attachAlmacenEvents();renderAlmacenGrid();}
 function renderAlmacenGrid(){const items=getStore().inventario||[];const cat=document.getElementById('almCat')?.value||'';const q=(document.getElementById('almSearch')?.value||'').toLowerCase();let list=items;if(cat)list=list.filter(i=>i.categoria===cat);if(q)list=list.filter(i=>(i.nombre||'').toLowerCase().includes(q));const grid=document.getElementById('almGrid');if(!grid)return;if(!list.length){grid.innerHTML='<div style="grid-column:1/-1" class="empty-state"><i class="fas fa-boxes"></i><p>'+(items.length?'Sin resultados':'Sin artículos en almacén')+'</p></div>';return;}grid.innerHTML=list.map(item=>{const c=CATS[item.categoria]||CATS.OTROS;const alerta=item.cantidad<=(item.minStock||0);const img=item.foto?'<img src="'+item.foto+'" style="width:100%;height:80px;object-fit:cover;border-radius:8px;margin-bottom:8px">':'<div style="height:60px;display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:8px">'+c.icon+'</div>';return'<div class="card" style="cursor:default'+(alerta?';border:1px solid #fbbf24':'')+'"><div class="card-body" style="padding:16px">'+img+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span class="font-bold text-sm">'+esc(item.nombre)+'</span><span style="background:'+c.bg+';color:'+c.color+';font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">'+c.label+'</span></div>'+(item.descripcion?'<p class="text-xs text-muted mb-2">'+esc(item.descripcion)+'</p>':'')+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span class="text-xs text-muted">Existencia:</span><span style="font-size:22px;font-weight:800;color:'+(alerta?'#d97706':'#059669')+'">'+item.cantidad+'<span class="text-xs text-muted font-normal ml-1">'+(item.unidad||'pzs')+'</span></span></div>'+(alerta?'<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:6px 10px;font-size:11px;color:#92400e;margin-bottom:8px"><i class="fas fa-exclamation-triangle mr-1"></i>Stock bajo (mín: '+(item.minStock||0)+')</div>':'')+'<div class="flex gap-2"><button class="btn btn-sm btn-ghost alm-hist" data-id="'+item.id+'" title="Ver historial" style="color:#7c3aed"><i class="fas fa-history"></i></button><button class="btn btn-sm btn-ghost alm-edit" data-id="'+item.id+'" style="flex:1"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-ghost alm-stock" data-id="'+item.id+'" style="flex:1;color:#059669"><i class="fas fa-plus"></i></button><button class="btn btn-sm btn-ghost alm-del" data-id="'+item.id+'" style="flex:1;color:#dc2626"><i class="fas fa-trash"></i></button></div></div></div>';}).join('');}
@@ -200,6 +200,69 @@ function openRecepcionModal(){
   }
   openModal();
 }
+function openSalidaAlmacenModal(){
+  const items=(getStore().inventario||[]).filter(i=>i.cantidad>0);
+  if(!items.length){
+    modal.open('Registrar Salida','<div class="empty-state"><i class="fas fa-boxes"></i><p>No hay artículos con stock disponible</p><p class="text-sm text-muted">Registra entradas primero</p></div>','<button class="btn btn-ghost" id="slClose">Cerrar</button>');
+    document.getElementById('slClose')?.addEventListener('click',()=>modal.close());
+    return;
+  }
+  let h='';
+  h+='<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#f87171"><i class="fas fa-exclamation-triangle mr-1"></i>Una salida descuenta el stock permanentemente. Solo para mermas, daños o ajustes autorizados.</div>';
+  h+='<div class="form-group mb-3"><label class="form-label">Artículo *</label><select class="form-select" id="slArt"><option value="">-- Selecciona artículo --</option>';
+  h+=items.map(i=>'<option value="'+i.id+'" data-cant="'+i.cantidad+'" data-uni="'+esc(i.unidad||'pzs')+'">'+esc(i.nombre)+' — '+i.cantidad+' '+esc(i.unidad||'pzs')+'</option>').join('');
+  h+='</select></div>';
+  h+='<div id="slStockBox" style="display:none;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px;justify-content:space-between;align-items:center"><span class="text-sec text-sm">Stock actual</span><span id="slStockVal" style="font-size:20px;font-weight:800;color:var(--success)">—</span></div>';
+  h+='<div class="form-row c2 mb-3">';
+  h+='<div class="form-group"><label class="form-label">Cantidad a retirar *</label><div class="flex gap-2"><button class="btn btn-ghost" id="slMinus" style="min-width:44px;font-size:20px">−</button><input class="form-input" type="number" id="slCant" min="1" value="1" style="text-align:center;font-size:20px;font-weight:700;flex:1"><button class="btn btn-ghost" id="slPlus" style="min-width:44px;font-size:20px">+</button></div></div>';
+  h+='<div class="form-group"><label class="form-label">Fecha *</label><input class="form-input" type="date" id="slFecha" value="'+today()+'"></div>';
+  h+='</div>';
+  h+='<div class="form-row c2 mb-3">';
+  h+='<div class="form-group"><label class="form-label">Motivo *</label><select class="form-select" id="slMotivo"><option>Merma</option><option>Daño</option><option>Devolución</option><option>Ajuste de inventario</option><option>Uso interno</option><option>Otro</option></select></div>';
+  h+='<div class="form-group"><label class="form-label">Observaciones</label><input class="form-input" id="slObs" placeholder="Detalle adicional..."></div>';
+  h+='</div>';
+  modal.open('Registrar Salida de Almacén',h,'<button class="btn btn-ghost" id="slCancel">Cancelar</button><button class="btn btn-danger" id="slGuardar"><i class="fas fa-sign-out-alt mr-1"></i>Registrar Salida</button>','md');
+  document.getElementById('slCancel')?.addEventListener('click',()=>modal.close());
+  document.getElementById('slArt')?.addEventListener('change',function(){
+    const opt=this.options[this.selectedIndex];
+    const box=document.getElementById('slStockBox');
+    const val=document.getElementById('slStockVal');
+    if(this.value&&opt.value){
+      if(box)box.style.display='flex';
+      const cant=parseInt(opt.dataset.cant||'0',10);
+      const uni=opt.dataset.uni||'pzs';
+      if(val)val.textContent=cant+' '+uni;
+      const cantIn=document.getElementById('slCant');
+      if(cantIn){cantIn.max=cant;cantIn.value=Math.min(parseInt(cantIn.value||'1',10),cant);}
+    }else{if(box)box.style.display='none';}
+  });
+  document.getElementById('slMinus')?.addEventListener('click',()=>{const q=document.getElementById('slCant');if(q)q.value=Math.max(1,parseInt(q.value||'1',10)-1);});
+  document.getElementById('slPlus')?.addEventListener('click',()=>{const q=document.getElementById('slCant');const art=document.getElementById('slArt');const opt=art?.options[art.selectedIndex];const mx=opt?parseInt(opt.dataset.cant||'0',10):9999;if(q)q.value=Math.min(mx,parseInt(q.value||'1',10)+1);});
+  document.getElementById('slGuardar')?.addEventListener('click',()=>{
+    const artId=document.getElementById('slArt')?.value||'';
+    const cant=parseInt(document.getElementById('slCant')?.value||'0',10);
+    const fecha=document.getElementById('slFecha')?.value||today();
+    const motivo=document.getElementById('slMotivo')?.value||'Merma';
+    const obs=document.getElementById('slObs')?.value||'';
+    if(!artId){notify('Selecciona un artículo','warning');return;}
+    if(cant<=0){notify('La cantidad debe ser mayor a cero','warning');return;}
+    const s=getStore();
+    const item=s.inventario?.find(i=>i.id===artId);
+    if(!item){notify('Artículo no encontrado','error');return;}
+    if(cant>item.cantidad){notify('Stock insuficiente. Disponible: '+item.cantidad+' '+(item.unidad||'pzs'),'error');return;}
+    const anterior=item.cantidad;
+    item.cantidad=anterior-cant;
+    item.updatedAt=new Date().toISOString();
+    saveInventario();
+    if(!s.salidas)s.salidas=[];
+    s.salidas.push({id:'sal_alm_'+Date.now(),tipo:'almacen',articuloId:artId,articuloNombre:item.nombre,prenda:item.nombre,talla:'—',cantidad:cant,fecha,motivo,observaciones:obs,stockAnterior:anterior,stockNuevo:item.cantidad});
+    saveSalidas();
+    log('SALIDA_ALMACEN',item.nombre+' −'+cant+' ('+anterior+'→'+item.cantidad+') '+motivo,'SALIDAS');
+    modal.close();
+    notify('Salida registrada: '+item.nombre+' −'+cant+' '+(item.unidad||'pzs')+' (quedan '+item.cantidad+')','success');
+    renderAlmacenGrid();
+  });
+}
 function attachAlmacenEvents(){const isOp=getUserRole()==='operador';if(!isOp){document.getElementById('invNewBtn')?.addEventListener('click',()=>openItemModal(null));}else{const nb=document.getElementById('invNewBtn');if(nb)nb.style.display='none';}['almCat'].forEach(id=>document.getElementById(id)?.addEventListener('change',renderAlmacenGrid));document.getElementById('almSearch')?.addEventListener('input',renderAlmacenGrid);document.getElementById('almClear')?.addEventListener('click',()=>{document.getElementById('almCat').value='';document.getElementById('almSearch').value='';renderAlmacenGrid();});document.getElementById('almGrid')?.addEventListener('click',e=>{const ed=e.target.closest('.alm-edit');const st=e.target.closest('.alm-stock');const dl=e.target.closest('.alm-del');const hs=e.target.closest('.alm-hist');if(hs)verHistorial(hs.dataset.id);if(ed)openItemModal(ed.dataset.id);if(st)addStock(st.dataset.id);if(dl){if(getUserRole()==='operador'){notify('Se requiere autorización del administrador','warning');return;}delItem(dl.dataset.id);}});}
 function attachTabEvents(){document.querySelectorAll('.tab-btn').forEach(btn=>{btn.addEventListener('click',function(){currentTab=this.dataset.tab;document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');if(currentTab==='uniformes')renderUniformes();else renderAlmacen();});});}
 export function init(){
@@ -209,11 +272,12 @@ export function init(){
   const isOp=getUserRole()==='operador';
   const recBtn=document.getElementById('recepcionBtn');
   if(recBtn){
-    if(isOp){
-      recBtn.style.display='';
-      recBtn.addEventListener('click',()=>openRecepcionModal());
-    }else{
-      recBtn.style.display='none';
-    }
+    if(isOp){recBtn.style.display='';recBtn.addEventListener('click',()=>openRecepcionModal());}
+    else{recBtn.style.display='none';}
+  }
+  const salBtn=document.getElementById('salidaAlmBtn');
+  if(salBtn){
+    if(isOp){salBtn.style.display='';salBtn.addEventListener('click',()=>openSalidaAlmacenModal());}
+    else{salBtn.style.display='none';}
   }
 }
