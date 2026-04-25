@@ -4,7 +4,7 @@
  * Usa SOLO la publishable key — nunca la service_role key en frontend.
  */
 
-const SUPABASE_URL = 'https://zyopidigmaftnzwesmr.supabase.co';
+const SUPABASE_URL = 'https://zyopidigmaftnzwwesmr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_DkdlbZC0nFD1mf5TjXpo0Q_YvX-Qv8b';
 const CDN_URLS = [
   'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js',

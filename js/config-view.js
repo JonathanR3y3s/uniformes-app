@@ -139,8 +139,8 @@ async function initSupabaseSection(){
   // Migrate button
   document.getElementById('cfgMigrate')?.addEventListener('click',async()=>{
     if(!confirm('¿Migrar todos los datos de localStorage a Supabase?\nEsto no borra datos locales.'))return;
-    const log=document.getElementById('migrationLog');
-    if(log)log.innerHTML='<div style="background:var(--surface-2);border-radius:8px;padding:12px;font-size:12px;font-family:monospace;max-height:180px;overflow-y:auto" id="migLog"></div>';
+    const logBox=document.getElementById('migrationLog');
+    if(logBox)logBox.innerHTML='<div style="background:var(--surface-2);border-radius:8px;padding:12px;font-size:12px;font-family:monospace;max-height:180px;overflow-y:auto" id="migLog"></div>';
     const addLine=(msg)=>{const el=document.getElementById('migLog');if(el){const line=document.createElement('div');line.textContent=msg;el.appendChild(line);el.scrollTop=el.scrollHeight;}};
     addLine('Iniciando migración…');
     const result=await sync.migrateLocalToSupabase((msg)=>addLine(msg));
