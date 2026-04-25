@@ -23,4 +23,4 @@ export function init(){const areas=getAreaNames();const st=getStore();createChar
 document.getElementById('dashNuevaEnt')?.addEventListener('click',()=>{window.location.hash='entregas';window.dispatchEvent(new PopStateEvent('popstate',{state:{v:'entregas'}}));setTimeout(()=>document.getElementById('entNew')?.click(),300);});
 document.getElementById('dashEmpleados')?.addEventListener('click',()=>{window.location.hash='empleados';window.dispatchEvent(new PopStateEvent('popstate',{state:{v:'empleados'}}));});
 document.getElementById('dashTotales')?.addEventListener('click',()=>{window.location.hash='totales';window.dispatchEvent(new PopStateEvent('popstate',{state:{v:'totales'}}));});
-document.getElementById('dashExportar')?.addEventListener('click',()=>{window.location.hash='exportar';window.dispatchEvent(new PopStateEvent('popstate',{state:{v:'exportar'}}));});
+document.getElementById('dashExportar')?.addEventListener('click',()=>{window.location.hash='exportar';window.dispatchEvent(new PopStateEvent('popstate',{state:{v:'exportar'}}));});}
