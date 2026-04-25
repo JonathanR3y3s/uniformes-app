@@ -1,4 +1,4 @@
-export const VERSION='6.0';
+export const VERSION='6.2';
 export const STORAGE_KEY='uniformes_assa_abloy_2026_v4';
 export const TALLAS={ROPA:['XCH','CH','M','G','XG','XXG','XXXG'],PANTALON:['26','28','30','32','34','36','38','40','42','44'],CALZADO:['22','23','24','25','26','27','28','29','30','31','32','33'],UNITALLA:['UNITALLA']};
 export const TIPO_TALLA={'PLAYERA POLO TIPO A':'ROPA','PLAYERA POLO TIPO B':'ROPA','CAMISOLA':'ROPA','CHALECO':'ROPA','PLAYERA PANTS':'ROPA','PANTS':'ROPA','CHAMARRA':'ROPA','PANTALON':'PANTALON','ZAPATO NORMAL':'CALZADO','ZAPATO ESPECIAL':'CALZADO','ZAPATO SEGURIDAD':'CALZADO','BOTA':'CALZADO','CHOCLO':'CALZADO','TENIS':'CALZADO','SANDALIAS':'CALZADO','TOALLA':'UNITALLA','TERMO':'UNITALLA','GORRA':'UNITALLA','SOMBRILLA':'UNITALLA'};
@@ -31,7 +31,7 @@ export const NAV=[
 {section:'REPORTES'},
 {id:'tablero',icon:'fa-th-large',label:'Tablero Maestro'},
 {id:'totales',icon:'fa-calculator',label:'Totales'},
-{id:'centro-costos',icon:'fa-chart-line',label:'Centro de Costos'},
+{id:'centro-costos',icon:'fa-chart-line',label:'Control Financiero'},
 {id:'exportar',icon:'fa-file-export',label:'Exportar'},
 {section:'SISTEMA'},
 {id:'areas',icon:'fa-layer-group',label:'Áreas y Dotaciones'},

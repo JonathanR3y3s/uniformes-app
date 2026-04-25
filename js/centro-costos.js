@@ -16,7 +16,7 @@ const provMap={};g.forEach(x=>{if(x.proveedor&&x.proveedor!=='—')provMap[x.pro
 const topProv=Object.entries(provMap).sort((a,b)=>b[1]-a[1])[0];
 const yearOpts=[...new Set([...(yrs.length?yrs:[]),'todos',new Date().getFullYear().toString()])].sort().reverse();
 let h='';
-h+='<div class="page-head"><div class="page-title"><h1>Centro de Costos</h1><p>Análisis financiero · Control de inversión · Comparativas</p></div>';
+h+='<div class="page-head"><div class="page-title"><h1>Control Financiero</h1><p>Análisis financiero · Control de inversión · Comparativas</p></div>';
 h+='<select class="form-select" id="ccYear" style="width:auto;min-width:120px"><option value="todos">Todos los años</option>'+yearOpts.filter(y=>y!=='todos').map(y=>'<option value="'+y+'"'+(y===currentYear?' selected':'')+'>'+y+'</option>').join('')+'</select>';
 h+='</div>';
 // KPIs
@@ -30,8 +30,8 @@ h+='</div>';
 // Charts
 if(g.length){
 h+='<div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:20px">';
-h+='<div class="chart-box"><div class="card-head"><h3><i class="fas fa-chart-bar mr-2" style="color:#004B87"></i>Gasto Mensual</h3><span class="text-xs text-muted">Uniformes vs. Almacén</span></div><canvas id="ccMensual" height="220"></canvas></div>';
-h+='<div class="chart-box"><div class="card-head"><h3><i class="fas fa-chart-pie mr-2" style="color:#7c3aed"></i>Por Categoría</h3></div><canvas id="ccDist" height="220"></canvas></div>';
+h+='<div class="chart-box"><div class="card-head"><h3><i class="fas fa-chart-bar mr-2" style="color:#004B87"></i>Gasto Mensual</h3><span class="text-xs text-muted">Uniformes vs. Almacén</span></div><div style="height:220px;position:relative"><canvas id="ccMensual"></canvas></div></div>';
+h+='<div class="chart-box"><div class="card-head"><h3><i class="fas fa-chart-pie mr-2" style="color:#7c3aed"></i>Por Categoría</h3></div><div style="height:220px;position:relative"><canvas id="ccDist"></canvas></div></div>';
 h+='</div>';
 // Top artículos
 const topMap={};g.forEach(x=>{const k=x.descripcion;if(!topMap[k])topMap[k]={total:0,qty:0,tipo:x.tipo,cat:x.categoria};topMap[k].total+=x.total;topMap[k].qty+=x.cantidad;});
