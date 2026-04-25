@@ -11,11 +11,13 @@ export function buildNav(currentView){
   const user=getUser();
   // Clear context action buttons on view change
   const ta=document.getElementById('topbarActions');if(ta)ta.innerHTML='';
-  const hiddenForOperador=['dashboard','admin','reportes','config','proveedores','salidas','catalogo','tablero','totales','centro-costos','importar','exportar','usuarios','areas'];
+  const hiddenForOperador=['dashboard','admin','reportes','config','proveedores','salidas','catalogo','tablero','totales','centro-costos','importar','exportar','usuarios','areas','stock-uniformes'];
+  const hiddenForConsulta=['admin','importar','usuarios','config'];
   let html='';let activeLabel='Dashboard';
   NAV.forEach(n=>{
     if(n.section){html+='<div class="nav-section">'+n.section+'</div>';return;}
     if(role==='operador'&&hiddenForOperador.includes(n.id))return;
+    if(role==='consulta'&&hiddenForConsulta.includes(n.id))return;
     const active=currentView===n.id?' active':'';
     if(active)activeLabel=n.label;
     html+='<div class="nav-item'+active+'" data-view="'+n.id+'"><i class="fas '+n.icon+'"></i><span class="sidebar-label">'+n.label+'</span></div>';
@@ -28,7 +30,7 @@ export function buildNav(currentView){
   if(footer){
     const name=user?user.name:'Usuario';
     const initials=name.slice(0,2).toUpperCase();
-    const roleLabel=role==='admin'?'Administrador':'Operador';
+    const roleLabel=role==='admin'?'Administrador':role==='consulta'?'Solo Lectura':'Operador';
     footer.innerHTML=`<div class="sidebar-user"><div class="sidebar-user-avatar">${initials}</div><div class="sidebar-user-info"><div class="sidebar-user-name">${esc(name)}</div><div class="sidebar-user-role">${roleLabel}</div></div></div><button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-chevron-left" id="sidebarIcon"></i><span class="sidebar-label">Colapsar</span></button>`;
     document.getElementById('sidebarToggle').addEventListener('click',()=>{
       const sb=document.getElementById('sidebar');

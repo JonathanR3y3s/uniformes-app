@@ -6,6 +6,7 @@
 const ROLES = {
   OPERADOR: 'operador',
   ADMIN: 'admin',
+  CONSULTA: 'consulta',
 };
 
 const PERMISSIONS = {
@@ -15,6 +16,13 @@ const PERMISSIONS = {
     'entrega.firmar',
     'empleado.buscar',
     'inventario.ver_basico',
+  ],
+  consulta: [
+    'entrega.ver',
+    'empleado.ver',
+    'inventario.ver',
+    'reportes.ver',
+    'metricas.ver',
   ],
   admin: [
     'entrega.ver',
@@ -71,6 +79,10 @@ export function isOperador() {
 
 export function isAdmin() {
   return getUserRole() === ROLES.ADMIN;
+}
+
+export function isConsulta() {
+  return getUserRole() === ROLES.CONSULTA;
 }
 
 export function saveUser() {

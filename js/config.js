@@ -1,4 +1,4 @@
-export const VERSION='6.3';
+export const VERSION='6.4';
 export const STORAGE_KEY='uniformes_assa_abloy_2026_v4';
 export const TALLAS={ROPA:['XCH','CH','M','G','XG','XXG','XXXG'],PANTALON:['26','28','30','32','34','36','38','40','42','44'],CALZADO:['22','23','24','25','26','27','28','29','30','31','32','33'],UNITALLA:['UNITALLA']};
 export const TIPO_TALLA={'PLAYERA POLO TIPO A':'ROPA','PLAYERA POLO TIPO B':'ROPA','CAMISOLA':'ROPA','CHALECO':'ROPA','PLAYERA PANTS':'ROPA','PANTS':'ROPA','CHAMARRA':'ROPA','PANTALON':'PANTALON','ZAPATO NORMAL':'CALZADO','ZAPATO ESPECIAL':'CALZADO','ZAPATO SEGURIDAD':'CALZADO','BOTA':'CALZADO','CHOCLO':'CALZADO','TENIS':'CALZADO','SANDALIAS':'CALZADO','TOALLA':'UNITALLA','TERMO':'UNITALLA','GORRA':'UNITALLA','SOMBRILLA':'UNITALLA'};
@@ -24,8 +24,10 @@ export const NAV=[
 {id:'empleados',icon:'fa-users',label:'Empleados'},
 {id:'captura',icon:'fa-user-edit',label:'Captura de Tallas'},
 {id:'entregas',icon:'fa-hand-holding',label:'Entregas'},
+{id:'campanias',icon:'fa-calendar-check',label:'Campañas'},
 {section:'ALMACÉN'},
 {id:'inventario',icon:'fa-boxes',label:'Inventario'},
+{id:'stock-uniformes',icon:'fa-tshirt',label:'Stock Uniformes'},
 {id:'proveedores',icon:'fa-truck',label:'Proveedores'},
 {id:'salidas',icon:'fa-sign-out-alt',label:'Salidas'},
 {section:'REPORTES'},

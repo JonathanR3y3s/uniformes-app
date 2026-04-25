@@ -41,9 +41,10 @@ export function render(){
   if(!users.length){h+='<tr><td colspan="7" class="empty-state"><i class="fas fa-users"></i><p>No hay usuarios registrados</p></td></tr>';}
   users.forEach(u=>{
     const isSelf=u.username===(me&&me.id);
-    const roleColor=u.role==='admin'?'badge-info':'badge-neutral';
+    const roleColor=u.role==='admin'?'badge-info':u.role==='consulta'?'badge-warning':'badge-neutral';
     const stColor=u.activo?'badge-success':'badge-danger';
-    const avatar='<div style="width:34px;height:34px;border-radius:50%;background:'+(u.role==='admin'?'#004B87':'#6b7280')+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">'+u.name.slice(0,1).toUpperCase()+'</div>';
+    const avatarBg=u.role==='admin'?'#004B87':u.role==='consulta'?'#7c3aed':'#6b7280';
+    const avatar='<div style="width:34px;height:34px;border-radius:50%;background:'+avatarBg+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">'+u.name.slice(0,1).toUpperCase()+'</div>';
     h+='<tr>';
     h+='<td>'+avatar+'</td>';
     h+='<td><span class="font-bold">'+esc(u.name)+'</span>'+(isSelf?' <span class="badge badge-warning" style="font-size:10px">Tú</span>':'')+'</td>';
@@ -72,7 +73,8 @@ function openNewUser(){
       <div class="form-group"><label class="form-label">Contraseña *</label><input type="password" class="form-input" id="nuPass" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
       <div class="form-group"><label class="form-label">Confirmar contraseña *</label><input type="password" class="form-input" id="nuPass2" placeholder="Repetir contraseña" autocomplete="new-password"></div>
       <div class="form-group"><label class="form-label">Rol</label><select class="form-select" id="nuRole">
-        <option value="operador">Operador — solo entregas y captura</option>
+        <option value="operador">Operador — entregas y captura</option>
+        <option value="consulta">Consulta — solo lectura</option>
         <option value="admin">Administrador — acceso completo</option>
       </select></div>
       <div class="form-group"><label class="form-label">Estado</label><select class="form-select" id="nuActivo">
@@ -125,6 +127,7 @@ function openEditUser(id){
       <div class="form-group"><label class="form-label">Usuario (no editable)</label><input class="form-input" value="${esc(u.username)}" disabled style="opacity:.5"></div>
       <div class="form-group"><label class="form-label">Rol</label><select class="form-select" id="euRole" ${isSelf?'disabled':''}>
         <option value="operador"${u.role==='operador'?' selected':''}>Operador</option>
+        <option value="consulta"${u.role==='consulta'?' selected':''}>Consulta (solo lectura)</option>
         <option value="admin"${u.role==='admin'?' selected':''}>Administrador</option>
       </select></div>
       <div class="form-group"><label class="form-label">Estado</label><select class="form-select" id="euActivo" ${isSelf?'disabled':''}>
