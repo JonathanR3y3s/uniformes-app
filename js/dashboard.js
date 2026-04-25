@@ -36,28 +36,34 @@ export function render(){
     h+='</div>';
   }
 
-  // KPIs principales
+  // KPIs principales — valores siempre blancos, color solo en borde superior
   h+='<div class="kpi-grid">';
-  h+='<div class="kpi" style="border-top:3px solid #2563eb"><div class="kpi-label"><i class="fas fa-users mr-1" style="color:#2563eb"></i>Empleados</div><div class="kpi-value">'+s.total+'</div><div class="kpi-sub">'+s.activos+' activos · '+s.bajas+' bajas</div></div>';
-  h+='<div class="kpi" style="border-top:3px solid '+pctColor+'"><div class="kpi-label"><i class="fas fa-clipboard-check mr-1" style="color:'+pctColor+'"></i>Captura de Tallas</div><div class="kpi-value" style="color:'+pctColor+'">'+s.pct+'%</div><div class="kpi-sub">'+s.capturados+' listos · '+s.pendientes+' por capturar</div></div>';
-  h+='<div class="kpi" style="border-top:3px solid #004B87"><div class="kpi-label"><i class="fas fa-hand-holding mr-1" style="color:#004B87"></i>Entregas Totales</div><div class="kpi-value" style="color:#004B87">'+totalEnt+'</div><div class="kpi-sub">'+(totalEnt?Math.round(entConFirma/totalEnt*100):0)+'% firmadas</div></div>';
-  h+='<div class="kpi" style="border-top:3px solid '+cobColor+'"><div class="kpi-label"><i class="fas fa-percent mr-1" style="color:'+cobColor+'"></i>Cobertura '+thisYear+'</div><div class="kpi-value" style="color:'+cobColor+'">'+cobertura+'%</div><div class="kpi-sub">'+empConEntrega.size+' de '+activos.length+' empleados atendidos</div></div>';
-  if(gastoTotal>0)h+='<div class="kpi" style="border-top:3px solid #059669"><div class="kpi-label"><i class="fas fa-dollar-sign mr-1" style="color:#059669"></i>Inversión Total</div><div class="kpi-value" style="color:#059669;font-size:20px">'+fmtMoney(gastoTotal)+'</div><div class="kpi-sub">Uniformes + Almacén</div></div>';
-  h+='<div class="kpi" style="border-top:3px solid '+(alertasStock>0?'#d97706':'#7c3aed')+'"><div class="kpi-label"><i class="fas '+(alertasStock>0?'fa-exclamation-triangle':'fa-user-slash')+' mr-1" style="color:'+(alertasStock>0?'#d97706':'#7c3aed')+'"></i>'+(alertasStock>0?'Stock Bajo':'Inactivos')+'</div><div class="kpi-value" style="color:'+(alertasStock>0?'#d97706':'#7c3aed')+'">'+(alertasStock>0?alertasStock:s.bajas)+'</div><div class="kpi-sub">'+(alertasStock>0?'artículos bajo mínimo':'no requieren captura')+'</div></div>';
+  h+='<div class="kpi" style="border-top:2px solid #3b82f6"><div class="kpi-label">Empleados</div><div class="kpi-value">'+s.total+'</div><div class="kpi-sub">'+s.activos+' activos · '+s.bajas+' bajas</div></div>';
+  h+='<div class="kpi" style="border-top:2px solid '+pctColor+'"><div class="kpi-label">Captura de Tallas</div><div class="kpi-value">'+s.pct+'%</div><div class="kpi-sub">'+s.capturados+' listos · '+s.pendientes+' por capturar</div></div>';
+  h+='<div class="kpi" style="border-top:2px solid #22d3ee"><div class="kpi-label">Entregas Totales</div><div class="kpi-value">'+totalEnt+'</div><div class="kpi-sub">'+(totalEnt?Math.round(entConFirma/totalEnt*100):0)+'% firmadas</div></div>';
+  h+='<div class="kpi" style="border-top:2px solid '+cobColor+'"><div class="kpi-label">Cobertura '+thisYear+'</div><div class="kpi-value">'+cobertura+'%</div><div class="kpi-sub">'+empConEntrega.size+' de '+activos.length+' empleados</div></div>';
+  if(gastoTotal>0)h+='<div class="kpi" style="border-top:2px solid var(--success)"><div class="kpi-label">Inversión Total</div><div class="kpi-value" style="font-size:20px">'+fmtMoney(gastoTotal)+'</div><div class="kpi-sub">Uniformes + Almacén</div></div>';
+  h+='<div class="kpi" style="border-top:2px solid '+(alertasStock>0?'var(--warning)':'var(--neutral)')+'"><div class="kpi-label">'+(alertasStock>0?'Stock Bajo':'Inactivos')+'</div><div class="kpi-value">'+(alertasStock>0?alertasStock:s.bajas)+'</div><div class="kpi-sub">'+(alertasStock>0?'artículos bajo mínimo':'no requieren captura')+'</div></div>';
   h+='</div>';
 
-  // Área cards + doughnut
+  // Área cards + panel de captura limpio (sin dona)
+  const pctPend=s.total?Math.round(s.pendientes/s.total*100):0;
+  const pctBajas=s.total?Math.round(s.bajas/s.total*100):0;
   h+='<div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(220px,1fr);gap:12px;margin-bottom:20px">';
-  h+='<div class="card"><div class="card-head"><h3><i class="fas fa-layer-group mr-2" style="color:#004B87"></i>Estado por Área</h3><span class="text-xs text-muted">Captura de tallas '+thisYear+'</span></div>';
+  h+='<div class="card"><div class="card-head"><h3>Estado por Área</h3><span class="text-xs text-muted">Captura de tallas '+thisYear+'</span></div>';
   h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:8px;padding:4px 16px 16px">';
-  areas.forEach(a=>{const st2=calcStatsArea(a);const p=parseInt(st2.pct,10);const bc=p>=80?'#059669':p>=50?'#d97706':'#dc2626';const bg=p>=80?'rgba(5,150,105,.06)':p>=50?'rgba(217,119,6,.06)':'rgba(220,38,38,.06)';const ai=areaIcon(a);h+='<div style="padding:12px;border-radius:8px;border:1px solid var(--border);background:'+bg+'"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:34px;height:34px;border-radius:8px;background:'+ai.color+';display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas '+ai.icon+'" style="color:#fff;font-size:14px"></i></div><div style="flex:1;min-width:0"><p style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0">'+a+'</p><p style="font-size:11px;color:var(--text-muted);margin:0">'+st2.total+' empleado'+(st2.total!==1?'s':'')+'</p></div></div><div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px"><span style="color:var(--success)"><i class="fas fa-check mr-1"></i>'+st2.capturados+' listos</span><span style="font-weight:800;color:'+bc+'">'+p+'%</span></div><div style="height:5px;background:var(--border);border-radius:999px;overflow:hidden"><div style="height:100%;width:'+p+'%;background:'+bc+';border-radius:999px;transition:width .5s ease"></div></div></div>';});
+  areas.forEach(a=>{const st2=calcStatsArea(a);const p=parseInt(st2.pct,10);const bc=p>=80?'#22c55e':p>=50?'#f59e0b':'#ef4444';const ai=areaIcon(a);h+='<div style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2)"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:34px;height:34px;border-radius:7px;background:'+ai.color+';display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas '+ai.icon+'" style="color:#fff;font-size:13px"></i></div><div style="flex:1;min-width:0"><p style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0">'+a+'</p><p style="font-size:11px;color:var(--text-muted);margin:0">'+st2.total+' empleado'+(st2.total!==1?'s':'')+'</p></div></div><div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:5px"><span style="color:var(--text-muted)">'+st2.capturados+' listos</span><span style="font-weight:700;color:'+bc+'">'+p+'%</span></div><div style="height:3px;background:var(--border);border-radius:999px;overflow:hidden"><div style="height:100%;width:'+p+'%;background:'+bc+';border-radius:999px;transition:width .5s ease"></div></div></div>';});
   h+='</div></div>';
-  // Doughnut
-  h+='<div class="chart-box" style="display:flex;flex-direction:column"><div class="card-head" style="padding-bottom:8px"><h3><i class="fas fa-chart-pie mr-2" style="color:#059669"></i>Estado de Captura</h3></div><div id="ecEstado" style="height:185px"></div><div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0"><div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#22c55e;display:inline-block"></span><span style="font-size:12px">Capturados</span></div><strong style="color:#22c55e;font-size:14px">'+s.capturados+'</strong></div>';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0"><div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#f59e0b;display:inline-block"></span><span style="font-size:12px">Pendientes</span></div><strong style="color:#f59e0b;font-size:14px">'+s.pendientes+'</strong></div>';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0"><div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:rgba(255,255,255,.15);display:inline-block"></span><span style="font-size:12px">Bajas / Mov.</span></div><strong style="color:var(--text-sec);font-size:14px">'+s.bajas+'</strong></div>';
-  h+='</div></div>';
+  // Panel estado captura (reemplaza dona)
+  h+='<div class="chart-box" style="display:flex;flex-direction:column">';
+  h+='<div class="card-head"><h3>Estado de Captura</h3></div>';
+  h+='<div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:8px 0 4px">';
+  h+='<div style="text-align:center;padding:20px 0 24px"><div style="font-size:52px;font-weight:800;letter-spacing:-.04em;line-height:1;color:var(--text)">'+s.pct+'<span style="font-size:22px;font-weight:600;color:var(--text-muted)">%</span></div><div style="font-size:11px;color:var(--text-muted);margin-top:5px;text-transform:uppercase;letter-spacing:.07em">captura completada</div></div>';
+  h+='<div style="border-top:1px solid var(--border);padding-top:14px;display:flex;flex-direction:column;gap:10px">';
+  h+='<div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11.5px;color:var(--text-sec);display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:var(--success)"></span>Capturados</span><strong style="font-size:12px">'+s.capturados+'</strong></div><div style="height:3px;background:var(--border);border-radius:999px"><div style="width:'+s.pct+'%;height:100%;background:var(--success);border-radius:999px"></div></div></div>';
+  h+='<div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11.5px;color:var(--text-sec);display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:var(--warning)"></span>Pendientes</span><strong style="font-size:12px">'+s.pendientes+'</strong></div><div style="height:3px;background:var(--border);border-radius:999px"><div style="width:'+pctPend+'%;height:100%;background:var(--warning);border-radius:999px"></div></div></div>';
+  h+='<div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11.5px;color:var(--text-sec);display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:var(--neutral)"></span>Bajas/Mov.</span><strong style="font-size:12px">'+s.bajas+'</strong></div><div style="height:3px;background:var(--border);border-radius:999px"><div style="width:'+pctBajas+'%;height:100%;background:var(--neutral);border-radius:999px"></div></div></div>';
+  h+='</div></div></div>';
   h+='</div>';
 
   // Gráficas de entregas
@@ -81,21 +87,21 @@ export function render(){
   // Últimas entregas + Empleados sin entrega
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">';
   // Últimas entregas
-  h+='<div class="chart-box"><div class="card-head"><h3><i class="fas fa-history mr-2" style="color:#7c3aed"></i>Últimas Entregas</h3></div><div id="lastEntregas" style="padding:2px 0"></div></div>';
+  h+='<div class="chart-box"><div class="card-head"><h3>Últimas Entregas</h3></div><div id="lastEntregas" style="padding:2px 0"></div></div>';
   // Empleados sin entrega este año
-  h+='<div class="card"><div class="card-head"><h3><i class="fas fa-user-clock mr-2" style="color:#dc2626"></i>Sin Entrega '+thisYear+'</h3><span class="badge badge-'+(sinEntrega.length>0?'danger':'success')+'" style="font-size:11px">'+sinEntrega.length+'</span></div>';
+  h+='<div class="card"><div class="card-head"><h3>Sin Entrega '+thisYear+'</h3><span class="badge badge-'+(sinEntrega.length>0?'danger':'success')+'" style="font-size:11px">'+sinEntrega.length+'</span></div>';
   h+='<div style="max-height:200px;overflow-y:auto;padding:4px 16px 12px">';
   if(!sinEntrega.length){
     h+='<div style="text-align:center;padding:20px;color:var(--success)"><i class="fas fa-check-circle" style="font-size:28px;margin-bottom:8px;display:block"></i><p style="font-size:13px;font-weight:700">¡Todos los empleados activos han recibido su uniforme este año!</p></div>';
   } else {
-    h+=sinEntrega.slice(0,20).map(e=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><div style="width:28px;height:28px;border-radius:50%;background:#dc2626;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:11px;font-weight:700">'+((e.nombre||'?')[0]).toUpperCase()+'</span></div><div style="flex:1;min-width:0"><p style="font-size:12px;font-weight:700;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(e.nombre+' '+(e.paterno||''))+'</p><p style="font-size:10px;color:var(--text-muted);margin:0">'+esc(e.area)+'</p></div></div>').join('');
+    h+=sinEntrega.slice(0,20).map(e=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><div style="width:28px;height:28px;border-radius:50%;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#ef4444;font-size:11px;font-weight:700">'+((e.nombre||'?')[0]).toUpperCase()+'</span></div><div style="flex:1;min-width:0"><p style="font-size:12px;font-weight:700;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(e.nombre+' '+(e.paterno||''))+'</p><p style="font-size:10px;color:var(--text-muted);margin:0">'+esc(e.area)+'</p></div></div>').join('');
     if(sinEntrega.length>20)h+='<p class="text-xs text-muted" style="text-align:center;padding:8px 0">...y '+(sinEntrega.length-20)+' más</p>';
   }
   h+='</div></div>';
   h+='</div>';
 
   // Detail table
-  h+='<div class="card"><div class="card-head"><h3><i class="fas fa-table mr-2" style="color:#004B87"></i>Detalle por Área</h3><span class="text-xs text-muted">Temporada '+thisYear+'</span></div><div class="table-wrap"><table class="dt"><thead><tr><th>Área</th><th style="text-align:center">Total</th><th style="text-align:center">Capturados</th><th style="text-align:center">Pendientes</th><th style="text-align:center">Bajas</th><th>Progreso</th></tr></thead><tbody>';
+  h+='<div class="card"><div class="card-head"><h3>Detalle por Área</h3><span class="text-xs text-muted">Temporada '+thisYear+'</span></div><div class="table-wrap"><table class="dt"><thead><tr><th>Área</th><th style="text-align:center">Total</th><th style="text-align:center">Capturados</th><th style="text-align:center">Pendientes</th><th style="text-align:center">Bajas</th><th>Progreso</th></tr></thead><tbody>';
   areas.forEach(a=>{const st2=calcStatsArea(a);const p=parseInt(st2.pct,10);const bc=p>=80?'var(--success)':p>=50?'var(--warning)':'var(--danger)';h+='<tr><td>'+buildAreaBadge(a)+'</td><td style="text-align:center;font-weight:700">'+st2.total+'</td><td style="text-align:center;color:var(--success);font-weight:700">'+st2.capturados+'</td><td style="text-align:center;color:var(--warning)">'+st2.pendientes+'</td><td style="text-align:center;color:var(--info)">'+st2.bajas+'</td><td style="min-width:160px"><div class="flex items-center gap-2"><div class="progress" style="flex:1;height:8px"><div class="progress-bar" style="width:'+st2.pct+'%;background:'+bc+'"></div></div><span class="text-xs font-bold" style="color:'+bc+';min-width:36px">'+st2.pct+'%</span></div></td></tr>';});
   h+='</tbody></table></div></div>';
   return h;
@@ -109,26 +115,7 @@ export function init(){
   const cobN=activos.length?Math.round(empConEntrega.size/activos.length*100):0;
   const cobColor=cobN>=80?'#22c55e':cobN>=50?'#f59e0b':'#ef4444';
   const EC=typeof echarts!=='undefined'?echarts:null;
-  const tooltip={backgroundColor:'rgba(17,17,24,.95)',borderColor:'rgba(255,255,255,.1)',textStyle:{color:'#e2e8f6',fontSize:12}};
-
-  // Donut Estado Captura (ECharts)
-  const elEstado=document.getElementById('ecEstado');
-  if(elEstado&&EC){
-    EC.init(elEstado).setOption({
-      backgroundColor:'transparent',
-      tooltip:{...tooltip,trigger:'item',formatter:'{b}: {c}'},
-      series:[{type:'pie',radius:['58%','80%'],center:['50%','50%'],
-        data:[
-          {value:s.capturados,name:'Capturados',itemStyle:{color:'#22c55e'}},
-          {value:s.pendientes,name:'Pendientes',itemStyle:{color:'#f59e0b'}},
-          {value:s.bajas,name:'Bajas/Mov.',itemStyle:{color:'rgba(255,255,255,.1)'}}
-        ],
-        label:{show:false},
-        emphasis:{scale:true,scaleSize:4},
-        itemStyle:{borderRadius:4,borderWidth:3,borderColor:'#111118'}
-      }]
-    });
-  }
+  const tooltip={backgroundColor:'rgba(12,12,12,.95)',borderColor:'rgba(255,255,255,.1)',textStyle:{color:'#efefef',fontSize:12}};
 
   // Tendencia mensual — barra con gradiente (ECharts)
   const months=lastMonths(6);
@@ -144,8 +131,8 @@ export function init(){
       xAxis:{type:'category',data:months.map(m=>m.label),axisLine:{lineStyle:{color:'rgba(255,255,255,.08)'}},axisTick:{show:false},axisLabel:{color:'rgba(226,232,246,.45)',fontSize:11}},
       yAxis:{type:'value',minInterval:1,axisLabel:{color:'rgba(226,232,246,.4)',fontSize:10},splitLine:{lineStyle:{color:'rgba(255,255,255,.05)'}}},
       series:[{type:'bar',data:monthData,barMaxWidth:44,
-        itemStyle:{borderRadius:[6,6,0,0],color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'#60a5fa'},{offset:1,color:'rgba(59,130,246,.5)'}]}},
-        emphasis:{itemStyle:{color:'#93c5fd'}}
+        itemStyle:{borderRadius:[4,4,0,0],color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'#22d3ee'},{offset:1,color:'rgba(34,211,238,.25)'}]}},
+        emphasis:{itemStyle:{color:'#67e8f9'}}
       }]
     });
   }
