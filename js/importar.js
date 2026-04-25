@@ -1,4 +1,4 @@
-import{getStore,saveEmployees,saveProveedores,saveEntregas,saveSalidas,saveStockExtra,saveAreas,saveAuditLog,saveInventario,log}from'./storage.js';
+import{getStore,saveEmployees,saveProveedores,saveEntregas,saveSalidas,saveStockExtra,saveAreas,saveAuditLog,saveInventario,saveComprasAlmacen,log}from'./storage.js';import{STORAGE_KEY}from'./config.js';
 import{esc}from'./utils.js';
 import{notify,confirm}from'./ui.js';
 import{getAreaNames}from'./areas-config.js';
@@ -127,7 +127,7 @@ function handleRestoreFile(file){
 }
 
 function previewRestore(bk){
-  if(!bk.version||!['5.0','6.0'].includes(bk.version)){
+  if(!bk.version||!['5.0','6.0','6.1'].includes(bk.version)){
     document.getElementById('restP').innerHTML='<div class="card" style="background:var(--danger-light);border-color:var(--danger)"><div class="card-body"><p class="font-bold" style="color:var(--danger)"><i class="fas fa-times-circle"></i> Archivo incompatible</p><p class="text-sm mt-1">Este archivo no es un respaldo válido de Control Store Pro (versión '+( bk.version||'desconocida')+').</p></div></div>';
     return;
   }
@@ -166,8 +166,8 @@ function execRestore(bk){
   store.salidas=bk.salidas||[];
   store.stockExtra=bk.stockExtra||{};
   store.areas=bk.areas||[];
-  store.auditLog=bk.auditLog||[];
-  saveEmployees();saveProveedores();saveInventario();saveEntregas();saveSalidas();saveStockExtra();saveAreas();saveAuditLog();
+  store.auditLog=bk.auditLog||[];store.comprasAlmacen=bk.comprasAlmacen||[];
+  saveEmployees();saveProveedores();saveInventario();saveEntregas();saveSalidas();saveStockExtra();saveAreas();saveAuditLog();saveComprasAlmacen();
   // Datos externos
   if(bk.users&&bk.users.length)localStorage.setItem('_users_store',JSON.stringify(bk.users));
   if(bk.areasRules&&Object.keys(bk.areasRules).length)localStorage.setItem('_areas_rules',JSON.stringify(bk.areasRules));

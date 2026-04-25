@@ -31,6 +31,7 @@ export const NAV=[
 {section:'REPORTES'},
 {id:'tablero',icon:'fa-th-large',label:'Tablero Maestro'},
 {id:'totales',icon:'fa-calculator',label:'Totales'},
+{id:'centro-costos',icon:'fa-chart-line',label:'Centro de Costos'},
 {id:'exportar',icon:'fa-file-export',label:'Exportar'},
 {section:'SISTEMA'},
 {id:'areas',icon:'fa-layer-group',label:'Áreas y Dotaciones'},

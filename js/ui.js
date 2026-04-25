@@ -9,7 +9,7 @@ export function buildNav(currentView){
   const nav=document.getElementById('sidebarNav');
   const role=getUserRole();
   const user=getUser();
-  const hiddenForOperador=['admin','reportes','config','proveedores','salidas','catalogo','tablero','totales','importar','exportar','usuarios','areas'];
+  const hiddenForOperador=['admin','reportes','config','proveedores','salidas','catalogo','tablero','totales','centro-costos','importar','exportar','usuarios','areas'];
   let html='';let activeLabel='Dashboard';
   NAV.forEach(n=>{
     if(n.section){html+='<div class="nav-section">'+n.section+'</div>';return;}
