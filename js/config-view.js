@@ -167,6 +167,7 @@ async function initSupabaseSection(){
 export function init(){
   const mc=document.getElementById('mainContent');
   if(!mc)return;
+  mc.removeEventListener('click',handleConfigClick);
   mc.addEventListener('click',handleConfigClick);
   initSupabaseSection();
   // File input for restore

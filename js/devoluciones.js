@@ -9,6 +9,8 @@ import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getDevolucionesNuevas, registrarDevolucionNueva, getProductos } from './almacen-api.js';
 
+let _devolucionesWizardHandler = null;
+
 export function render() {
   const devolucionesNuevas = getDevolucionesNuevas();
   const mesActual = new Date().toISOString().slice(0, 7);
@@ -21,7 +23,7 @@ export function render() {
 
   const porMotivo = {};
   devolucionesMes.forEach(d => {
-    porMotivo[d.motivo_devolucion] = (porMotivo[d.motivo_devolucion] || 0) + 1;
+    porMotivo[d.motivo] = (porMotivo[d.motivo] || 0) + 1;
   });
   const motivoMayoritario = Object.keys(porMotivo).length > 0
     ? Object.keys(porMotivo).sort((a, b) => porMotivo[b] - porMotivo[a])[0]
@@ -84,7 +86,7 @@ function renderDevoluciones() {
 
   let devolucionesNuevas = getDevolucionesNuevas();
   if (empleado) devolucionesNuevas = devolucionesNuevas.filter(d => d.empleado_nombre.toLowerCase().includes(empleado.toLowerCase()));
-  if (motivo) devolucionesNuevas = devolucionesNuevas.filter(d => d.motivo_devolucion === motivo);
+  if (motivo) devolucionesNuevas = devolucionesNuevas.filter(d => d.motivo === motivo);
 
   let html = `<table class="data-table"><thead><tr><th>Número</th><th>Empleado</th><th>Área</th><th>Motivo</th><th>Productos</th><th>Piezas</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>`;
 
@@ -100,14 +102,14 @@ function renderDevoluciones() {
         no_aplica: '❌',
         renuncia: '👤',
         otro: '❓'
-      }[d.motivo_devolucion] || '•';
+      }[d.motivo] || '•';
 
       html += `
         <tr>
           <td><strong>${esc(d.numero)}</strong></td>
           <td>${esc(d.empleado_nombre)}</td>
           <td>${esc(d.area)}</td>
-          <td><small>${motivoIcon} ${esc(d.motivo_devolucion)}</small></td>
+          <td><small>${motivoIcon} ${esc(d.motivo)}</small></td>
           <td style="text-align:center">${lineas.length}</td>
           <td style="text-align:center;font-weight:bold">${piezas}</td>
           <td><small>${fmtDate(d.fecha_hora)}</small></td>
@@ -123,12 +125,12 @@ function renderDevoluciones() {
   const container = document.getElementById('devolucionesContainer');
   container.innerHTML = html;
 
-  container.addEventListener('click', e => {
+  container.onclick = e => {
     const btn = e.target.closest('button[data-devolucion-id]');
     if (btn) {
       openDetalleDevolucion(btn.dataset.devolucionId);
     }
-  });
+  };
 }
 
 function openNuevaDevolucion() {
@@ -302,7 +304,10 @@ function openNuevaDevolucion() {
 
   window.modalClose = () => modal.close();
 
-  document.addEventListener('click', (e) => {
+  if (_devolucionesWizardHandler) {
+    document.removeEventListener('click', _devolucionesWizardHandler, true);
+  }
+  _devolucionesWizardHandler = (e) => {
     if (e.target.id === 'btnAnt') {
       if (paso > 1) paso--;
       showPaso();
@@ -328,7 +333,7 @@ function openNuevaDevolucion() {
         empleado_id: datos.empleado_id,
         empleado_nombre: datos.empleado_nombre,
         area: datos.area,
-        motivo_devolucion: datos.motivo_devolucion,
+        motivo: datos.motivo_devolucion,
         observaciones: datos.observaciones,
         lineas: datos.lineas,
       });
@@ -342,7 +347,8 @@ function openNuevaDevolucion() {
       modal.close();
       renderDevoluciones();
     }
-  }, true);
+  };
+  document.addEventListener('click', _devolucionesWizardHandler, true);
 }
 
 function openDetalleDevolucion(id) {
@@ -356,7 +362,7 @@ function openDetalleDevolucion(id) {
     <p><strong>Número:</strong> ${esc(devolucion.numero)}</p>
     <p><strong>Empleado:</strong> ${esc(devolucion.empleado_nombre)}</p>
     <p><strong>Área:</strong> ${esc(devolucion.area)}</p>
-    <p><strong>Motivo:</strong> ${esc(devolucion.motivo_devolucion)}</p>
+    <p><strong>Motivo:</strong> ${esc(devolucion.motivo)}</p>
     <p><strong>Observaciones:</strong> ${esc(devolucion.observaciones || '—')}</p>
     <p><strong>Fecha:</strong> ${fmtDate(devolucion.fecha_hora)}</p>
     <p><strong>Registrado por:</strong> ${esc(devolucion.registrado_por)}</p>

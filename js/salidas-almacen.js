@@ -9,6 +9,8 @@ import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getSalidas as getSalidasNuevas, registrarSalida, getProductos } from './almacen-api.js';
 
+let _salidasWizardHandler = null;
+
 export function render() {
   const salidasNuevas = getSalidasNuevas();
   const mesActual = new Date().toISOString().slice(0, 7);
@@ -21,7 +23,7 @@ export function render() {
 
   const porTipo = {};
   salidasMes.forEach(s => {
-    porTipo[s.tipo_salida] = (porTipo[s.tipo_salida] || 0) + 1;
+    porTipo[s.tipo] = (porTipo[s.tipo] || 0) + 1;
   });
   const tipoMayoritario = Object.keys(porTipo).length > 0
     ? Object.keys(porTipo).sort((a, b) => porTipo[b] - porTipo[a])[0]
@@ -83,7 +85,7 @@ function renderSalidas() {
   const prodFilter = document.getElementById('filterProducto')?.value || '';
 
   let salidasNuevas = getSalidasNuevas();
-  if (tipoFilter) salidasNuevas = salidasNuevas.filter(s => s.tipo_salida === tipoFilter);
+  if (tipoFilter) salidasNuevas = salidasNuevas.filter(s => s.tipo === tipoFilter);
 
   let html = `<table class="data-table"><thead><tr><th>Número</th><th>Tipo</th><th>Productos</th><th>Piezas</th><th>Motivo</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>`;
 
@@ -111,7 +113,7 @@ function renderSalidas() {
         ajuste: '🔧 Ajuste',
         devolucion_proveedor: '↩️ Devolución',
         uso_interno: '🏭 Uso Interno'
-      }[s.tipo_salida] || s.tipo_salida;
+      }[s.tipo] || s.tipo;
 
       html += `
         <tr>
@@ -133,12 +135,12 @@ function renderSalidas() {
   const container = document.getElementById('salidasContainer');
   container.innerHTML = html;
 
-  container.addEventListener('click', e => {
+  container.onclick = e => {
     const btn = e.target.closest('button[data-salida-id]');
     if (btn) {
       openDetalleSalida(btn.dataset.salidaId);
     }
-  });
+  };
 }
 
 function openNuevaSalida() {
@@ -153,6 +155,7 @@ function openNuevaSalida() {
   let datos = {
     tipo_salida: '',
     motivo: '',
+    autorizado_por: '',
     referencia: '',
     observaciones: '',
     lineas: [],
@@ -175,6 +178,7 @@ function openNuevaSalida() {
           <option value="uso_interno">Uso Interno</option>
         </select>
         <textarea id="motivo" placeholder="Motivo / Referencia..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-top:12px;height:80px"></textarea>
+        <input type="text" id="autorizadoPor" placeholder="Autorizado por (opcional)..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-top:8px">
       `;
     } else if (paso === 2) {
       const productos = getProductos();
@@ -193,6 +197,7 @@ function openNuevaSalida() {
         <h4>Resumen de Salida</h4>
         <p><strong>Tipo:</strong> ${datos.tipo_salida}</p>
         <p><strong>Motivo:</strong> ${esc(datos.motivo || '—')}</p>
+        <p><strong>Autorizado por:</strong> ${esc(datos.autorizado_por || '—')}</p>
         <p><strong>Total Piezas:</strong> ${totalPiezas}</p>
         <p><strong>Total Productos:</strong> ${lineas.length}</p>
         <table class="data-table" style="margin-top:12px;font-size:12px">
@@ -215,6 +220,9 @@ function openNuevaSalida() {
       });
       document.getElementById('motivo')?.addEventListener('input', (e) => {
         datos.motivo = e.target.value;
+      });
+      document.getElementById('autorizadoPor')?.addEventListener('input', (e) => {
+        datos.autorizado_por = e.target.value;
       });
     } else if (paso === 2) {
       const productos = getProductos();
@@ -297,7 +305,10 @@ function openNuevaSalida() {
 
   window.modalClose = () => modal.close();
 
-  document.addEventListener('click', (e) => {
+  if (_salidasWizardHandler) {
+    document.removeEventListener('click', _salidasWizardHandler, true);
+  }
+  _salidasWizardHandler = (e) => {
     if (e.target.id === 'btnAnt') {
       if (paso > 1) paso--;
       showPaso();
@@ -316,8 +327,9 @@ function openNuevaSalida() {
     }
     if (e.target.id === 'btnGuardar') {
       const resultado = registrarSalida({
-        tipo_salida: datos.tipo_salida,
+        tipo: datos.tipo_salida,
         motivo: datos.motivo,
+        autorizado_por: datos.autorizado_por || '',
         lineas: datos.lineas,
       });
 
@@ -330,7 +342,8 @@ function openNuevaSalida() {
       modal.close();
       renderSalidas();
     }
-  }, true);
+  };
+  document.addEventListener('click', _salidasWizardHandler, true);
 }
 
 function openDetalleSalida(id) {
@@ -346,13 +359,14 @@ function openDetalleSalida(id) {
     ajuste: 'Ajuste',
     devolucion_proveedor: 'Devolución a Proveedor',
     uso_interno: 'Uso Interno'
-  }[salida.tipo_salida] || salida.tipo_salida;
+  }[salida.tipo] || salida.tipo;
 
   let body = `
     <p><strong>Número:</strong> ${esc(salida.numero)}</p>
     <p><strong>Tipo:</strong> ${tipoLabel}</p>
     <p><strong>Motivo:</strong> ${esc(salida.motivo || '—')}</p>
     <p><strong>Fecha:</strong> ${fmtDate(salida.fecha_hora)}</p>
+    <p><strong>Autorizado por:</strong> ${esc(salida.autorizado_por || '—')}</p>
     <p><strong>Registrado por:</strong> ${esc(salida.registrado_por)}</p>
 
     <h4 style="margin-top:12px">Productos</h4>

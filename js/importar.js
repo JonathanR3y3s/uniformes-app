@@ -127,8 +127,10 @@ function handleRestoreFile(file){
 }
 
 function previewRestore(bk){
-  if(!bk.version||!['5.0','6.0','6.1'].includes(bk.version)){
-    document.getElementById('restP').innerHTML='<div class="card" style="background:var(--danger-light);border-color:var(--danger)"><div class="card-body"><p class="font-bold" style="color:var(--danger)"><i class="fas fa-times-circle"></i> Archivo incompatible</p><p class="text-sm mt-1">Este archivo no es un respaldo válido de Control Store Pro (versión '+( bk.version||'desconocida')+').</p></div></div>';
+  const ver=bk._meta?.version||bk.version||'';
+  const VERSIONES_VALIDAS=['5.0','6.0','6.1','6.2','6.3','6.4','6.5','6.6','6.7','6.8','6.9','7.0'];
+  if(!ver||!VERSIONES_VALIDAS.includes(ver)){
+    document.getElementById('restP').innerHTML='<div class="card" style="background:var(--danger-light);border-color:var(--danger)"><div class="card-body"><p class="font-bold" style="color:var(--danger)"><i class="fas fa-times-circle"></i> Archivo incompatible</p><p class="text-sm mt-1">Este archivo no es un respaldo válido de Control Store Pro (versión '+(ver||'desconocida')+').</p></div></div>';
     return;
   }
   const emps=(bk.employees||[]).length;
@@ -137,10 +139,11 @@ function previewRestore(bk){
   const inv=(bk.inventario||[]).length;
   const users=(bk.users||[]).length;
   const areas=Object.keys(bk.areasRules||{}).length;
-  const fecha=bk.exportedAt?new Date(bk.exportedAt).toLocaleString('es-MX'):'Desconocida';
+  const exportedAt=bk._meta?.exportedAt||bk.exportedAt||'';
+  const fecha=exportedAt?new Date(exportedAt).toLocaleString('es-MX'):'Desconocida';
 
   let h='<div class="card" style="background:var(--info-bg);border-color:var(--info)"><div class="card-body">';
-  h+='<p class="font-bold mb-3" style="color:var(--info)"><i class="fas fa-database"></i> Respaldo v'+bk.version+' — '+fecha+'</p>';
+  h+='<p class="font-bold mb-3" style="color:var(--info)"><i class="fas fa-database"></i> Respaldo v'+ver+' — '+fecha+'</p>';
   h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:16px">';
   [[emps,'fa-users','Empleados'],[ents,'fa-hand-holding','Entregas'],[provs,'fa-truck','Compras'],[inv,'fa-boxes','Inventario'],[users,'fa-user-shield','Usuarios'],[areas,'fa-layer-group','Áreas']].forEach(([n,ic,lab])=>{
     h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;text-align:center">';
@@ -172,7 +175,8 @@ function execRestore(bk){
   if(bk.users&&bk.users.length)localStorage.setItem('_users_store',JSON.stringify(bk.users));
   if(bk.areasRules&&Object.keys(bk.areasRules).length)localStorage.setItem('_areas_rules',JSON.stringify(bk.areasRules));
   if(bk.catalogoProveedores&&bk.catalogoProveedores.length)localStorage.setItem('_cats_provs',JSON.stringify(bk.catalogoProveedores));
-  log('RESTAURAR','Respaldo v'+bk.version+' — '+bk.exportedAt);
+  const _ver=bk._meta?.version||bk.version||'?';const _at=bk._meta?.exportedAt||bk.exportedAt||'?';
+  log('RESTAURAR','Respaldo v'+_ver+' — '+_at);
   notify('Respaldo restaurado correctamente — recargando...','success');
   setTimeout(()=>location.reload(),1500);
 }

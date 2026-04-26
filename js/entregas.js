@@ -9,6 +9,8 @@ import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getEntregasNuevas, registrarEntregaNueva, getProductos } from './almacen-api.js';
 
+let _entregasWizardHandler = null;
+
 export function render() {
   const entregasNuevas = getEntregasNuevas();
   const mesActual = new Date().toISOString().slice(0, 7);
@@ -48,10 +50,7 @@ export function render() {
         <input type="text" id="filterEmpleado" placeholder="Filtrar por empleado..." style="padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;flex:1">
         <select id="filterArea" style="padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
           <option value="">Todas las áreas</option>
-          <option value="ADMINISTRACIÓN">Administración</option>
-          <option value="OPERACIONES">Operaciones</option>
-          <option value="VENTAS">Ventas</option>
-          <option value="LOGÍSTICA">Logística</option>
+          ${(getStore().areas || []).filter(a => a.activa !== false).map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('')}
         </select>
       </div>
 
@@ -75,7 +74,7 @@ function renderEntregas() {
   const area = document.getElementById('filterArea')?.value || '';
 
   let entregasNuevas = getEntregasNuevas();
-  if (empleado) entregasNuevas = entregasNuevas.filter(e => e.empleado_nombre.toLowerCase().includes(empleado.toLowerCase()));
+  if (empleado) entregasNuevas = entregasNuevas.filter(e => (e.empleado_nombre || '').toLowerCase().includes(empleado.toLowerCase()));
   if (area) entregasNuevas = entregasNuevas.filter(e => e.area === area);
 
   let html = `<table class="data-table"><thead><tr><th>Número</th><th>Empleado</th><th>Área</th><th>Motivo</th><th>Artículos</th><th>Piezas</th><th>Fecha</th><th>Firma</th><th>Acciones</th></tr></thead><tbody>`;
@@ -111,7 +110,7 @@ function renderEntregas() {
   const container = document.getElementById('entregasContainer');
   container.innerHTML = html;
 
-  container.addEventListener('click', e => {
+  container.onclick = e => {
     const verBtn = e.target.closest('button:not(.btn-imprimir)');
     if (verBtn && verBtn.dataset.entregaId) {
       openDetalleEntrega(verBtn.dataset.entregaId);
@@ -122,7 +121,7 @@ function renderEntregas() {
     if (impBtn) {
       imprimirRecibo(impBtn.dataset.entregaId);
     }
-  });
+  };
 }
 
 function openNuevaEntrega() {
@@ -325,7 +324,10 @@ function openNuevaEntrega() {
 
   window.modalClose = () => modal.close();
 
-  document.addEventListener('click', (e) => {
+  if (_entregasWizardHandler) {
+    document.removeEventListener('click', _entregasWizardHandler, true);
+  }
+  _entregasWizardHandler = (e) => {
     if (e.target.id === 'btnAnt') {
       if (paso > 1) paso--;
       showPaso();
@@ -339,13 +341,19 @@ function openNuevaEntrega() {
       showPaso();
     }
     if (e.target.id === 'btnGuardar') {
+      // Capturar firma del canvas si existe y no se marcó "sin firma"
+      const sinFirma = document.getElementById('sinFirma')?.checked;
+      const signCanvas = document.getElementById('signaturePad');
+      if (signCanvas && !sinFirma) {
+        datos.firma = signCanvas.toDataURL('image/png');
+      }
       const resultado = registrarEntregaNueva({
         empleado_id: datos.empleado_id,
         empleado_nombre: datos.empleado_nombre,
         area: datos.area,
         motivo: datos.motivo,
         autorizado_por: datos.autorizado_por,
-        firma: null,
+        firma: datos.firma || null,
         lineas: datos.lineas,
       });
 
@@ -358,7 +366,8 @@ function openNuevaEntrega() {
       modal.close();
       renderEntregas();
     }
-  }, true);
+  };
+  document.addEventListener('click', _entregasWizardHandler, true);
 }
 
 function openDetalleEntrega(id) {
@@ -447,6 +456,10 @@ function imprimirRecibo(id) {
   `;
 
   const w = window.open('', '', 'width=300,height=400');
+  if (!w) {
+    notify('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes.', 'warning');
+    return;
+  }
   w.document.write(html);
   w.document.close();
   setTimeout(() => w.print(), 400);

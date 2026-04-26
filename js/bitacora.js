@@ -108,8 +108,7 @@ export function init(){
     getStore().auditLog=[];
     saveAuditLog();
     notify('Bitácora limpiada','success');
-    document.getElementById('mainContent').innerHTML=render();
-    init();
+    renderRows();
   });
   renderRows();
 }

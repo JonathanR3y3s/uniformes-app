@@ -380,6 +380,10 @@ function exportGastosPDF(datos) {
   `;
 
   const w = window.open('', '', 'width=800,height=600');
+  if (!w) {
+    notify('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes.', 'warning');
+    return;
+  }
   w.document.write(html);
   w.document.close();
   setTimeout(() => w.print(), 400);

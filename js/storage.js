@@ -103,9 +103,9 @@ export function buildBackup(){
     entregas:s.entregas,salidas:s.salidas,stockExtra:s.stockExtra,areas:s.areas,
     auditLog:s.auditLog,comprasAlmacen:s.comprasAlmacen,campanias:s.campanias,
     stockUniformes:s.stockUniformes,encuestas:s.encuestas,
-    users:JSON.parse(localStorage.getItem('_users_store')||'[]'),
-    areasRules:JSON.parse(localStorage.getItem('_areas_rules')||'{}'),
-    catalogoProveedores:JSON.parse(localStorage.getItem('_cats_provs')||'[]'),
+    users:(()=>{try{return JSON.parse(localStorage.getItem('_users_store')||'[]');}catch{return [];}}()),
+    areasRules:(()=>{try{return JSON.parse(localStorage.getItem('_areas_rules')||'{}');}catch{return {};}}()),
+    catalogoProveedores:(()=>{try{return JSON.parse(localStorage.getItem('_cats_provs')||'[]');}catch{return [];}}()),
   };
 }
 /** Restaura desde backup validado — retorna {ok,errors[]} */

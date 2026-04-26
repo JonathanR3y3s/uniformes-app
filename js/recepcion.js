@@ -132,8 +132,8 @@ function renderEntradas() {
   const container = document.getElementById('entradasContainer');
   container.innerHTML = html;
 
-  // Delegación de eventos
-  container.addEventListener('click', e => {
+  // Delegación de eventos (onclick evita acumulación de listeners por cada render)
+  container.onclick = e => {
     const verBtn = e.target.closest('button[data-entrada-id]:not(.btn-completar)');
     if (verBtn) {
       const id = verBtn.dataset.entradaId;
@@ -146,7 +146,7 @@ function renderEntradas() {
       const id = completarBtn.dataset.entradaId;
       openCompletarFactura(id);
     }
-  });
+  };
 }
 
 function openNuevaRecepcion() {
@@ -160,6 +160,7 @@ function openNuevaRecepcion() {
   };
 
   showWizardStep();
+  _attachRecepcionWizardListener();
 }
 
 function showWizardStep() {
@@ -413,9 +414,12 @@ function getWizardFooter() {
   return footer;
 }
 
-// Conectar botones de navegación después de abrir modal
-document.addEventListener('DOMContentLoaded', () => {
-  document.addEventListener('click', (e) => {
+// Conectar botones de navegación del wizard — se activa en openNuevaRecepcion, se limpia al cerrar
+function _attachRecepcionWizardListener() {
+  if (_recepcionWizardHandler) {
+    document.removeEventListener('click', _recepcionWizardHandler, true);
+  }
+  _recepcionWizardHandler = (e) => {
     if (e.target.id === 'btnAnterior') {
       if (currentStep > 1) currentStep--;
       showWizardStep();
@@ -436,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
             subtotal: parseFloat(document.getElementById('subtotal')?.value || 0),
             iva: parseFloat(document.getElementById('iva')?.value || 0),
             total: parseFloat(document.getElementById('total')?.value || 0),
-            foto: null, // TODO: capturar foto
+            foto: null, // TODO: capturar foto — ver AUDITORIA_BUGS.md item H
           };
         }
       }
@@ -460,10 +464,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       notify('Recepción registrada correctamente', 'success');
       modal.close();
+      if (_recepcionWizardHandler) {
+        document.removeEventListener('click', _recepcionWizardHandler, true);
+        _recepcionWizardHandler = null;
+      }
       renderEntradas();
     }
-  }, true);
-});
+  };
+  document.addEventListener('click', _recepcionWizardHandler, true);
+}
 
 window.modalClose = () => modal.close();
 

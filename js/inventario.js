@@ -271,8 +271,8 @@ function renderProductos() {
   const container = document.getElementById('productosContainer');
   container.innerHTML = html;
 
-  // Delegación de eventos
-  container.addEventListener('click', e => {
+  // Delegación de eventos (onclick evita acumulación de listeners por cada render)
+  container.onclick = e => {
     const card = e.target.closest('.product-card');
     if (card) {
       const id = card.dataset.productId;
@@ -295,7 +295,7 @@ function renderProductos() {
         openAjusteStock(id, varId);
       }
     }
-  });
+  };
 }
 
 function openNuevoProducto() {
