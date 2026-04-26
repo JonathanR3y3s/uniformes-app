@@ -1,4 +1,4 @@
-import{NAV}from'./config.js';import{esc}from'./utils.js';import{verificarCaptura}from'./rules.js';import{getUserRole,getUser}from'./user-roles.js';import{getStore}from'./storage.js';
+import{NAV}from'./config.js';import{esc}from'./utils.js';import{verificarCaptura}from'./rules.js';import{getUserRole,getUser}from'./user-roles.js';import{getStore}from'./storage.js';import{getProductos}from'./almacen-api.js';
 let charts={};
 export function notify(msg,type){type=type||'info';const wrap=document.getElementById('notifWrap');if(!wrap)return;const icons={info:'fa-info-circle',success:'fa-check-circle',warning:'fa-exclamation-triangle',error:'fa-times-circle'};const el=document.createElement('div');el.className='notif '+(type==='error'?'error':type);el.innerHTML='<i class="fas '+(icons[type]||icons.info)+'"></i><span>'+esc(msg)+'</span>';wrap.appendChild(el);setTimeout(()=>{el.style.opacity='0';el.style.transform='translateX(100%)';el.style.transition='all .3s';setTimeout(()=>el.remove(),300);},4000);}
 export const modal={open(title,body,foot,size){document.getElementById('modalTitle').textContent=title;document.getElementById('modalBody').innerHTML=body;document.getElementById('modalFoot').innerHTML=foot||'';document.getElementById('modalBox').className='modal-box '+(size||'md');document.getElementById('modalOverlay').classList.add('open');},close(){document.getElementById('modalOverlay').classList.remove('open');}};
@@ -11,8 +11,8 @@ export function buildNav(currentView){
   const user=getUser();
   // Clear context action buttons on view change
   const ta=document.getElementById('topbarActions');if(ta)ta.innerHTML='';
-  const hiddenForOperador=['dashboard','admin','reportes','config','proveedores','salidas','catalogo','tablero','totales','centro-costos','importar','exportar','usuarios','areas','stock-uniformes','bitacora','campanias','inventario-sku','devolucion-sku'];
-  const hiddenForConsulta=['admin','importar','usuarios','config','bitacora'];
+  const hiddenForOperador=['config','importar','usuarios','bitacora'];
+  const hiddenForConsulta=['importar','usuarios','config','bitacora'];
   let html='';let activeLabel='Dashboard';
   NAV.forEach(n=>{
     if(n.section){html+='<div class="nav-section">'+n.section+'</div>';return;}
@@ -21,7 +21,7 @@ export function buildNav(currentView){
     const active=currentView===n.id?' active':'';
     if(active)activeLabel=n.label;
     let badge='';
-    if(n.id==='inventario-sku'){const bajos=(getStore().skus||[]).filter(s=>s.stock_minimo>0&&s.stock_fisico<=s.stock_minimo);if(bajos.length)badge='<span style="background:#dc2626;color:#fff;border-radius:999px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:auto;flex-shrink:0">'+bajos.length+'</span>';}
+    if(n.id==='inventario'){try{const bajos=getProductos({bajoStock:true});if(bajos.length)badge='<span style="background:#dc2626;color:#fff;border-radius:999px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:auto;flex-shrink:0">'+bajos.length+'</span>';}catch(e){}}
     html+='<div class="nav-item'+active+'" data-view="'+n.id+'"><i class="fas '+n.icon+'"></i><span class="sidebar-label" style="display:flex;align-items:center;gap:4px;flex:1">'+n.label+badge+'</span></div>';
   });
   nav.innerHTML=html;

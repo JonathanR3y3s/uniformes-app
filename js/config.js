@@ -1,4 +1,4 @@
-export const VERSION='6.9';
+export const VERSION='7.0';
 export const STORAGE_KEY='uniformes_assa_abloy_2026_v4';
 export const TALLAS={ROPA:['XCH','CH','M','G','XG','XXG','XXXG'],PANTALON:['26','28','30','32','34','36','38','40','42','44'],CALZADO:['22','23','24','25','26','27','28','29','30','31','32','33'],UNITALLA:['UNITALLA']};
 export const TIPO_TALLA={'PLAYERA POLO TIPO A':'ROPA','PLAYERA POLO TIPO B':'ROPA','CAMISOLA':'ROPA','CHALECO':'ROPA','PLAYERA PANTS':'ROPA','PANTS':'ROPA','CHAMARRA':'ROPA','PANTALON':'PANTALON','ZAPATO NORMAL':'CALZADO','ZAPATO ESPECIAL':'CALZADO','ZAPATO SEGURIDAD':'CALZADO','BOTA':'CALZADO','CHOCLO':'CALZADO','TENIS':'CALZADO','SANDALIAS':'CALZADO','TOALLA':'UNITALLA','TERMO':'UNITALLA','GORRA':'UNITALLA','SOMBRILLA':'UNITALLA'};
@@ -19,27 +19,18 @@ export const PERFILES={
 };
 export const CATEGORIAS={'BOTA':'CALZADO','CHOCLO':'CALZADO','ZAPATO ESPECIAL':'CALZADO','TENIS':'CALZADO','SANDALIAS':'CALZADO','PLAYERA POLO TIPO A':'ROPA','PLAYERA POLO TIPO B':'ROPA','PLAYERA PANTS':'ROPA','PANTALON':'ROPA','PANTS':'ROPA','CAMISOLA':'ROPA','CHALECO':'ROPA','CHAMARRA':'ROPA','GORRA':'ACCESORIOS','TERMO':'ACCESORIOS','TOALLA':'ACCESORIOS','SOMBRILLA':'ACCESORIOS'};
 export const NAV=[
-{section:'OPERACIÓN'},
+{section:'GENERAL'},
 {id:'dashboard',icon:'fa-chart-pie',label:'Dashboard'},
 {id:'empleados',icon:'fa-users',label:'Empleados'},
 {id:'captura',icon:'fa-user-edit',label:'Captura de Tallas'},
-{id:'entregas',icon:'fa-hand-holding',label:'Entrega de Uniformes'},
-{id:'entrega-sku',icon:'fa-box-open',label:'Entrega SKU'},
-{id:'campanias',icon:'fa-calendar-check',label:'Campañas'},
-{section:'ALMACÉN'},
-{id:'inventario',icon:'fa-boxes',label:'Inventario'},
-{id:'inventario-sku',icon:'fa-barcode',label:'Inventario SKU'},
-{id:'devolucion-sku',icon:'fa-undo',label:'Devoluciones'},
-{id:'stock-uniformes',icon:'fa-tshirt',label:'Stock Uniformes'},
-{id:'proveedores',icon:'fa-truck',label:'Proveedores'},
-{id:'salidas',icon:'fa-sign-out-alt',label:'Salidas de Almacén'},
-{section:'REPORTES'},
-{id:'tablero',icon:'fa-th-large',label:'Tablero Maestro'},
-{id:'totales',icon:'fa-calculator',label:'Totales'},
-{id:'centro-costos',icon:'fa-chart-line',label:'Control Financiero'},
-{id:'exportar',icon:'fa-file-export',label:'Exportar'},
-{section:'SISTEMA'},
-{id:'areas',icon:'fa-layer-group',label:'Áreas y Dotaciones'},
+{section:'ALMACÉN UNIFICADO'},
+{id:'inventario',icon:'fa-boxes',label:'Catálogo de Productos'},
+{id:'recepcion',icon:'fa-arrow-down',label:'Recepción de Mercancía'},
+{id:'entregas-personal',icon:'fa-people-carry',label:'Entregas a Personal'},
+{id:'devoluciones',icon:'fa-undo',label:'Devoluciones de Personal'},
+{id:'salidas-almacen',icon:'fa-sign-out-alt',label:'Salidas de Almacén'},
+{id:'reportes',icon:'fa-chart-bar',label:'Reportes y Consumo'},
+{section:'ADMINISTRAR'},
 {id:'usuarios',icon:'fa-user-shield',label:'Usuarios'},
 {id:'bitacora',icon:'fa-clipboard-list',label:'Bitácora'},
 {id:'importar',icon:'fa-file-import',label:'Importar Excel'},
