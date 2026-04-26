@@ -27,6 +27,7 @@ export const NAV=[
 {id:'campanias',icon:'fa-calendar-check',label:'Campañas'},
 {section:'ALMACÉN'},
 {id:'inventario',icon:'fa-boxes',label:'Inventario'},
+{id:'inventario-sku',icon:'fa-barcode',label:'Inventario SKU'},
 {id:'stock-uniformes',icon:'fa-tshirt',label:'Stock Uniformes'},
 {id:'proveedores',icon:'fa-truck',label:'Proveedores'},
 {id:'salidas',icon:'fa-sign-out-alt',label:'Salidas de Almacén'},

@@ -19,7 +19,7 @@ function _pushKV(key,value){
       import('./supabase-client.js').then(c=>c.upsertKV(key,value)).catch(()=>{});
   }).catch(()=>{});
 }
-const store={employees:[],proveedores:[],inventario:[],entregas:[],salidas:[],areas:[],stockExtra:{},auditLog:[],comprasAlmacen:[],campanias:[],stockUniformes:[],encuestas:[]};
+const store={employees:[],proveedores:[],inventario:[],entregas:[],salidas:[],areas:[],stockExtra:{},auditLog:[],comprasAlmacen:[],campanias:[],stockUniformes:[],encuestas:[],articulos:[],skus:[],movimientosInventario:[],documentosEntrega:[],documentosDevolucion:[]};
 function key(s){return STORAGE_KEY+(s||'');}
 function load(s,d){try{const r=localStorage.getItem(key(s));return r?JSON.parse(r):d;}catch(e){return d;}}
 function save(s,v){try{localStorage.setItem(key(s),JSON.stringify(v));return true;}catch(e){console.error('[STORAGE] No se pudo guardar',s,e);notify_storage_warn();return false;}}
@@ -39,6 +39,11 @@ export function init(REGLAS){
   store.campanias=load('_campanias',[]);
   store.stockUniformes=load('_stock_uniformes',[]);
   store.encuestas=load('_encuestas',[]);
+  store.articulos=load('_articulos',[]);
+  store.skus=load('_skus',[]);
+  store.movimientosInventario=load('_mov_inv',[]);
+  store.documentosEntrega=load('_docs_entrega',[]);
+  store.documentosDevolucion=load('_docs_dev',[]);
   const fixed={};Object.entries(store.stockExtra).forEach(([prenda,tallas])=>{fixed[prenda]=fixed[prenda]||{};Object.entries(tallas||{}).forEach(([t,c])=>{const tt=normTalla(t);const n=Math.max(0,parseInt(c,10)||0);if(tt&&n>0)fixed[prenda][tt]=(fixed[prenda][tt]||0)+n;});if(!Object.keys(fixed[prenda]).length)delete fixed[prenda];});store.stockExtra=fixed;
   if(!store.areas.length&&REGLAS){store.areas=Object.keys(REGLAS).map(n=>({nombre:n,activa:true}));saveAreas();}
   let changed=false;store.employees.forEach(emp=>{if(emp.area==='SUPERVISORES'&&emp.tallas&&Object.keys(emp.tallas).length>0&&!emp.capturadoManual){emp.capturadoManual=true;changed=true;}});if(changed)saveEmployees();
@@ -56,6 +61,11 @@ export function saveAuditLog(){save('_log',store.auditLog.slice(-1000));}  // au
 export function saveCampanias(){save('_campanias',store.campanias);_push('campanias',store.campanias);}
 export function saveStockUniformes(){save('_stock_uniformes',store.stockUniformes);_push('stockUniformes',store.stockUniformes);}
 export function saveEncuestas(){save('_encuestas',store.encuestas);_push('encuestas',store.encuestas);}
+export function saveArticulos(){save('_articulos',store.articulos);}
+export function saveSkus(){save('_skus',store.skus);}
+export function saveMovimientosInventario(){save('_mov_inv',store.movimientosInventario);}
+export function saveDocumentosEntrega(){save('_docs_entrega',store.documentosEntrega);}
+export function saveDocumentosDevolucion(){save('_docs_dev',store.documentosDevolucion);}
 export function log(action,det,modulo){store.auditLog.push({ts:new Date().toISOString(),action,det:det||'',modulo:modulo||'',user:_getCurrentUser()});saveAuditLog();}
 function _getCurrentUser(){try{const u=JSON.parse(localStorage.getItem('_user')||'{}');return u.name||u.id||'—';}catch{return'—';}}
 export function getStockExtra(prenda,talla){return parseInt((store.stockExtra[prenda]||{})[normTalla(talla)]||0,10);}

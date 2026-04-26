@@ -11,7 +11,7 @@ export function buildNav(currentView){
   const user=getUser();
   // Clear context action buttons on view change
   const ta=document.getElementById('topbarActions');if(ta)ta.innerHTML='';
-  const hiddenForOperador=['dashboard','admin','reportes','config','proveedores','salidas','catalogo','tablero','totales','centro-costos','importar','exportar','usuarios','areas','stock-uniformes','bitacora','campanias'];
+  const hiddenForOperador=['dashboard','admin','reportes','config','proveedores','salidas','catalogo','tablero','totales','centro-costos','importar','exportar','usuarios','areas','stock-uniformes','bitacora','campanias','inventario-sku'];
   const hiddenForConsulta=['admin','importar','usuarios','config','bitacora'];
   let html='';let activeLabel='Dashboard';
   NAV.forEach(n=>{
