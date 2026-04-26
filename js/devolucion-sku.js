@@ -49,6 +49,127 @@ export function render(){
   return h;
 }
 
+// ─── RENDER TABLA (con filtros) ───────────────────────────────────────────────
+function renderTabla(){
+  const tb=document.getElementById('dvTB');if(!tb)return;
+  const fEmp=(document.getElementById('dvFEmp')?.value||'').toLowerCase().trim();
+  const fArea=document.getElementById('dvFArea')?.value||'';
+  const fDesde=document.getElementById('dvFDesde')?.value||'';
+  const fHasta=document.getElementById('dvFHasta')?.value||'';
+
+  let docs=(getDocumentosDevolucion()||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora));
+  if(fEmp)docs=docs.filter(d=>(d.empleado_nombre||'').toLowerCase().includes(fEmp));
+  if(fArea)docs=docs.filter(d=>(d.area||'')===fArea);
+  if(fDesde)docs=docs.filter(d=>d.fecha_hora.slice(0,10)>=fDesde);
+  if(fHasta)docs=docs.filter(d=>d.fecha_hora.slice(0,10)<=fHasta);
+
+  const cnt=document.getElementById('dvCount');if(cnt)cnt.textContent=docs.length+' documentos';
+
+  if(!docs.length){
+    tb.innerHTML='<tr><td colspan="7" class="empty-state" style="padding:24px"><i class="fas fa-undo"></i><p>Sin devoluciones con estos filtros</p></td></tr>';
+    return;
+  }
+  tb.innerHTML=docs.map(d=>{
+    const pzas=(d.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
+    return'<tr>'
+      +'<td><code style="font-weight:800;font-size:12px;color:#059669">'+esc(d.numero)+'</code></td>'
+      +'<td class="font-bold text-sm">'+esc(d.empleado_nombre||'—')+'</td>'
+      +'<td class="text-sm text-muted">'+esc(d.area||'—')+'</td>'
+      +'<td style="text-align:right;font-size:13px">'+((d.lineas||[]).length)+'</td>'
+      +'<td style="text-align:right;font-weight:700;color:#059669">+'+pzas+'</td>'
+      +'<td class="text-xs font-mono">'+fmtDate((d.fecha_hora||'').slice(0,10))+'</td>'
+      +'<td style="text-align:center;white-space:nowrap">'
+        +'<button class="btn btn-sm btn-ghost dv-det" data-id="'+d.id+'" title="Ver detalle"><i class="fas fa-eye"></i></button> '
+        +'<button class="btn btn-sm btn-ghost dv-print" data-id="'+d.id+'" title="Imprimir comprobante" style="color:#059669"><i class="fas fa-print"></i></button>'
+      +'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+// ─── COMPROBANTE IMPRIMIBLE (FASE 5) ─────────────────────────────────────────
+function imprimirComprobante(docId){
+  const doc=(getStore().documentosDevolucion||[]).find(d=>d.id===docId);if(!doc)return;
+  const skuMap={};(getStore().skus||[]).forEach(s=>{skuMap[s.id]=s;});
+  const artMap={};(getStore().articulos||[]).forEach(a=>{artMap[a.id]=a;});
+
+  const lineasHTML=(doc.lineas||[]).map((l,i)=>{
+    const s=skuMap[l.sku_id];const a=s?artMap[s.articulo_id]:null;
+    return`<tr>
+      <td style="padding:8px 6px;border-bottom:1px solid #e5e7eb">${i+1}</td>
+      <td style="padding:8px 6px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-weight:700;color:#059669">${esc(s?.codigo||'?')}</td>
+      <td style="padding:8px 6px;border-bottom:1px solid #e5e7eb">${esc(a?.nombre||'—')}</td>
+      <td style="padding:8px 6px;border-bottom:1px solid #e5e7eb;text-align:center">${esc(a?.talla||'UNI')}</td>
+      <td style="padding:8px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:#059669">+${l.cantidad}</td>
+    </tr>`;
+  }).join('');
+
+  const totalPzas=(doc.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
+  const fechaFormato=new Date(doc.fecha_hora).toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'});
+
+  const html=`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Devolución ${esc(doc.numero)}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111;background:#fff;padding:32px;}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #059669;padding-bottom:14px;margin-bottom:20px;}
+  .logo-area{font-size:22px;font-weight:900;color:#059669;letter-spacing:-.5px;}
+  .logo-sub{font-size:11px;font-weight:400;color:#64748b;margin-top:2px;}
+  .doc-num{text-align:right;}
+  .doc-num .num{font-size:20px;font-weight:900;color:#059669;font-family:monospace;}
+  .doc-num .fecha{font-size:11px;color:#64748b;margin-top:4px;}
+  .badge-dev{display:inline-block;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;margin-bottom:12px;}
+  .info-box{display:flex;gap:24px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px;margin-bottom:20px;}
+  .info-field label{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px;}
+  .info-field span{font-size:14px;font-weight:700;}
+  table{width:100%;border-collapse:collapse;margin-bottom:24px;}
+  thead{background:#059669;color:#fff;}
+  th{padding:10px 6px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.03em;}
+  th:last-child,th:nth-child(4){text-align:center;}
+  .total-row td{padding:10px 6px;font-weight:700;border-top:2px solid #059669;}
+  .obs{font-size:11px;color:#64748b;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;margin-bottom:24px;}
+  .firmas{display:flex;gap:40px;margin-top:32px;}
+  .firma-box{flex:1;border-top:1.5px solid #374151;padding-top:6px;}
+  .firma-box p{font-size:11px;color:#374151;text-align:center;margin-top:4px;}
+  .footer{text-align:center;font-size:10px;color:#94a3b8;margin-top:28px;border-top:1px solid #e2e8f0;padding-top:10px;}
+  @media print{body{padding:16px;}@page{margin:12mm;}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo-area">ASSA ABLOY México<div class="logo-sub">Control de Uniformes · Sistema SKU</div></div>
+  <div class="doc-num"><div>COMPROBANTE DE DEVOLUCIÓN</div><div class="num">${esc(doc.numero)}</div><div class="fecha">${fechaFormato}</div></div>
+</div>
+<div class="badge-dev"><i class="fas fa-undo"></i> El empleado devuelve prendas al almacén — stock aumentado</div>
+<div class="info-box">
+  <div class="info-field"><label>Empleado</label><span>${esc(doc.empleado_nombre||'—')}</span></div>
+  <div class="info-field"><label>Área / Departamento</label><span>${esc(doc.area||'—')}</span></div>
+  <div class="info-field"><label>Total piezas</label><span>+${totalPzas}</span></div>
+  <div class="info-field"><label>Registrado por</label><span>${esc(doc.creado_por||'—')}</span></div>
+</div>
+<table>
+  <thead><tr><th>#</th><th>Código SKU</th><th>Artículo</th><th>Talla</th><th>Cant.</th></tr></thead>
+  <tbody>${lineasHTML}</tbody>
+  <tfoot><tr class="total-row"><td colspan="4" style="padding:10px 6px">Total piezas devueltas:</td><td style="text-align:center;font-size:16px;font-weight:900;color:#059669;padding:10px 6px">+${totalPzas}</td></tr></tfoot>
+</table>
+${doc.observaciones?`<div class="obs"><strong>Motivo / Observaciones:</strong> ${esc(doc.observaciones)}</div>`:''}
+<div class="firmas">
+  <div class="firma-box"><p>Firma del empleado que devuelve</p><p style="margin-top:2px;font-weight:700">${esc(doc.empleado_nombre||'')}</p></div>
+  <div class="firma-box"><p>Recibido por (almacén)</p><p style="margin-top:2px;font-weight:700">${esc(doc.creado_por||'')}</p></div>
+</div>
+<div class="footer">Documento generado el ${new Date().toLocaleString('es-MX')} · ${esc(doc.numero)} · ASSA ABLOY México — Control Store Pro</div>
+</body></html>`;
+
+  const win=window.open('','_blank','width=800,height=650');
+  if(!win){notify('Activa los popups para imprimir','warning');return;}
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(),400);
+}
+
 // ─── MODAL: NUEVA DEVOLUCIÓN ──────────────────────────────────────────────────
 // Movida desde inventario-sku.js — lógica interna SIN modificar.
 function openNuevaDevolucion(){
@@ -145,14 +266,21 @@ function openDetalleDevolucion(docId){
     h+='<td style="text-align:right;font-weight:700;color:#059669">+'+l.cantidad+'</td></tr>';
   });
   h+='</tbody></table></div>';
-  modal.open('Devolución — '+doc.numero,h,'<button class="btn btn-ghost" id="mClose">Cerrar</button>','md');
+  modal.open('Devolución — '+doc.numero,h,'<button class="btn btn-ghost" id="mClose">Cerrar</button><button class="btn btn-success" id="mPrint"><i class="fas fa-print mr-1"></i>Imprimir Comprobante</button>','md');
   document.getElementById('mClose')?.addEventListener('click',()=>modal.close());
+  document.getElementById('mPrint')?.addEventListener('click',()=>{modal.close();imprimirComprobante(docId);});
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 export function init(){
   document.getElementById('dvBtnNueva')?.addEventListener('click',openNuevaDevolucion);
+  document.getElementById('dvFEmp')?.addEventListener('input',renderTabla);
+  document.getElementById('dvFArea')?.addEventListener('change',renderTabla);
+  document.getElementById('dvFDesde')?.addEventListener('change',renderTabla);
+  document.getElementById('dvFHasta')?.addEventListener('change',renderTabla);
   document.getElementById('mainContent')?.addEventListener('click',e=>{
     const det=e.target.closest('.dv-det');if(det){openDetalleDevolucion(det.dataset.id);}
+    const prnt=e.target.closest('.dv-print');if(prnt){imprimirComprobante(prnt.dataset.id);}
   });
+  renderTabla();
 }
