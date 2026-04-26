@@ -5,6 +5,7 @@ import{esc,genId,getTallasOpts,normTalla,fmtDate,fmt}from'./utils.js';
 import{buildAreaBadge,buildStatusBadge,notify,modal,confirm}from'./ui.js';
 import{getUserRole,getUser}from'./user-roles.js';
 import{findUser}from'./users.js';
+import{getDocumentosEntregaByEmpleado,getDocumentosDevolucion}from'./sku-api.js';
 
 function avatarHTML(emp,size){
   size=size||36;
@@ -273,8 +274,68 @@ function openFichaEmp(id){
     h+='</div></div>';
   }
 
+  // ── Historial SKU ─────────────────────────────────────────────────────────
+  const skuEnts=(getDocumentosEntregaByEmpleado(id).length
+    ?getDocumentosEntregaByEmpleado(id)
+    :(getStore().documentosEntrega||[]).filter(d=>d.empleado_nombre===(emp.nombre||'')))
+    .slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora));
+  const skuDevs=(getDocumentosDevolucion()||[])
+    .filter(d=>d.empleado_id===id||d.empleado_id===(emp.numero||'')||d.empleado_nombre===emp.nombre)
+    .slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora));
+  const totalSkuPzas=skuEnts.reduce((t,d)=>(d.lineas||[]).reduce((s,l)=>s+l.cantidad,t),0);
+  const totalDevPzas=skuDevs.reduce((t,d)=>(d.lineas||[]).reduce((s,l)=>s+l.cantidad,t),0);
+
+  if(skuEnts.length||skuDevs.length){
+    h+='<div class="divider-label mt-4">Historial SKU</div>';
+    // KPIs mini
+    h+='<div style="display:flex;gap:10px;margin:10px 0">';
+    h+='<div style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;text-align:center">';
+    h+='<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Entregas SKU</div>';
+    h+='<div style="font-size:22px;font-weight:900;color:#7c3aed">'+skuEnts.length+'</div>';
+    h+='<div style="font-size:11px;color:var(--text-muted)">'+totalSkuPzas+' piezas</div></div>';
+    h+='<div style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;text-align:center">';
+    h+='<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Devoluciones SKU</div>';
+    h+='<div style="font-size:22px;font-weight:900;color:#059669">'+skuDevs.length+'</div>';
+    h+='<div style="font-size:11px;color:var(--text-muted)">+'+totalDevPzas+' piezas</div></div>';
+    h+='</div>';
+    // Últimas 5 entregas SKU
+    if(skuEnts.length){
+      h+='<p class="text-xs text-muted mb-1" style="font-weight:700">Últimas entregas</p>';
+      h+='<div class="table-wrap" style="max-height:180px"><table class="dt" style="font-size:12px"><thead><tr>';
+      h+='<th>Número</th><th>Fecha</th><th style="text-align:right">Arts.</th><th style="text-align:right">Piezas</th>';
+      h+='</tr></thead><tbody>';
+      h+=skuEnts.slice(0,5).map(d=>{
+        const pzas=(d.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
+        return'<tr>'
+          +'<td><code style="font-weight:800;font-size:11px;color:#7c3aed">'+esc(d.numero)+'</code></td>'
+          +'<td class="text-xs font-mono">'+fmtDate((d.fecha_hora||'').slice(0,10))+'</td>'
+          +'<td style="text-align:right">'+((d.lineas||[]).length)+'</td>'
+          +'<td style="text-align:right;font-weight:700">'+pzas+'</td>'
+          +'</tr>';
+      }).join('');
+      h+='</tbody></table></div>';
+      if(skuEnts.length>5)h+='<p class="text-xs text-muted" style="text-align:right;margin-top:4px">+' +(skuEnts.length-5)+' más — ver en Entrega SKU</p>';
+    }
+    // Últimas 3 devoluciones
+    if(skuDevs.length){
+      h+='<p class="text-xs text-muted mb-1 mt-3" style="font-weight:700">Últimas devoluciones</p>';
+      h+='<div class="table-wrap" style="max-height:130px"><table class="dt" style="font-size:12px"><thead><tr>';
+      h+='<th>Número</th><th>Fecha</th><th style="text-align:right">Piezas devueltas</th>';
+      h+='</tr></thead><tbody>';
+      h+=skuDevs.slice(0,3).map(d=>{
+        const pzas=(d.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
+        return'<tr>'
+          +'<td><code style="font-weight:800;font-size:11px;color:#059669">'+esc(d.numero)+'</code></td>'
+          +'<td class="text-xs font-mono">'+fmtDate((d.fecha_hora||'').slice(0,10))+'</td>'
+          +'<td style="text-align:right;font-weight:700;color:#059669">+'+pzas+'</td>'
+          +'</tr>';
+      }).join('');
+      h+='</tbody></table></div>';
+    }
+  }
+
   modal.open(esc((emp.nombre||'')+' '+(emp.paterno||'')),h,
-    '<button class="btn btn-ghost" id="mCancel">Cerrar</button><button class="btn btn-accent" id="mFichaEdit"><i class="fas fa-edit"></i> Editar tallas</button>','md');
+    '<button class="btn btn-ghost" id="mCancel">Cerrar</button><button class="btn btn-accent" id="mFichaEdit"><i class="fas fa-edit"></i> Editar tallas</button>','lg');
   document.getElementById('mCancel')?.addEventListener('click',()=>modal.close());
   document.getElementById('mFichaEdit')?.addEventListener('click',()=>{modal.close();openEditEmp(id);});
 }
