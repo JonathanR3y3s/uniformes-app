@@ -1,4 +1,5 @@
 import{VERSION}from'./config.js';import{getStore}from'./storage.js';import{calcStats,calcStatsArea}from'./rules.js';import{buildAreaBadge}from'./ui.js';import{getAreaNames}from'./areas-config.js';import{fmt,fmtMoney,esc}from'./utils.js';
+import{getAllSkusResumen,getSkusConBajoStock,getDocumentosEntrega,getDocumentosDevolucion}from'./sku-api.js';
 
 function areaIcon(name){const n=(name||'').toUpperCase();if(n.includes('PLANT'))return{icon:'fa-industry',color:'#2563eb'};if(n.includes('MANTEN')||n.includes('MECANIC')||n.includes('TALLER'))return{icon:'fa-tools',color:'#d97706'};if(n.includes('SUPERV'))return{icon:'fa-user-tie',color:'#7c3aed'};if(n.includes('PUERTA'))return{icon:'fa-door-open',color:'#059669'};if(n.includes('MATERIA'))return{icon:'fa-boxes',color:'#0891b2'};if(n.includes('TULT'))return{icon:'fa-building',color:'#dc2626'};if(n.includes('BRUK'))return{icon:'fa-hard-hat',color:'#ea580c'};if(n.includes('ADMIN')||n.includes('OFIC'))return{icon:'fa-briefcase',color:'#475569'};if(n.includes('ALMAC'))return{icon:'fa-warehouse',color:'#854d0e'};if(n.includes('SEGUR'))return{icon:'fa-shield-alt',color:'#1d4ed8'};return{icon:'fa-layer-group',color:'#64748b'};}
 
@@ -99,6 +100,59 @@ export function render(){
   }
   h+='</div></div>';
   h+='</div>';
+
+  // ── Sección SKU ─────────────────────────────────────────────────────────────
+  const allSkus=getAllSkusResumen();
+  if(allSkus.length){
+    const skusBajos=getSkusConBajoStock();
+    const mesKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    const docsEnt=(getDocumentosEntrega()||[]);
+    const docsDev=(getDocumentosDevolucion()||[]);
+    const entMes=docsEnt.filter(d=>(d.fecha_hora||'').startsWith(mesKey));
+    const devMes=docsDev.filter(d=>(d.fecha_hora||'').startsWith(mesKey));
+    const pzasEnt=entMes.reduce((t,d)=>(d.lineas||[]).reduce((s,l)=>s+l.cantidad,t),0);
+    const pzasDev=devMes.reduce((t,d)=>(d.lineas||[]).reduce((s,l)=>s+l.cantidad,t),0);
+    const totalPzasStock=allSkus.reduce((t,s)=>t+s.stock_fisico,0);
+    const skuConStock=allSkus.filter(s=>s.stock_fisico>0).length;
+
+    h+='<div style="margin-bottom:20px">';
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">';
+    h+='<i class="fas fa-barcode" style="color:#7c3aed;font-size:16px"></i>';
+    h+='<h3 style="font-size:14px;font-weight:700;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase">Almacén SKU</h3>';
+    if(skusBajos.length)h+='<span style="background:#dc2626;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:2px 8px"><i class="fas fa-exclamation-triangle mr-1"></i>'+skusBajos.length+' en alerta</span>';
+    h+='</div>';
+
+    // KPIs SKU
+    h+='<div class="kpi-grid">';
+    h+='<div class="kpi" style="border-top:2px solid #7c3aed"><div class="kpi-label">SKUs registrados</div><div class="kpi-value">'+allSkus.length+'</div><div class="kpi-sub">'+skuConStock+' con stock</div></div>';
+    h+='<div class="kpi" style="border-top:2px solid #2563eb"><div class="kpi-label">Piezas en stock</div><div class="kpi-value">'+totalPzasStock+'</div><div class="kpi-sub">unidades físicas totales</div></div>';
+    h+='<div class="kpi" style="border-top:2px solid #059669"><div class="kpi-label">Entregas SKU — '+now.toLocaleDateString('es-MX',{month:'short'})+'</div><div class="kpi-value">'+entMes.length+'</div><div class="kpi-sub">'+pzasEnt+' piezas entregadas</div></div>';
+    h+='<div class="kpi" style="border-top:2px solid #0891b2"><div class="kpi-label">Devoluciones SKU — '+now.toLocaleDateString('es-MX',{month:'short'})+'</div><div class="kpi-value">'+devMes.length+'</div><div class="kpi-sub">+'+pzasDev+' piezas retornadas</div></div>';
+    if(skusBajos.length)h+='<div class="kpi" style="border-top:2px solid #dc2626"><div class="kpi-label"><i class="fas fa-exclamation-triangle mr-1" style="color:#dc2626"></i>SKUs bajo mínimo</div><div class="kpi-value" style="color:#dc2626">'+skusBajos.length+'</div><div class="kpi-sub">requieren reposición</div></div>';
+    h+='</div>';
+
+    // Mini-tabla: SKUs críticos (bajo mínimo o sin stock)
+    const criticos=allSkus.filter(s=>s.sinStock||s.bajoStock).slice(0,8);
+    if(criticos.length){
+      h+='<div class="card mt-3"><div class="card-head"><h3><i class="fas fa-exclamation-triangle mr-2" style="color:#dc2626"></i>SKUs que requieren atención</h3><span class="text-xs text-muted">'+criticos.length+' artículo'+(criticos.length!==1?'s':'')+' en alerta</span></div>';
+      h+='<div class="table-wrap"><table class="dt" style="font-size:13px"><thead><tr><th>Código SKU</th><th>Artículo</th><th>Talla</th><th style="text-align:right">Stock actual</th><th style="text-align:right">Mínimo</th><th style="text-align:center">Estado</th></tr></thead><tbody>';
+      h+=criticos.map(s=>{
+        const badge=s.sinStock
+          ?'<span style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">Sin stock</span>'
+          :'<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700"><i class="fas fa-exclamation-triangle mr-1"></i>Bajo</span>';
+        return'<tr>'
+          +'<td><code style="font-weight:800;font-size:12px;color:var(--primary)">'+esc(s.codigo)+'</code></td>'
+          +'<td class="text-sm font-bold">'+esc(s.nombre)+'</td>'
+          +'<td class="text-sm">'+esc(s.talla)+'</td>'
+          +'<td style="text-align:right;font-size:20px;font-weight:900;color:'+(s.sinStock?'#94a3b8':'#dc2626')+'">'+s.stock_fisico+'</td>'
+          +'<td style="text-align:right;font-size:13px;color:var(--text-muted)">'+s.stock_minimo+'</td>'
+          +'<td style="text-align:center">'+badge+'</td>'
+          +'</tr>';
+      }).join('');
+      h+='</tbody></table></div></div>';
+    }
+    h+='</div>';
+  }
 
   // Detail table
   h+='<div class="card"><div class="card-head"><h3>Detalle por Área</h3><span class="text-xs text-muted">Temporada '+thisYear+'</span></div><div class="table-wrap"><table class="dt"><thead><tr><th>Área</th><th style="text-align:center">Total</th><th style="text-align:center">Capturados</th><th style="text-align:center">Pendientes</th><th style="text-align:center">Bajas</th><th>Progreso</th></tr></thead><tbody>';
