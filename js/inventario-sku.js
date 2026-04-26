@@ -11,6 +11,10 @@ import{
   getAbrevNombre,
   registrarInventarioInicial,
   registrarEntradaCompra,
+  registrarDocumentoEntrega,
+  registrarDocumentoDevolucion,
+  getDocumentosEntrega,
+  getDocumentosDevolucion,
   getMovimientosPorSKU,
   getSkusConBajoStock,
   getSkuResumen,
@@ -53,6 +57,8 @@ export function render(){
     h+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
     h+='<button class="btn btn-success" id="skuBtnInicial"><i class="fas fa-layer-group mr-1"></i>Inventario Inicial</button>';
     h+='<button class="btn btn-primary" id="skuBtnEntrada"><i class="fas fa-truck mr-1"></i>Entrada de Proveedor</button>';
+    h+='<button class="btn" style="background:#7c3aed;color:#fff" id="skuBtnEntrega"><i class="fas fa-hand-holding mr-1"></i>Nueva Entrega</button>';
+    h+='<button class="btn btn-ghost" id="skuBtnDev"><i class="fas fa-undo mr-1"></i>Devolución</button>';
     h+='</div>';
   }
   h+='</div>';
@@ -86,13 +92,38 @@ export function render(){
   h+='<button class="btn btn-ghost" id="skuFClear" title="Limpiar filtros"><i class="fas fa-times"></i></button>';
   h+='</div></div></div></div>';
 
-  // Tabla
+  // Tabla SKUs
   h+='<div class="card"><div class="card-head"><h3>SKUs registrados</h3><span class="text-sm text-muted" id="skuCount"></span></div>';
   h+='<div class="table-wrap"><table class="dt"><thead><tr>';
   h+='<th>Código SKU</th><th>Prenda</th><th>Talla</th><th>Modelo</th><th>Cat.</th>';
   h+='<th style="text-align:right">Stock</th><th style="text-align:center">Estado</th>';
   h+='<th style="text-align:center">Acciones</th></tr></thead>';
   h+='<tbody id="skuTB"></tbody></table></div></div>';
+
+  // Documentos recientes (entregas + devoluciones)
+  if(isAdmin){
+    const docsEnt=(getDocumentosEntrega()||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora)).slice(0,10);
+    const docsDev=(getDocumentosDevolucion()||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora)).slice(0,10);
+    const todosDoc=[...docsEnt.map(d=>({...d,_tipo:'entrega'})),...docsDev.map(d=>({...d,_tipo:'devolucion'}))].sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora)).slice(0,15);
+    if(todosDoc.length){
+      h+='<div class="card mt-4"><div class="card-head"><h3>Últimos movimientos documentados</h3><span class="text-sm text-muted">Entregas y devoluciones</span></div>';
+      h+='<div class="table-wrap"><table class="dt"><thead><tr><th>Número</th><th>Tipo</th><th>Empleado / Área</th><th>Artículos</th><th>Fecha</th></tr></thead><tbody>';
+      todosDoc.forEach(d=>{
+        const esEnt=d._tipo==='entrega';
+        const badge=esEnt
+          ?'<span style="background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px"><i class="fas fa-hand-holding mr-1"></i>Entrega</span>'
+          :'<span style="background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px"><i class="fas fa-undo mr-1"></i>Devolución</span>';
+        h+='<tr>'
+          +'<td><code style="font-weight:800;font-size:12px;color:var(--primary)">'+esc(d.numero)+'</code></td>'
+          +'<td>'+badge+'</td>'
+          +'<td class="text-sm"><strong>'+esc(d.empleado_nombre||'—')+'</strong><br><span class="text-muted text-xs">'+esc(d.area||'')+'</span></td>'
+          +'<td class="text-xs text-muted">'+((d.lineas||[]).length)+' línea'+(d.lineas?.length===1?'':'s')+'</td>'
+          +'<td class="text-xs font-mono">'+fmtDate((d.fecha_hora||'').slice(0,10))+'</td>'
+          +'</tr>';
+      });
+      h+='</tbody></table></div></div>';
+    }
+  }
   return h;
 }
 
@@ -410,10 +441,170 @@ function openEditMinimo(skuId){
   });
 }
 
+// ─── MODAL: NUEVA ENTREGA (FASE 2) ───────────────────────────────────────────
+function openNuevaEntrega(){
+  const skus=getAllSkusResumen().filter(s=>s.stock_fisico>0);
+  const emps=(getStore().employees||[]).filter(e=>e.activo!==false).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  let empSel={id:'',nombre:'',area:''};
+  let lineas=[]; // [{sku_id,sku_codigo,sku_nombre,sku_talla,stock_disp,cantidad}]
+
+  function buildH(){
+    let h='<div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#5b21b6"><i class="fas fa-info-circle mr-2"></i>Crea un documento de entrega. El stock se descuenta inmediatamente de cada SKU. Operación <strong>irreversible</strong> (usa Devolución para revertir).</div>';
+    // Empleado
+    h+='<div class="form-row c2 mb-3">';
+    h+='<div class="form-group"><label class="form-label">Empleado *</label>';
+    h+='<input class="form-input" id="neEmpQ" list="neEmpL" placeholder="Buscar por nombre..." autocomplete="off">';
+    h+='<datalist id="neEmpL">'+emps.map(e=>'<option value="'+esc(e.nombre)+'">').join('')+'</datalist>';
+    h+='<div id="neEmpInfo" class="text-xs text-muted mt-1"></div></div>';
+    h+='<div class="form-group"><label class="form-label">Área</label>';
+    h+='<input class="form-input" id="neArea" value="'+esc(empSel.area)+'" readonly></div>';
+    h+='</div>';
+    // Buscar SKU para agregar
+    h+='<div class="form-group mb-2"><label class="form-label">Agregar artículo</label>';
+    h+='<div style="display:flex;gap:8px">';
+    h+='<input class="form-input" id="neSkuQ" list="neSkuL" placeholder="Código SKU o nombre..." autocomplete="off" style="flex:1">';
+    h+='<datalist id="neSkuL">'+skus.map(s=>'<option value="'+esc(s.codigo)+'">'+esc(s.nombre)+' T'+esc(s.talla)+'</option>').join('')+'</datalist>';
+    h+='<button class="btn btn-ghost" id="neAgregar" title="Agregar a la lista"><i class="fas fa-plus"></i></button>';
+    h+='</div></div>';
+    // Lista de líneas
+    h+='<div id="neLineas" style="min-height:60px;border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:12px">';
+    if(!lineas.length){h+='<p class="text-xs text-muted" style="text-align:center;padding:12px 0">Sin artículos agregados</p>';}
+    else{
+      h+=lineas.map((l,i)=>'<div style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border)">'
+        +'<code style="font-size:12px;font-weight:800;color:var(--primary);min-width:110px">'+esc(l.sku_codigo)+'</code>'
+        +'<span class="text-xs text-muted" style="flex:1">'+esc(l.sku_nombre)+' T'+esc(l.sku_talla)+'</span>'
+        +'<span class="text-xs" style="color:#94a3b8">Disp:'+l.stock_disp+'</span>'
+        +'<button class="btn btn-ghost ne-minus" data-idx="'+i+'" style="min-width:30px;padding:2px 6px">−</button>'
+        +'<span style="min-width:24px;text-align:center;font-weight:900;font-size:16px">'+l.cantidad+'</span>'
+        +'<button class="btn btn-ghost ne-plus" data-idx="'+i+'" style="min-width:30px;padding:2px 6px">+</button>'
+        +'<button class="btn btn-ghost ne-del" data-idx="'+i+'" style="color:#dc2626;padding:2px 6px" title="Quitar"><i class="fas fa-times"></i></button>'
+        +'</div>').join('');
+    }
+    h+='</div>';
+    h+='<div class="form-group"><label class="form-label">Observaciones</label>';
+    h+='<input class="form-input" id="neObs" placeholder="Opcional..."></div>';
+    return h;
+  }
+
+  function renderLineas(){const el=document.getElementById('neLineas');if(el)el.outerHTML='<div id="neLineas" style="min-height:60px;border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:12px">'+buildLineasHTML()+'</div>';attachLineasEvents();}
+  function buildLineasHTML(){if(!lineas.length)return'<p class="text-xs text-muted" style="text-align:center;padding:12px 0">Sin artículos agregados</p>';return lineas.map((l,i)=>'<div style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border)">'+'<code style="font-size:12px;font-weight:800;color:var(--primary);min-width:110px">'+esc(l.sku_codigo)+'</code>'+'<span class="text-xs text-muted" style="flex:1">'+esc(l.sku_nombre)+' T'+esc(l.sku_talla)+'</span>'+'<span class="text-xs" style="color:#94a3b8">Disp:'+l.stock_disp+'</span>'+'<button class="btn btn-ghost ne-minus" data-idx="'+i+'" style="min-width:30px;padding:2px 6px">−</button>'+'<span style="min-width:24px;text-align:center;font-weight:900;font-size:16px">'+l.cantidad+'</span>'+'<button class="btn btn-ghost ne-plus" data-idx="'+i+'" style="min-width:30px;padding:2px 6px">+</button>'+'<button class="btn btn-ghost ne-del" data-idx="'+i+'" style="color:#dc2626;padding:2px 6px" title="Quitar"><i class="fas fa-times"></i></button>'+'</div>').join('');}
+
+  function redrawLineas(){const el=document.getElementById('neLineas');if(el){el.innerHTML=buildLineasHTML();attachLineasEvents();}}
+
+  function attachLineasEvents(){
+    document.querySelectorAll('.ne-minus').forEach(btn=>btn.addEventListener('click',()=>{const i=parseInt(btn.dataset.idx,10);if(lineas[i]&&lineas[i].cantidad>1){lineas[i].cantidad--;redrawLineas();}}));
+    document.querySelectorAll('.ne-plus').forEach(btn=>btn.addEventListener('click',()=>{const i=parseInt(btn.dataset.idx,10);if(lineas[i]&&lineas[i].cantidad<lineas[i].stock_disp){lineas[i].cantidad++;redrawLineas();}}));
+    document.querySelectorAll('.ne-del').forEach(btn=>btn.addEventListener('click',()=>{const i=parseInt(btn.dataset.idx,10);lineas.splice(i,1);redrawLineas();}));
+  }
+
+  modal.open('Nueva Entrega de Uniformes',buildH(),'<button class="btn btn-ghost" id="neCancel">Cancelar</button><button class="btn" style="background:#7c3aed;color:#fff" id="neGuardar"><i class="fas fa-hand-holding mr-1"></i>Registrar Entrega</button>','lg');
+  attachLineasEvents();
+
+  document.getElementById('neCancel')?.addEventListener('click',()=>modal.close());
+
+  // Autocompletar empleado
+  document.getElementById('neEmpQ')?.addEventListener('input',function(){
+    const q=(this.value||'').toLowerCase().trim();
+    const emp=emps.find(e=>(e.nombre||'').toLowerCase()===q||(e.nombre||'').toLowerCase().startsWith(q));
+    const info=document.getElementById('neEmpInfo');
+    const area=document.getElementById('neArea');
+    if(emp){empSel={id:emp.id||emp.numero||'',nombre:emp.nombre,area:emp.area||''};if(area)area.value=emp.area||'';if(info)info.textContent='#'+(emp.numero||'')+' · '+(emp.area||'')+' · '+(emp.puesto||'');}
+    else{empSel={id:'',nombre:this.value,area:''};if(area)area.value='';if(info)info.textContent='';}
+  });
+
+  // Agregar SKU
+  document.getElementById('neAgregar')?.addEventListener('click',()=>{
+    const q=(document.getElementById('neSkuQ')?.value||'').trim();
+    if(!q){notify('Escribe un código SKU o nombre','warning');return;}
+    const sku=skus.find(s=>s.codigo===q||s.codigo.toLowerCase()===q.toLowerCase()||s.nombre.toLowerCase()===q.toLowerCase());
+    if(!sku){notify('SKU no encontrado o sin stock: '+q,'warning');return;}
+    const ya=lineas.find(l=>l.sku_id===sku.id);
+    if(ya){if(ya.cantidad<ya.stock_disp){ya.cantidad++;redrawLineas();}else notify('Cantidad máxima alcanzada ('+ya.stock_disp+')','warning');const i=document.getElementById('neSkuQ');if(i)i.value='';return;}
+    lineas.push({sku_id:sku.id,sku_codigo:sku.codigo,sku_nombre:sku.nombre,sku_talla:sku.talla,stock_disp:sku.stock_fisico,cantidad:1});
+    redrawLineas();
+    const i=document.getElementById('neSkuQ');if(i)i.value='';
+  });
+
+  document.getElementById('neGuardar')?.addEventListener('click',()=>{
+    if(!empSel.nombre.trim()){notify('El empleado es obligatorio','warning');return;}
+    if(!lineas.length){notify('Agrega al menos un artículo','warning');return;}
+    const obs=document.getElementById('neObs')?.value||'';
+    const res=registrarDocumentoEntrega({empleado_id:empSel.id,empleado_nombre:empSel.nombre,area:empSel.area,observaciones:obs,lineas:lineas.map(l=>({sku_id:l.sku_id,cantidad:l.cantidad}))});
+    if(!res.ok){notify(res.error||'Error','error');return;}
+    notify('Entrega '+res.documento.numero+' registrada — '+lineas.length+' artículo(s)','success');
+    modal.close();
+    const main=document.getElementById('mainContent');if(main){main.innerHTML=render();init();}
+  });
+}
+
+// ─── MODAL: NUEVA DEVOLUCIÓN (FASE 2) ────────────────────────────────────────
+function openNuevaDevolucion(){
+  const skusAll=getAllSkusResumen();
+  const emps=(getStore().employees||[]).filter(e=>e.activo!==false).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  let empSel={id:'',nombre:'',area:''};
+  let lineas=[];
+
+  function buildLineasHTML(){if(!lineas.length)return'<p class="text-xs text-muted" style="text-align:center;padding:12px 0">Sin artículos</p>';return lineas.map((l,i)=>'<div style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid var(--border)">'+'<code style="font-size:12px;font-weight:800;color:#059669;min-width:110px">'+esc(l.sku_codigo)+'</code>'+'<span class="text-xs text-muted" style="flex:1">'+esc(l.sku_nombre)+' T'+esc(l.sku_talla)+'</span>'+'<button class="btn btn-ghost dv-minus" data-idx="'+i+'" style="min-width:30px;padding:2px 6px">−</button>'+'<span style="min-width:24px;text-align:center;font-weight:900;font-size:16px">'+l.cantidad+'</span>'+'<button class="btn btn-ghost dv-plus" data-idx="'+i+'" style="min-width:30px;padding:2px 6px">+</button>'+'<button class="btn btn-ghost dv-del" data-idx="'+i+'" style="color:#dc2626;padding:2px 6px"><i class="fas fa-times"></i></button>'+'</div>').join('');}
+  function redrawLineas(){const el=document.getElementById('dvLineas');if(el){el.innerHTML=buildLineasHTML();attachLineasEvents();}}
+  function attachLineasEvents(){
+    document.querySelectorAll('.dv-minus').forEach(btn=>btn.addEventListener('click',()=>{const i=parseInt(btn.dataset.idx,10);if(lineas[i]&&lineas[i].cantidad>1){lineas[i].cantidad--;redrawLineas();}}));
+    document.querySelectorAll('.dv-plus').forEach(btn=>btn.addEventListener('click',()=>{const i=parseInt(btn.dataset.idx,10);if(lineas[i]){lineas[i].cantidad++;redrawLineas();}}));
+    document.querySelectorAll('.dv-del').forEach(btn=>btn.addEventListener('click',()=>{lineas.splice(parseInt(btn.dataset.idx,10),1);redrawLineas();}));
+  }
+
+  let h='<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#065f46"><i class="fas fa-info-circle mr-2"></i>El empleado devuelve prendas al almacén. El stock de cada SKU <strong>aumenta</strong>.</div>';
+  h+='<div class="form-row c2 mb-3"><div class="form-group"><label class="form-label">Empleado *</label>';
+  h+='<input class="form-input" id="dvEmpQ" list="dvEmpL" placeholder="Nombre del empleado..." autocomplete="off">';
+  h+='<datalist id="dvEmpL">'+emps.map(e=>'<option value="'+esc(e.nombre)+'">').join('')+'</datalist>';
+  h+='<div id="dvEmpInfo" class="text-xs text-muted mt-1"></div></div>';
+  h+='<div class="form-group"><label class="form-label">Área</label><input class="form-input" id="dvArea" value="" readonly></div></div>';
+  h+='<div class="form-group mb-2"><label class="form-label">Agregar artículo devuelto</label>';
+  h+='<div style="display:flex;gap:8px"><input class="form-input" id="dvSkuQ" list="dvSkuL" placeholder="Código SKU..." autocomplete="off" style="flex:1">';
+  h+='<datalist id="dvSkuL">'+skusAll.map(s=>'<option value="'+esc(s.codigo)+'">'+esc(s.nombre)+' T'+esc(s.talla)+'</option>').join('')+'</datalist>';
+  h+='<button class="btn btn-ghost" id="dvAgregar"><i class="fas fa-plus"></i></button></div></div>';
+  h+='<div id="dvLineas" style="min-height:60px;border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:12px"><p class="text-xs text-muted" style="text-align:center;padding:12px 0">Sin artículos</p></div>';
+  h+='<div class="form-group"><label class="form-label">Observaciones</label><input class="form-input" id="dvObs" placeholder="Motivo de devolución..."></div>';
+
+  modal.open('Devolución de Uniformes',h,'<button class="btn btn-ghost" id="dvCancel">Cancelar</button><button class="btn btn-success" id="dvGuardar"><i class="fas fa-undo mr-1"></i>Registrar Devolución</button>','lg');
+  attachLineasEvents();
+
+  document.getElementById('dvCancel')?.addEventListener('click',()=>modal.close());
+  document.getElementById('dvEmpQ')?.addEventListener('input',function(){
+    const q=(this.value||'').toLowerCase().trim();
+    const emp=emps.find(e=>(e.nombre||'').toLowerCase()===q||(e.nombre||'').toLowerCase().startsWith(q));
+    const info=document.getElementById('dvEmpInfo');const area=document.getElementById('dvArea');
+    if(emp){empSel={id:emp.id||emp.numero||'',nombre:emp.nombre,area:emp.area||''};if(area)area.value=emp.area||'';if(info)info.textContent='#'+(emp.numero||'')+' · '+(emp.area||'');}
+    else{empSel={id:'',nombre:this.value,area:''};if(area)area.value='';if(info)info.textContent='';}
+  });
+  document.getElementById('dvAgregar')?.addEventListener('click',()=>{
+    const q=(document.getElementById('dvSkuQ')?.value||'').trim();
+    if(!q){notify('Escribe un código SKU','warning');return;}
+    const sku=skusAll.find(s=>s.codigo===q||s.codigo.toLowerCase()===q.toLowerCase());
+    if(!sku){notify('SKU no encontrado: '+q,'warning');return;}
+    const ya=lineas.find(l=>l.sku_id===sku.id);
+    if(ya){ya.cantidad++;redrawLineas();}
+    else lineas.push({sku_id:sku.id,sku_codigo:sku.codigo,sku_nombre:sku.nombre,sku_talla:sku.talla,cantidad:1});
+    redrawLineas();
+    const i=document.getElementById('dvSkuQ');if(i)i.value='';
+  });
+  document.getElementById('dvGuardar')?.addEventListener('click',()=>{
+    if(!empSel.nombre.trim()){notify('El empleado es obligatorio','warning');return;}
+    if(!lineas.length){notify('Agrega al menos un artículo','warning');return;}
+    const obs=document.getElementById('dvObs')?.value||'';
+    const res=registrarDocumentoDevolucion({empleado_id:empSel.id,empleado_nombre:empSel.nombre,area:empSel.area,observaciones:obs,lineas:lineas.map(l=>({sku_id:l.sku_id,cantidad:l.cantidad}))});
+    if(!res.ok){notify(res.error||'Error','error');return;}
+    notify('Devolución '+res.documento.numero+' registrada — '+lineas.length+' artículo(s)','success');
+    modal.close();
+    const main=document.getElementById('mainContent');if(main){main.innerHTML=render();init();}
+  });
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 export function init(){
   document.getElementById('skuBtnInicial')?.addEventListener('click',openInventarioInicial);
   document.getElementById('skuBtnEntrada')?.addEventListener('click',openEntradaProveedor);
+  document.getElementById('skuBtnEntrega')?.addEventListener('click',openNuevaEntrega);
+  document.getElementById('skuBtnDev')?.addEventListener('click',openNuevaDevolucion);
   ['skuFCat','skuFMod'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{
     _f.cat=document.getElementById('skuFCat')?.value||'';
     _f.modelo=document.getElementById('skuFMod')?.value||'';

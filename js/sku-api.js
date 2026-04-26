@@ -254,6 +254,67 @@ export function registrarEntradaCompra({skuId,articuloData=null,cantidad,proveed
   }catch(e){return{ok:false,error:e.message};}
 }
 
+// ─── DOCUMENTOS DE ENTREGA (FASE 2) ───────────────────────────────────────────
+/**
+ * Crea un DocumentoEntrega y descuenta stock de cada SKU.
+ * Política todo-o-nada: valida stock de TODAS las líneas antes de tocar nada.
+ * Cada línea genera un MovimientoInventario tipo 'salida_entrega' (cantidad negativa).
+ */
+export function registrarDocumentoEntrega({empleado_id='',empleado_nombre='',area='',observaciones='',lineas=[]}){
+  const s=getStore();
+  if(!s.documentosEntrega)s.documentosEntrega=[];
+  if(!lineas.length)return{ok:false,error:'Agrega al menos un artículo'};
+  for(const l of lineas){
+    const sku=(s.skus||[]).find(k=>k.id===l.sku_id&&k.activo);
+    if(!sku)return{ok:false,error:'SKU no encontrado: '+l.sku_id};
+    if(sku.stock_fisico<l.cantidad)return{ok:false,error:'Stock insuficiente en '+sku.codigo+'. Disponible: '+sku.stock_fisico+'. Solicitado: '+l.cantidad};
+  }
+  const numero=nextNumeroEntrega();
+  const doc_id='doc_ent_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  const lineasCreadas=[];
+  try{
+    for(const l of lineas){
+      const mov=registrarMovimiento({tipo:'salida_entrega',sku_id:l.sku_id,cantidad:-(l.cantidad),documento_id:doc_id,observaciones:observaciones||''});
+      lineasCreadas.push({sku_id:l.sku_id,cantidad:l.cantidad,movimiento_id:mov.id});
+    }
+  }catch(e){return{ok:false,error:e.message};}
+  const doc={id:doc_id,numero,empleado_id:empleado_id||null,empleado_nombre:empleado_nombre||'',area:area||'',observaciones:observaciones||'',lineas:lineasCreadas,fecha_hora:new Date().toISOString(),creado_por:_getUser()};
+  s.documentosEntrega.push(doc);
+  saveDocumentosEntrega();
+  log('ENTREGA_CREATE',numero+' emp='+empleado_nombre+' lineas='+lineas.length,'INVENTARIO-SKU');
+  return{ok:true,documento:doc};
+}
+
+/**
+ * Crea un DocumentoDevolucion y suma stock a cada SKU.
+ * Empleado devuelve prenda → stock_fisico sube.
+ */
+export function registrarDocumentoDevolucion({empleado_id='',empleado_nombre='',area='',observaciones='',lineas=[]}){
+  const s=getStore();
+  if(!s.documentosDevolucion)s.documentosDevolucion=[];
+  if(!lineas.length)return{ok:false,error:'Agrega al menos un artículo'};
+  const numero=nextNumeroDevolucion();
+  const doc_id='doc_dev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  const lineasCreadas=[];
+  try{
+    for(const l of lineas){
+      const sku=(s.skus||[]).find(k=>k.id===l.sku_id&&k.activo);
+      if(!sku)return{ok:false,error:'SKU no encontrado: '+l.sku_id};
+      const mov=registrarMovimiento({tipo:'entrada_devolucion',sku_id:l.sku_id,cantidad:l.cantidad,documento_id:doc_id,observaciones:observaciones||''});
+      lineasCreadas.push({sku_id:l.sku_id,cantidad:l.cantidad,movimiento_id:mov.id});
+    }
+  }catch(e){return{ok:false,error:e.message};}
+  const doc={id:doc_id,numero,empleado_id:empleado_id||null,empleado_nombre:empleado_nombre||'',area:area||'',observaciones:observaciones||'',lineas:lineasCreadas,fecha_hora:new Date().toISOString(),creado_por:_getUser()};
+  s.documentosDevolucion.push(doc);
+  saveDocumentosDevolucion();
+  log('DEVOLUCION_CREATE',numero+' emp='+empleado_nombre+' lineas='+lineas.length,'INVENTARIO-SKU');
+  return{ok:true,documento:doc};
+}
+
+export function getDocumentosEntrega(){return getStore().documentosEntrega||[];}
+export function getDocumentosDevolucion(){return getStore().documentosDevolucion||[];}
+export function getDocumentosEntregaByEmpleado(empleadoId){return(getStore().documentosEntrega||[]).filter(d=>d.empleado_id===empleadoId);}
+
 // ─── CONSULTAS ────────────────────────────────────────────────────────────────
 export function getMovimientosPorSKU(skuId){
   return(getStore().movimientosInventario||[]).filter(m=>m.sku_id===skuId).sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora));
