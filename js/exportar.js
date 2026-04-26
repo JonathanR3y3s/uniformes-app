@@ -12,6 +12,12 @@ function renderCards(){
   h+='<div class="card"><div class="card-body text-center" style="padding:28px"><i class="fas fa-truck" style="font-size:32px;color:#2563eb;margin-bottom:10px;display:block"></i><h3 class="mb-2">Proveedores</h3><p class="text-sm text-sec mb-4">Compras y costos</p><button class="btn btn-primary" style="width:100%" id="expProvXls"><i class="fas fa-download mr-1"></i> Excel</button></div></div>';
   h+='<div class="card"><div class="card-body text-center" style="padding:28px"><i class="fas fa-history" style="font-size:32px;color:#dc2626;margin-bottom:10px;display:block"></i><h3 class="mb-2">Bitácora</h3><p class="text-sm text-sec mb-4">Registro de cambios</p><button class="btn btn-danger" style="width:100%" id="expLogXls"><i class="fas fa-download mr-1"></i> Excel</button></div></div>';
   h+='</div>';
+  h+='<h3 style="font-size:14px;font-weight:700;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;margin-top:8px"><i class="fas fa-barcode mr-2" style="color:#7c3aed"></i>Sistema SKU — Excel</h3>';
+  h+='<div class="grid-3 mb-6">';
+  h+='<div class="card"><div class="card-body text-center" style="padding:28px"><i class="fas fa-boxes" style="font-size:32px;color:#2563eb;margin-bottom:10px;display:block"></i><h3 class="mb-2">Inventario SKU</h3><p class="text-sm text-sec mb-4">Stock actual por artículo y talla</p><button class="btn btn-primary" style="width:100%" id="expInvSkuXls"><i class="fas fa-download mr-1"></i> Excel</button></div></div>';
+  h+='<div class="card"><div class="card-body text-center" style="padding:28px"><i class="fas fa-box-open" style="font-size:32px;color:#7c3aed;margin-bottom:10px;display:block"></i><h3 class="mb-2">Entregas SKU</h3><p class="text-sm text-sec mb-4">Documentos ENT con detalle de líneas</p><button class="btn" style="background:#7c3aed;color:#fff;width:100%" id="expEntSkuXls"><i class="fas fa-download mr-1"></i> Excel</button></div></div>';
+  h+='<div class="card"><div class="card-body text-center" style="padding:28px"><i class="fas fa-undo" style="font-size:32px;color:#059669;margin-bottom:10px;display:block"></i><h3 class="mb-2">Devoluciones SKU</h3><p class="text-sm text-sec mb-4">Documentos DEV con detalle de líneas</p><button class="btn btn-success" style="width:100%" id="expDevSkuXls"><i class="fas fa-download mr-1"></i> Excel</button></div></div>';
+  h+='</div>';
 
   // PDF section
   h+='<h3 style="font-size:14px;font-weight:700;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px"><i class="fas fa-file-pdf mr-2" style="color:#dc2626"></i>PDF</h3>';
@@ -72,6 +78,72 @@ function exportLogXls(){
   const rows=[['Fecha','Acción','Módulo','Detalle','Usuario']];
   getStore().auditLog.forEach(l=>{rows.push([l.ts,l.action,l.modulo||'',l.det||'',l.user||'']);});
   downloadExcel(rows,'Bitácora','Bitacora_ASAABLOY.xlsx');
+}
+
+// ── SKU Excel Exports ─────────────────────────────────────────────────────────
+function exportInvSkuXls(){
+  const s=getStore();
+  const artMap={};(s.articulos||[]).forEach(a=>{artMap[a.id]=a;});
+  const rows=[['Código SKU','Artículo','Categoría','Talla','Modelo','Stock Físico']];
+  (s.skus||[]).slice().sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||'')).forEach(sk=>{
+    const art=artMap[sk.articulo_id]||{};
+    rows.push([sk.codigo||'',art.nombre||'—',art.categoria||'—',art.talla||'—',sk.modelo||'',sk.stock_fisico||0]);
+  });
+  downloadExcel(rows,'Inventario SKU','InventarioSKU_ASAABLOY.xlsx');
+}
+
+function exportEntSkuXls(){
+  const s=getStore();
+  const skuMap={};(s.skus||[]).forEach(sk=>{skuMap[sk.id]=sk;});
+  const artMap={};(s.articulos||[]).forEach(a=>{artMap[a.id]=a;});
+  // Hoja 1: resumen de documentos
+  const rowsDoc=[['Número','Fecha','Empleado','Área','Artículos','Piezas Totales','Observaciones']];
+  (s.documentosEntrega||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora)).forEach(d=>{
+    const pzas=(d.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
+    rowsDoc.push([d.numero||'',d.fecha_hora||'',d.empleado_nombre||'',d.area||'',(d.lineas||[]).length,pzas,d.observaciones||'']);
+  });
+  // Hoja 2: detalle de líneas
+  const rowsDet=[['Número Doc','Fecha','Empleado','Área','Código SKU','Artículo','Talla','Cantidad']];
+  (s.documentosEntrega||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora)).forEach(d=>{
+    (d.lineas||[]).forEach(l=>{
+      const sk=skuMap[l.sku_id]||{};const art=artMap[sk.articulo_id]||{};
+      rowsDet.push([d.numero||'',d.fecha_hora||'',d.empleado_nombre||'',d.area||'',sk.codigo||'?',art.nombre||'—',art.talla||'—',l.cantidad]);
+    });
+  });
+  const ws1=XLSX.utils.aoa_to_sheet(rowsDoc);
+  const ws2=XLSX.utils.aoa_to_sheet(rowsDet);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws1,'Entregas');
+  XLSX.utils.book_append_sheet(wb,ws2,'Detalle Líneas');
+  XLSX.writeFile(wb,'EntregasSKU_ASAABLOY.xlsx');
+  notify('Exportado: EntregasSKU_ASAABLOY.xlsx','success');
+}
+
+function exportDevSkuXls(){
+  const s=getStore();
+  const skuMap={};(s.skus||[]).forEach(sk=>{skuMap[sk.id]=sk;});
+  const artMap={};(s.articulos||[]).forEach(a=>{artMap[a.id]=a;});
+  // Hoja 1: resumen de documentos
+  const rowsDoc=[['Número','Fecha','Empleado','Área','Artículos','Piezas Devueltas','Observaciones']];
+  (s.documentosDevolucion||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora)).forEach(d=>{
+    const pzas=(d.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
+    rowsDoc.push([d.numero||'',d.fecha_hora||'',d.empleado_nombre||'',d.area||'',(d.lineas||[]).length,pzas,d.observaciones||'']);
+  });
+  // Hoja 2: detalle de líneas
+  const rowsDet=[['Número Doc','Fecha','Empleado','Área','Código SKU','Artículo','Talla','Piezas Devueltas']];
+  (s.documentosDevolucion||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora)).forEach(d=>{
+    (d.lineas||[]).forEach(l=>{
+      const sk=skuMap[l.sku_id]||{};const art=artMap[sk.articulo_id]||{};
+      rowsDet.push([d.numero||'',d.fecha_hora||'',d.empleado_nombre||'',d.area||'',sk.codigo||'?',art.nombre||'—',art.talla||'—',l.cantidad]);
+    });
+  });
+  const ws1=XLSX.utils.aoa_to_sheet(rowsDoc);
+  const ws2=XLSX.utils.aoa_to_sheet(rowsDet);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws1,'Devoluciones');
+  XLSX.utils.book_append_sheet(wb,ws2,'Detalle Líneas');
+  XLSX.writeFile(wb,'DevolucionesSKU_ASAABLOY.xlsx');
+  notify('Exportado: DevolucionesSKU_ASAABLOY.xlsx','success');
 }
 
 // ── PDF Exports ───────────────────────────────────────────────────────────────
@@ -206,4 +278,7 @@ function handleClick(e){
   else if(e.target.closest('#expEmpPdf'))exportEmpPdf();
   else if(e.target.closest('#expTotPdf'))exportTotPdf();
   else if(e.target.closest('#expEntPdf'))exportEntPdf();
+  else if(e.target.closest('#expInvSkuXls'))exportInvSkuXls();
+  else if(e.target.closest('#expEntSkuXls'))exportEntSkuXls();
+  else if(e.target.closest('#expDevSkuXls'))exportDevSkuXls();
 }
