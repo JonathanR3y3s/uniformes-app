@@ -32,32 +32,140 @@ export function render(){
   h+='<div class="kpi"><div class="kpi-label">Piezas entregadas</div><div class="kpi-value">'+totalPzs+'</div></div>';
   h+='</div>';
 
+  // Filtros
+  const areas=[...new Set((getStore().employees||[]).map(e=>e.area).filter(Boolean))].sort();
+  h+='<div class="card mb-4"><div class="card-body"><div class="form-row c4">';
+  h+='<div><label class="form-label">Empleado</label><input class="form-input" id="esFEmp" placeholder="Buscar nombre..."></div>';
+  h+='<div><label class="form-label">Área</label><select class="form-select" id="esFArea"><option value="">Todas</option>'+areas.map(a=>'<option>'+esc(a)+'</option>').join('')+'</select></div>';
+  h+='<div><label class="form-label">Desde</label><input class="form-input" type="date" id="esFDesde"></div>';
+  h+='<div><label class="form-label">Hasta</label><input class="form-input" type="date" id="esFHasta"></div>';
+  h+='</div></div></div>';
+
   // Tabla
-  h+='<div class="card"><div class="card-head"><h3>Historial de entregas</h3><span class="text-sm text-muted">'+docs.length+' documentos</span></div>';
-  if(!docs.length){
-    h+='<div class="empty-state" style="padding:30px"><i class="fas fa-hand-holding"></i><p>Sin entregas registradas</p><p class="text-sm text-muted">Usa "Nueva Entrega" para registrar la primera</p></div>';
-  }else{
-    const skuMap={};(getStore().skus||[]).forEach(s=>{skuMap[s.id]=s;});
-    const artMap={};(getStore().articulos||[]).forEach(a=>{artMap[a.id]=a;});
-    h+='<div class="table-wrap"><table class="dt"><thead><tr>';
-    h+='<th>Número</th><th>Empleado</th><th>Área</th><th style="text-align:right">Arts.</th><th style="text-align:right">Piezas</th><th>Fecha</th><th style="text-align:center">Ver</th>';
-    h+='</tr></thead><tbody>';
-    docs.forEach(d=>{
-      const pzas=(d.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
-      h+='<tr>'
-        +'<td><code style="font-weight:800;font-size:12px;color:var(--primary)">'+esc(d.numero)+'</code></td>'
-        +'<td class="font-bold text-sm">'+esc(d.empleado_nombre||'—')+'</td>'
-        +'<td class="text-sm text-muted">'+esc(d.area||'—')+'</td>'
-        +'<td style="text-align:right;font-size:13px">'+((d.lineas||[]).length)+'</td>'
-        +'<td style="text-align:right;font-weight:700">'+pzas+'</td>'
-        +'<td class="text-xs font-mono">'+fmtDate((d.fecha_hora||'').slice(0,10))+'</td>'
-        +'<td style="text-align:center"><button class="btn btn-sm btn-ghost es-det" data-id="'+d.id+'" title="Ver detalle"><i class="fas fa-eye"></i></button></td>'
-        +'</tr>';
-    });
-    h+='</tbody></table></div>';
-  }
-  h+='</div>';
+  h+='<div class="card"><div class="card-head"><h3>Historial de entregas</h3><span class="text-sm text-muted" id="esCount">'+docs.length+' documentos</span></div>';
+  h+='<div class="table-wrap"><table class="dt"><thead><tr>';
+  h+='<th>Número</th><th>Empleado</th><th>Área</th><th style="text-align:right">Arts.</th><th style="text-align:right">Piezas</th><th>Fecha</th><th style="text-align:center">Acciones</th>';
+  h+='</tr></thead><tbody id="esTB"></tbody></table></div></div>';
   return h;
+}
+
+// ─── RENDER TABLA (con filtros) ───────────────────────────────────────────────
+function renderTabla(){
+  const tb=document.getElementById('esTB');if(!tb)return;
+  const fEmp=(document.getElementById('esFEmp')?.value||'').toLowerCase().trim();
+  const fArea=document.getElementById('esFArea')?.value||'';
+  const fDesde=document.getElementById('esFDesde')?.value||'';
+  const fHasta=document.getElementById('esFHasta')?.value||'';
+
+  let docs=(getDocumentosEntrega()||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora));
+  if(fEmp)docs=docs.filter(d=>(d.empleado_nombre||'').toLowerCase().includes(fEmp));
+  if(fArea)docs=docs.filter(d=>(d.area||'')===fArea);
+  if(fDesde)docs=docs.filter(d=>d.fecha_hora.slice(0,10)>=fDesde);
+  if(fHasta)docs=docs.filter(d=>d.fecha_hora.slice(0,10)<=fHasta);
+
+  const cnt=document.getElementById('esCount');if(cnt)cnt.textContent=docs.length+' documentos';
+
+  if(!docs.length){
+    tb.innerHTML='<tr><td colspan="7" class="empty-state" style="padding:24px"><i class="fas fa-hand-holding"></i><p>Sin entregas con estos filtros</p></td></tr>';
+    return;
+  }
+  tb.innerHTML=docs.map(d=>{
+    const pzas=(d.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
+    return'<tr>'
+      +'<td><code style="font-weight:800;font-size:12px;color:var(--primary)">'+esc(d.numero)+'</code></td>'
+      +'<td class="font-bold text-sm">'+esc(d.empleado_nombre||'—')+'</td>'
+      +'<td class="text-sm text-muted">'+esc(d.area||'—')+'</td>'
+      +'<td style="text-align:right;font-size:13px">'+((d.lineas||[]).length)+'</td>'
+      +'<td style="text-align:right;font-weight:700">'+pzas+'</td>'
+      +'<td class="text-xs font-mono">'+fmtDate((d.fecha_hora||'').slice(0,10))+'</td>'
+      +'<td style="text-align:center;white-space:nowrap">'
+        +'<button class="btn btn-sm btn-ghost es-det" data-id="'+d.id+'" title="Ver detalle"><i class="fas fa-eye"></i></button> '
+        +'<button class="btn btn-sm btn-ghost es-print" data-id="'+d.id+'" title="Imprimir recibo" style="color:#7c3aed"><i class="fas fa-print"></i></button>'
+      +'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+// ─── RECIBO IMPRIMIBLE (FASE 4) ───────────────────────────────────────────────
+function imprimirRecibo(docId){
+  const doc=(getStore().documentosEntrega||[]).find(d=>d.id===docId);if(!doc)return;
+  const skuMap={};(getStore().skus||[]).forEach(s=>{skuMap[s.id]=s;});
+  const artMap={};(getStore().articulos||[]).forEach(a=>{artMap[a.id]=a;});
+
+  const lineasHTML=(doc.lineas||[]).map((l,i)=>{
+    const s=skuMap[l.sku_id];const a=s?artMap[s.articulo_id]:null;
+    return`<tr>
+      <td style="padding:8px 6px;border-bottom:1px solid #e5e7eb">${i+1}</td>
+      <td style="padding:8px 6px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-weight:700;color:#1d4ed8">${esc(s?.codigo||'?')}</td>
+      <td style="padding:8px 6px;border-bottom:1px solid #e5e7eb">${esc(a?.nombre||'—')}</td>
+      <td style="padding:8px 6px;border-bottom:1px solid #e5e7eb;text-align:center">${esc(a?.talla||'UNI')}</td>
+      <td style="padding:8px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700">${l.cantidad}</td>
+    </tr>`;
+  }).join('');
+
+  const totalPzas=(doc.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
+  const fechaFormato=new Date(doc.fecha_hora).toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'});
+
+  const html=`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Recibo ${esc(doc.numero)}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111;background:#fff;padding:32px;}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1d4ed8;padding-bottom:14px;margin-bottom:20px;}
+  .logo-area{font-size:22px;font-weight:900;color:#1d4ed8;letter-spacing:-.5px;}
+  .logo-sub{font-size:11px;font-weight:400;color:#64748b;margin-top:2px;}
+  .doc-num{text-align:right;}
+  .doc-num .num{font-size:20px;font-weight:900;color:#1d4ed8;font-family:monospace;}
+  .doc-num .fecha{font-size:11px;color:#64748b;margin-top:4px;}
+  .info-box{display:flex;gap:24px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 18px;margin-bottom:20px;}
+  .info-field label{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px;}
+  .info-field span{font-size:14px;font-weight:700;}
+  table{width:100%;border-collapse:collapse;margin-bottom:24px;}
+  thead{background:#1d4ed8;color:#fff;}
+  th{padding:10px 6px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.03em;}
+  th:last-child,th:nth-child(4){text-align:center;}
+  .total-row td{padding:10px 6px;font-weight:700;border-top:2px solid #1d4ed8;}
+  .obs{font-size:11px;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;margin-bottom:24px;}
+  .firmas{display:flex;gap:40px;margin-top:32px;}
+  .firma-box{flex:1;border-top:1.5px solid #374151;padding-top:6px;}
+  .firma-box p{font-size:11px;color:#374151;text-align:center;margin-top:4px;}
+  .footer{text-align:center;font-size:10px;color:#94a3b8;margin-top:28px;border-top:1px solid #e2e8f0;padding-top:10px;}
+  @media print{body{padding:16px;}@page{margin:12mm;}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo-area">ASSA ABLOY México<div class="logo-sub">Control de Uniformes · Sistema SKU</div></div>
+  <div class="doc-num"><div>RECIBO DE ENTREGA</div><div class="num">${esc(doc.numero)}</div><div class="fecha">${fechaFormato}</div></div>
+</div>
+<div class="info-box">
+  <div class="info-field"><label>Empleado</label><span>${esc(doc.empleado_nombre||'—')}</span></div>
+  <div class="info-field"><label>Área / Departamento</label><span>${esc(doc.area||'—')}</span></div>
+  <div class="info-field"><label>Total piezas</label><span>${totalPzas}</span></div>
+  <div class="info-field"><label>Registrado por</label><span>${esc(doc.creado_por||'—')}</span></div>
+</div>
+<table>
+  <thead><tr><th>#</th><th>Código SKU</th><th>Artículo</th><th>Talla</th><th>Cant.</th></tr></thead>
+  <tbody>${lineasHTML}</tbody>
+  <tfoot><tr class="total-row"><td colspan="4" style="padding:10px 6px">Total piezas entregadas:</td><td style="text-align:center;font-size:16px;font-weight:900;padding:10px 6px">${totalPzas}</td></tr></tfoot>
+</table>
+${doc.observaciones?`<div class="obs"><strong>Observaciones:</strong> ${esc(doc.observaciones)}</div>`:''}
+<div class="firmas">
+  <div class="firma-box"><p>Firma de conformidad del empleado</p><p style="margin-top:2px;font-weight:700">${esc(doc.empleado_nombre||'')}</p></div>
+  <div class="firma-box"><p>Entregado por (almacén)</p><p style="margin-top:2px;font-weight:700">${esc(doc.creado_por||'')}</p></div>
+</div>
+<div class="footer">Documento generado el ${new Date().toLocaleString('es-MX')} · ${esc(doc.numero)} · ASSA ABLOY México — Control Store Pro</div>
+</body></html>`;
+
+  const win=window.open('','_blank','width=800,height=650');
+  if(!win){notify('Activa los popups para imprimir','warning');return;}
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(),400);
 }
 
 // ─── MODAL: NUEVA ENTREGA ─────────────────────────────────────────────────────
@@ -157,14 +265,21 @@ function openDetalleEntrega(docId){
     h+='<td style="text-align:right;font-weight:700">'+l.cantidad+'</td></tr>';
   });
   h+='</tbody></table></div>';
-  modal.open('Detalle — '+doc.numero,h,'<button class="btn btn-ghost" id="mClose">Cerrar</button>','md');
+  modal.open('Detalle — '+doc.numero,h,'<button class="btn btn-ghost" id="mClose">Cerrar</button><button class="btn" style="background:#7c3aed;color:#fff" id="mPrint"><i class="fas fa-print mr-1"></i>Imprimir Recibo</button>','md');
   document.getElementById('mClose')?.addEventListener('click',()=>modal.close());
+  document.getElementById('mPrint')?.addEventListener('click',()=>{modal.close();imprimirRecibo(docId);});
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 export function init(){
   document.getElementById('esBtnNueva')?.addEventListener('click',openNuevaEntrega);
+  document.getElementById('esFEmp')?.addEventListener('input',renderTabla);
+  document.getElementById('esFArea')?.addEventListener('change',renderTabla);
+  document.getElementById('esFDesde')?.addEventListener('change',renderTabla);
+  document.getElementById('esFHasta')?.addEventListener('change',renderTabla);
   document.getElementById('mainContent')?.addEventListener('click',e=>{
     const det=e.target.closest('.es-det');if(det){openDetalleEntrega(det.dataset.id);}
+    const prnt=e.target.closest('.es-print');if(prnt){imprimirRecibo(prnt.dataset.id);}
   });
+  renderTabla();
 }
