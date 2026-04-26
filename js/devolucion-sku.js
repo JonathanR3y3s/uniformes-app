@@ -32,31 +32,20 @@ export function render(){
   h+='<div class="kpi"><div class="kpi-label">Piezas devueltas</div><div class="kpi-value">'+totalPzs+'</div></div>';
   h+='</div>';
 
+  // Filtros
+  const areas=[...new Set((getStore().employees||[]).map(e=>e.area).filter(Boolean))].sort();
+  h+='<div class="card mb-4"><div class="card-body"><div class="form-row c4">';
+  h+='<div><label class="form-label">Empleado</label><input class="form-input" id="dvFEmp" placeholder="Buscar nombre..."></div>';
+  h+='<div><label class="form-label">Área</label><select class="form-select" id="dvFArea"><option value="">Todas</option>'+areas.map(a=>'<option>'+esc(a)+'</option>').join('')+'</select></div>';
+  h+='<div><label class="form-label">Desde</label><input class="form-input" type="date" id="dvFDesde"></div>';
+  h+='<div><label class="form-label">Hasta</label><input class="form-input" type="date" id="dvFHasta"></div>';
+  h+='</div></div></div>';
+
   // Tabla
-  h+='<div class="card"><div class="card-head"><h3>Historial de devoluciones</h3><span class="text-sm text-muted">'+docs.length+' documentos</span></div>';
-  if(!docs.length){
-    h+='<div class="empty-state" style="padding:30px"><i class="fas fa-undo"></i><p>Sin devoluciones registradas</p><p class="text-sm text-muted">Usa "Nueva Devolución" cuando un empleado devuelva prendas</p></div>';
-  }else{
-    const skuMap={};(getStore().skus||[]).forEach(s=>{skuMap[s.id]=s;});
-    const artMap={};(getStore().articulos||[]).forEach(a=>{artMap[a.id]=a;});
-    h+='<div class="table-wrap"><table class="dt"><thead><tr>';
-    h+='<th>Número</th><th>Empleado</th><th>Área</th><th style="text-align:right">Arts.</th><th style="text-align:right">Piezas</th><th>Fecha</th><th style="text-align:center">Ver</th>';
-    h+='</tr></thead><tbody>';
-    docs.forEach(d=>{
-      const pzas=(d.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
-      h+='<tr>'
-        +'<td><code style="font-weight:800;font-size:12px;color:#059669">'+esc(d.numero)+'</code></td>'
-        +'<td class="font-bold text-sm">'+esc(d.empleado_nombre||'—')+'</td>'
-        +'<td class="text-sm text-muted">'+esc(d.area||'—')+'</td>'
-        +'<td style="text-align:right;font-size:13px">'+((d.lineas||[]).length)+'</td>'
-        +'<td style="text-align:right;font-weight:700;color:#059669">+'+pzas+'</td>'
-        +'<td class="text-xs font-mono">'+fmtDate((d.fecha_hora||'').slice(0,10))+'</td>'
-        +'<td style="text-align:center"><button class="btn btn-sm btn-ghost dv-det" data-id="'+d.id+'" title="Ver detalle"><i class="fas fa-eye"></i></button></td>'
-        +'</tr>';
-    });
-    h+='</tbody></table></div>';
-  }
-  h+='</div>';
+  h+='<div class="card"><div class="card-head"><h3>Historial de devoluciones</h3><span class="text-sm text-muted" id="dvCount">'+docs.length+' documentos</span></div>';
+  h+='<div class="table-wrap"><table class="dt"><thead><tr>';
+  h+='<th>Número</th><th>Empleado</th><th>Área</th><th style="text-align:right">Arts.</th><th style="text-align:right">Piezas</th><th>Fecha</th><th style="text-align:center">Acciones</th>';
+  h+='</tr></thead><tbody id="dvTB"></tbody></table></div></div>';
   return h;
 }
 
