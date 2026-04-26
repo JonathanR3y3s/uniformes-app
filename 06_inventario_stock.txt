@@ -1,0 +1,478 @@
+./js/entregas.js:145:function calcModelosDisponibles(prenda,talla){const map={};(getStore().stockUniformes||[]).forEach(mov=>{if(mov.prenda===prenda&&(mov.talla||'')===(talla||'')){const k=mov.modelo||'Sin modelo';map[k]=(map[k]||0)+(mov.cantidad||0);}});return Object.entries(map).filter(([,c])=>c>0).sort((a,b)=>a[0].localeCompare(b[0])).map(([modelo,cant])=>({modelo,cant}));}
+./js/entregas.js:151:  box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><label class="form-label" style="margin:0">Prendas a entregar — desactiva las que NO se entregan esta vez:</label><span class="badge badge-info">'+entries.length+' prendas</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px">'+entries.map((p,i)=>{const modelos=calcModelosDisponibles(p[0],p[1]);const hayStock=modelos.length>0;const stockBadge=hayStock?'<span style="color:#059669;font-size:10px;font-weight:700"><i class="fas fa-check-circle mr-1"></i>En stock</span>':'<span style="color:#dc2626;font-size:10px;font-weight:700"><i class="fas fa-times-circle mr-1"></i>Sin stock</span>';const modeloSel=hayStock?'<select class="form-select entModSel" data-idx="'+i+'" style="margin-top:6px;font-size:11px;padding:4px 8px;height:auto">'+modelos.map(m=>'<option value="'+esc(m.modelo)+'">'+esc(m.modelo)+' ('+m.cant+' disp.)</option>').join('')+'</select>':'<p style="font-size:11px;color:#dc2626;margin-top:5px;font-weight:600"><i class="fas fa-ban mr-1"></i>Sin stock disponible</p>';return'<div style="padding:12px;border-radius:8px;border:2px solid '+(hayStock?'var(--border)':'#fca5a5')+';background:'+(hayStock?'var(--surface-2)':'#fef2f2')+'"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer"><input type="checkbox" value="'+esc(p[0])+'" data-talla="'+esc(p[1])+'" data-idx="'+i+'" class="entC" '+(hayStock?'checked':'')+' style="width:20px;height:20px;flex-shrink:0;accent-color:#004B87;margin-top:2px;cursor:pointer"><div style="flex:1;min-width:0"><p style="font-weight:700;font-size:13px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p[0])+'</p><p style="font-size:11px;color:var(--text-muted);margin:2px 0">Talla: <strong>'+esc(p[1])+'</strong> · '+stockBadge+'</p></div></label>'+modeloSel+'</div>';}).join('')+'</div>';
+./js/entregas.js:222:  // Verificar stock por prenda+talla+modelo antes de confirmar
+./js/entregas.js:225:    (getStore().stockUniformes||[]).forEach(m=>{const k=m.prenda+'||'+(m.talla||'')+'||'+(m.modelo||'Sin modelo');sNet[k]=(sNet[k]||0)+(m.cantidad||0);});
+./js/entregas.js:242:  // Decrementar stockUniformes por cada prenda, descontando el modelo específico seleccionado
+./js/entregas.js:245:    if(!s4.stockUniformes)s4.stockUniformes=[];
+./js/entregas.js:249:      s4.stockUniformes.push({
+./js/sku-api.js:2: * sku-api.js — Lógica de negocio: Articulo, SKU, MovimientoInventario
+./js/sku-api.js:3: * FASE 1: Catálogo, generación de código SKU, inventario inicial
+./js/sku-api.js:61: * Genera el código SKU.
+./js/sku-api.js:65:export function generateSKUCode(nombre,talla,modelo_anio){
+./js/sku-api.js:104:  log('ART_CREATE',art.nombre+' '+art.modelo_anio,'INVENTARIO-SKU');
+./js/sku-api.js:108:// ─── SKU ──────────────────────────────────────────────────────────────────────
+./js/sku-api.js:109:export function getSkus(){return getStore().skus||[];}
+./js/sku-api.js:110:export function getSkuById(id){return(getStore().skus||[]).find(s=>s.id===id)||null;}
+./js/sku-api.js:111:export function findSkuByCodigo(codigo){return(getStore().skus||[]).find(s=>s.codigo===codigo&&s.activo)||null;}
+./js/sku-api.js:114: * Busca el SKU por código.
+./js/sku-api.js:117: * Returns: {sku, created:boolean}
+./js/sku-api.js:119:export function createOrGetSKU(articuloId,{stock_minimo=5}={}){
+./js/sku-api.js:121:  if(!s.skus)s.skus=[];
+./js/sku-api.js:124:  const codigo=generateSKUCode(art.nombre,art.talla,art.modelo_anio);
+./js/sku-api.js:125:  // ¿Ya existe un SKU activo con ese código?
+./js/sku-api.js:126:  const existing=s.skus.find(k=>k.codigo===codigo&&k.activo);
+./js/sku-api.js:127:  if(existing)return{sku:existing,created:false};
+./js/sku-api.js:128:  // Crear nuevo SKU
+./js/sku-api.js:129:  const sku={
+./js/sku-api.js:130:    id:'sku_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+./js/sku-api.js:133:    stock_fisico:0,
+./js/sku-api.js:134:    stock_minimo,
+./js/sku-api.js:139:  s.skus.push(sku);
+./js/sku-api.js:141:  log('SKU_CREATE',codigo,'INVENTARIO-SKU');
+./js/sku-api.js:142:  return{sku,created:true};
+./js/sku-api.js:145:export function updateStockMinimo(skuId,minimo){
+./js/sku-api.js:147:  const sku=(s.skus||[]).find(k=>k.id===skuId);
+./js/sku-api.js:148:  if(!sku)return;
+./js/sku-api.js:149:  sku.stock_minimo=Math.max(0,parseInt(minimo,10)||0);
+./js/sku-api.js:151:  log('SKU_MIN_UPDATE',sku.codigo+' min='+sku.stock_minimo,'INVENTARIO-SKU');
+./js/sku-api.js:156: * Todo cambio en stock_fisico DEBE pasar por esta función.
+./js/sku-api.js:157: * Registra stock_antes y stock_despues.
+./js/sku-api.js:158: * Lanza Error si la operación deja stock negativo.
+./js/sku-api.js:160:export function registrarMovimiento({tipo,sku_id,cantidad,documento_id=null,proveedor='',factura='',costo_unitario=0,foto_factura=null,observaciones=''}){
+./js/sku-api.js:162:  if(!s.movimientosInventario)s.movimientosInventario=[];
+./js/sku-api.js:163:  const sku=(s.skus||[]).find(k=>k.id===sku_id);
+./js/sku-api.js:164:  if(!sku)throw new Error('SKU no encontrado: '+sku_id);
+./js/sku-api.js:165:  const stock_antes=sku.stock_fisico;
+./js/sku-api.js:166:  const stock_despues=stock_antes+cantidad;
+./js/sku-api.js:167:  if(stock_despues<0)throw new Error('Stock insuficiente. Disponible: '+stock_antes+'. Solicitado: '+Math.abs(cantidad));
+./js/sku-api.js:168:  sku.stock_fisico=stock_despues;
+./js/sku-api.js:174:    sku_id,
+./js/sku-api.js:176:    stock_antes,
+./js/sku-api.js:177:    stock_despues,
+./js/sku-api.js:187:  s.movimientosInventario.push(mov);
+./js/sku-api.js:195: * Carga el conteo físico del almacén como inventario_inicial.
+./js/sku-api.js:196: * Si el SKU ya tiene inventario_inicial → registra como ajuste_positivo.
+./js/sku-api.js:197: * Returns: {ok, sku, mov, ajuste?, error?}
+./js/sku-api.js:202:  if(!s.skus)s.skus=[];
+./js/sku-api.js:203:  if(!s.movimientosInventario)s.movimientosInventario=[];
+./js/sku-api.js:215:  // Buscar o crear SKU (nunca duplica)
+./js/sku-api.js:216:  const{sku}=createOrGetSKU(art.id);
+./js/sku-api.js:217:  // ¿Ya existe inventario_inicial para este SKU?
+./js/sku-api.js:218:  const yaInicial=(s.movimientosInventario).some(m=>m.sku_id===sku.id&&m.tipo==='inventario_inicial');
+./js/sku-api.js:219:  const tipo=yaInicial?'ajuste_positivo':'inventario_inicial';
+./js/sku-api.js:221:    const mov=registrarMovimiento({tipo,sku_id:sku.id,cantidad:cant,observaciones:observaciones||'Conteo físico '+new Date().toLocaleDateString('es-MX')});
+./js/sku-api.js:222:    log('INV_'+tipo.toUpperCase(),sku.codigo+' +'+cant,'INVENTARIO-SKU');
+./js/sku-api.js:223:    return{ok:true,sku,mov,ajuste:yaInicial};
+./js/sku-api.js:230:export function registrarEntradaCompra({skuId,articuloData=null,cantidad,proveedor,factura,costo_unitario=0,foto_factura=null,observaciones=''}){
+./js/sku-api.js:232:  if(!s.skus)s.skus=[];
+./js/sku-api.js:235:  let sku=null;
+./js/sku-api.js:236:  if(skuId){
+./js/sku-api.js:237:    sku=(s.skus).find(k=>k.id===skuId&&k.activo);
+./js/sku-api.js:238:    if(!sku)return{ok:false,error:'SKU no encontrado'};
+./js/sku-api.js:240:    // Crear artículo y SKU si no existen
+./js/sku-api.js:247:    const res=createOrGetSKU(art.id);
+./js/sku-api.js:248:    sku=res.sku;
+./js/sku-api.js:249:  }else{return{ok:false,error:'Proporciona skuId o articuloData'};}
+./js/sku-api.js:251:    const mov=registrarMovimiento({tipo:'entrada_compra',sku_id:sku.id,cantidad:cant,proveedor,factura,costo_unitario,foto_factura,observaciones});
+./js/sku-api.js:252:    log('ENTRADA_COMPRA',sku.codigo+' +'+cant+' Fac:'+factura,'INVENTARIO-SKU');
+./js/sku-api.js:253:    return{ok:true,sku,mov};
+./js/sku-api.js:259: * Crea un DocumentoEntrega y descuenta stock de cada SKU.
+./js/sku-api.js:260: * Política todo-o-nada: valida stock de TODAS las líneas antes de tocar nada.
+./js/sku-api.js:268:    const sku=(s.skus||[]).find(k=>k.id===l.sku_id&&k.activo);
+./js/sku-api.js:269:    if(!sku)return{ok:false,error:'SKU no encontrado: '+l.sku_id};
+./js/sku-api.js:270:    if(sku.stock_fisico<l.cantidad)return{ok:false,error:'Stock insuficiente en '+sku.codigo+'. Disponible: '+sku.stock_fisico+'. Solicitado: '+l.cantidad};
+./js/sku-api.js:277:      const mov=registrarMovimiento({tipo:'salida_entrega',sku_id:l.sku_id,cantidad:-(l.cantidad),documento_id:doc_id,observaciones:observaciones||''});
+./js/sku-api.js:278:      lineasCreadas.push({sku_id:l.sku_id,cantidad:l.cantidad,movimiento_id:mov.id});
+./js/sku-api.js:284:  log('ENTREGA_CREATE',numero+' emp='+empleado_nombre+' lineas='+lineas.length,'INVENTARIO-SKU');
+./js/sku-api.js:289: * Crea un DocumentoDevolucion y suma stock a cada SKU.
+./js/sku-api.js:290: * Empleado devuelve prenda → stock_fisico sube.
+./js/sku-api.js:301:      const sku=(s.skus||[]).find(k=>k.id===l.sku_id&&k.activo);
+./js/sku-api.js:302:      if(!sku)return{ok:false,error:'SKU no encontrado: '+l.sku_id};
+./js/sku-api.js:303:      const mov=registrarMovimiento({tipo:'entrada_devolucion',sku_id:l.sku_id,cantidad:l.cantidad,documento_id:doc_id,observaciones:observaciones||''});
+./js/sku-api.js:304:      lineasCreadas.push({sku_id:l.sku_id,cantidad:l.cantidad,movimiento_id:mov.id});
+./js/sku-api.js:310:  log('DEVOLUCION_CREATE',numero+' emp='+empleado_nombre+' lineas='+lineas.length,'INVENTARIO-SKU');
+./js/sku-api.js:320: * Ajuste manual de inventario con motivo obligatorio.
+./js/sku-api.js:323: * Lanza error si el ajuste negativo deja stock < 0.
+./js/sku-api.js:325:export function registrarAjuste({sku_id,cantidad,tipo,motivo=''}){
+./js/sku-api.js:333:    const mov=registrarMovimiento({tipo,sku_id,cantidad:delta,observaciones:'[AJUSTE] '+motivo.trim()});
+./js/sku-api.js:334:    log('AJUSTE_INV',((delta>0?'+':'')+delta)+' '+getSkuById(sku_id)?.codigo+' — '+motivo,'INVENTARIO-SKU');
+./js/sku-api.js:340:export function getMovimientosPorSKU(skuId){
+./js/sku-api.js:341:  return(getStore().movimientosInventario||[]).filter(m=>m.sku_id===skuId).sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora));
+./js/sku-api.js:345:  return(getStore().skus||[]).filter(s=>s.activo&&s.stock_minimo>0&&s.stock_fisico<=s.stock_minimo);
+./js/sku-api.js:349: * Devuelve un objeto SKU enriquecido con datos del artículo.
+./js/sku-api.js:351:export function getSkuResumen(sku){
+./js/sku-api.js:352:  const art=(getStore().articulos||[]).find(a=>a.id===sku.articulo_id)||{};
+./js/sku-api.js:354:    ...sku,
+./js/sku-api.js:361:    bajoStock:sku.stock_minimo>0&&sku.stock_fisico<=sku.stock_minimo,
+./js/sku-api.js:362:    sinStock:sku.stock_fisico===0
+./js/sku-api.js:367:  return(getStore().skus||[]).filter(s=>s.activo).map(getSkuResumen);
+./js/totales.js:2:function renderTable(){const det=calcTotalesDetallados();let h='';h+='<div class="page-head"><div class="page-title"><h1>Totales por Prenda y Talla</h1><p>Base + Stock extra</p></div><div class="flex gap-2"><button class="btn btn-warning" id="totStock"><i class="fas fa-warehouse"></i> Stock</button><button class="btn btn-primary" id="totPedido"><i class="fas fa-shopping-cart"></i> Generar Pedido</button><button class="btn btn-success" id="totExport"><i class="fas fa-file-excel"></i> Exportar</button></div></div>';if(det['ZAPATO ESPECIAL']){const totE=Object.values(det['ZAPATO ESPECIAL']).reduce((s,o)=>s+o.total,0);h+='<div class="card mb-4" style="border-left:4px solid var(--warning)"><div class="card-head" style="background:var(--warning-light)"><h3><i class="fas fa-shoe-prints mr-2"></i>ZAPATO ESPECIAL — '+fmt(totE)+' pares</h3></div><div class="card-body"><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">';sortTallas('ZAPATO ESPECIAL',Object.entries(det['ZAPATO ESPECIAL'])).forEach(p=>{h+='<div style="text-align:center;background:var(--surface-2);padding:12px;border-radius:8px"><div class="font-bold" style="color:var(--primary)">'+p[0]+'</div><div style="font-size:22px;font-weight:800;color:var(--success)">'+p[1].total+'</div>'+(p[1].stock?'<div class="text-xs text-muted">Base '+p[1].base+' <span class="badge badge-info" style="font-size:10px">+'+p[1].stock+'</span></div>':'')+'</div>';});h+='</div></div></div>';}Object.keys(det).filter(p=>p!=='ZAPATO ESPECIAL').forEach(prenda=>{const tallas=det[prenda];const tot=Object.values(tallas).reduce((s,v)=>s+v.total,0);h+='<div class="card mb-4"><div class="card-head"><h3>'+esc(prenda)+'</h3><span class="font-bold" style="color:var(--success)">Total: '+fmt(tot)+'</span></div><div class="card-body"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px">';sortTallas(prenda,Object.entries(tallas)).forEach(p=>{h+='<div style="text-align:center;background:var(--surface-2);padding:10px 6px;border-radius:6px"><div class="text-xs font-bold text-sec">'+p[0]+'</div><div style="font-size:20px;font-weight:800;color:var(--primary)">'+p[1].total+'</div>'+(p[1].stock?'<div class="text-xs"><span class="badge badge-info" style="font-size:9px">+'+p[1].stock+'</span></div>':'')+'</div>';});h+='</div></div></div>';});return h;}
+./js/totales.js:7:function generarPedido(){const det=calcTotalesDetallados();const today=new Date().toLocaleDateString('es-MX');const rows=[['PEDIDO DE UNIFORMES — ASSA ABLOY México'],['Fecha:',today],[''],['Prenda','Talla','Empleados (base)','Stock extra','TOTAL A PEDIR','Observaciones']];Object.entries(det).forEach(([p,tallas])=>{Object.entries(tallas).filter(([,o])=>o.total>0).forEach(([t,o])=>{rows.push([p,t,o.base,o.stock,o.total,'']);});});rows.push(['']);rows.push(['RESUMEN POR PRENDA']);const resumen={};Object.entries(det).forEach(([p,tallas])=>{resumen[p]=Object.values(tallas).reduce((s,o)=>s+o.total,0);});Object.entries(resumen).filter(([,t])=>t>0).forEach(([p,t])=>rows.push([p,'','','',t,'']));const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:28},{wch:10},{wch:18},{wch:12},{wch:16},{wch:20}];ws['A1']={v:'PEDIDO DE UNIFORMES — ASSA ABLOY México',t:'s',s:{font:{bold:true,sz:14}}};const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Pedido');XLSX.writeFile(wb,'Pedido_Uniformes_ASAABLOY.xlsx');notify('Pedido generado','success');}
+./js/totales.js:8:function exportTotales(){const det=calcTotalesDetallados();const rows=[['Prenda','Talla','Base','Stock','Total']];Object.entries(det).forEach(([p,tallas])=>{Object.entries(tallas).forEach(([t,o])=>{rows.push([p,t,o.base,o.stock,o.total]);});});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Totales');XLSX.writeFile(wb,'Totales_ASAABLOY.xlsx');notify('Exportado','success');}
+./js/advanced-reports.js:57:  inventario_demanda: {
+./js/advanced-reports.js:59:    categoria: 'inventario',
+./js/ui.js:14:  const hiddenForOperador=['dashboard','admin','reportes','config','proveedores','salidas','catalogo','tablero','totales','centro-costos','importar','exportar','usuarios','areas','stock-uniformes','bitacora','campanias','inventario-sku','devolucion-sku'];
+./js/ui.js:24:    if(n.id==='inventario-sku'){const bajos=(getStore().skus||[]).filter(s=>s.stock_minimo>0&&s.stock_fisico<=s.stock_minimo);if(bajos.length)badge='<span style="background:#dc2626;color:#fff;border-radius:999px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:auto;flex-shrink:0">'+bajos.length+'</span>';}
+./js/ui.js:48:export function buildStatusBadge(emp){const baja=['baja','movimiento','incapacidad'].includes(emp.estado);if(baja)return'<span class="badge badge-neutral">'+emp.estado.toUpperCase()+'</span>';return verificarCaptura(emp)?'<span class="badge badge-success"><i class="fas fa-check"></i> Completo</span>':'<span class="badge badge-warning">Pendiente</span>';}
+./js/kpi-metrics.js:184:  const inventario = store.inventario || [];
+./js/kpi-metrics.js:209:    totalInventario: inventario.length,
+./js/kpi-metrics.js:210:    stockActual: calculateCurrentStock(store),
+./js/kpi-metrics.js:215:  const stock = {};
+./js/kpi-metrics.js:216:  store.inventario?.forEach(item => {
+./js/kpi-metrics.js:218:    stock[key] = (stock[key] || 0) + item.cantidad;
+./js/kpi-metrics.js:224:      stock[key] = (stock[key] || 0) - 1;
+./js/kpi-metrics.js:228:  return stock;
+./js/rules.js:13:export function calcStats(){const s=getStore();const act=s.employees.filter(e=>e.estado==='activo');const bajas=s.employees.filter(e=>['baja','movimiento','incapacidad'].includes(e.estado));const cap=act.filter(e=>verificarCaptura(e));return{total:s.employees.length,activos:act.length,bajas:bajas.length,capturados:cap.length,pendientes:act.length-cap.length,pct:act.length?((cap.length/act.length)*100).toFixed(1):'0'};}
+./js/rules.js:14:export function calcStatsArea(area){const s=getStore();const ae=s.employees.filter(e=>e.area===area);const act=ae.filter(e=>e.estado==='activo');const bajas=ae.filter(e=>['baja','movimiento','incapacidad'].includes(e.estado));const cap=act.filter(e=>verificarCaptura(e));return{total:ae.length,activos:act.length,bajas:bajas.length,capturados:cap.length,pendientes:act.length-cap.length,pct:act.length?((cap.length/act.length)*100).toFixed(0):'0'};}
+./js/rules.js:15:export function calcTotalesDetallados(){const s=getStore();const det={};s.employees.forEach(emp=>{if(['baja','movimiento','incapacidad'].includes(emp.estado))return;if(!emp.tallas)return;Object.entries(emp.tallas).forEach(([prendaOriginal,talla])=>{if(!talla)return;const cantidad=getCantPrenda(emp,prendaOriginal);const prenda=normPrenda(prendaOriginal);if(!det[prenda])det[prenda]={};if(!det[prenda][talla])det[prenda][talla]={base:0,stock:0,total:0};det[prenda][talla].base+=cantidad;});});Object.entries(s.stockExtra).forEach(([prendaOriginal,tallas])=>{Object.entries(tallas||{}).forEach(([talla,cant])=>{const prenda=normPrenda(prendaOriginal);const n=Math.max(0,parseInt(cant,10)||0);if(!det[prenda])det[prenda]={};if(!det[prenda][talla])det[prenda][talla]={base:0,stock:0,total:0};det[prenda][talla].stock+=n;});});Object.keys(det).forEach(p=>{Object.keys(det[p]).forEach(t=>{det[p][t].total=(det[p][t].base||0)+(det[p][t].stock||0);});});return det;}
+./js/rules.js:16:export function generarDatosTablero(){const det=calcTotalesDetallados();const datos=[];Object.entries(det).forEach(([articulo,tallas])=>{const cat=CATEGORIAS[articulo]||'OTROS';Object.entries(tallas).forEach(([talla,obj])=>{datos.push({categoria:cat,articulo,talla:talla==='UNITALLA'?'Sin talla':talla,base:obj.base||0,stock:obj.stock||0,cantidad:obj.total||0});});});datos.sort((a,b)=>{if(a.categoria!==b.categoria)return a.categoria.localeCompare(b.categoria);if(a.articulo!==b.articulo)return a.articulo.localeCompare(b.articulo);return(parseInt(a.talla,10)||999)-(parseInt(b.talla,10)||999);});return datos;}
+./js/exportar.js:15:  h+='<h3 style="font-size:14px;font-weight:700;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;margin-top:8px"><i class="fas fa-barcode mr-2" style="color:#7c3aed"></i>Sistema SKU — Excel</h3>';
+./js/exportar.js:17:  h+='<div class="card"><div class="card-body text-center" style="padding:28px"><i class="fas fa-boxes" style="font-size:32px;color:#2563eb;margin-bottom:10px;display:block"></i><h3 class="mb-2">Inventario SKU</h3><p class="text-sm text-sec mb-4">Stock actual por artículo y talla</p><button class="btn btn-primary" style="width:100%" id="expInvSkuXls"><i class="fas fa-download mr-1"></i> Excel</button></div></div>';
+./js/exportar.js:18:  h+='<div class="card"><div class="card-body text-center" style="padding:28px"><i class="fas fa-box-open" style="font-size:32px;color:#7c3aed;margin-bottom:10px;display:block"></i><h3 class="mb-2">Entregas SKU</h3><p class="text-sm text-sec mb-4">Documentos ENT con detalle de líneas</p><button class="btn" style="background:#7c3aed;color:#fff;width:100%" id="expEntSkuXls"><i class="fas fa-download mr-1"></i> Excel</button></div></div>';
+./js/exportar.js:19:  h+='<div class="card"><div class="card-body text-center" style="padding:28px"><i class="fas fa-undo" style="font-size:32px;color:#059669;margin-bottom:10px;display:block"></i><h3 class="mb-2">Devoluciones SKU</h3><p class="text-sm text-sec mb-4">Documentos DEV con detalle de líneas</p><button class="btn btn-success" style="width:100%" id="expDevSkuXls"><i class="fas fa-download mr-1"></i> Excel</button></div></div>';
+./js/exportar.js:55:  Object.entries(det).forEach(([p,tallas])=>{Object.entries(tallas).forEach(([t,o])=>{rows.push([p,t,o.base,o.stock,o.total]);});});
+./js/exportar.js:83:// ── SKU Excel Exports ─────────────────────────────────────────────────────────
+./js/exportar.js:87:  const rows=[['Código SKU','Artículo','Categoría','Talla','Modelo','Stock Físico']];
+./js/exportar.js:88:  (s.skus||[]).slice().sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||'')).forEach(sk=>{
+./js/exportar.js:90:    rows.push([sk.codigo||'',art.nombre||'—',art.categoria||'—',art.talla||'—',sk.modelo||'',sk.stock_fisico||0]);
+./js/exportar.js:92:  downloadExcel(rows,'Inventario SKU','InventarioSKU_ASAABLOY.xlsx');
+./js/exportar.js:97:  const skuMap={};(s.skus||[]).forEach(sk=>{skuMap[sk.id]=sk;});
+./js/exportar.js:106:  const rowsDet=[['Número Doc','Fecha','Empleado','Área','Código SKU','Artículo','Talla','Cantidad']];
+./js/exportar.js:109:      const sk=skuMap[l.sku_id]||{};const art=artMap[sk.articulo_id]||{};
+./js/exportar.js:118:  XLSX.writeFile(wb,'EntregasSKU_ASAABLOY.xlsx');
+./js/exportar.js:119:  notify('Exportado: EntregasSKU_ASAABLOY.xlsx','success');
+./js/exportar.js:124:  const skuMap={};(s.skus||[]).forEach(sk=>{skuMap[sk.id]=sk;});
+./js/exportar.js:133:  const rowsDet=[['Número Doc','Fecha','Empleado','Área','Código SKU','Artículo','Talla','Piezas Devueltas']];
+./js/exportar.js:136:      const sk=skuMap[l.sku_id]||{};const art=artMap[sk.articulo_id]||{};
+./js/exportar.js:145:  XLSX.writeFile(wb,'DevolucionesSKU_ASAABLOY.xlsx');
+./js/exportar.js:146:  notify('Exportado: DevolucionesSKU_ASAABLOY.xlsx','success');
+./js/exportar.js:226:      if(obj.stock>0){doc.setFontSize(7);doc.setTextColor(5,150,105);doc.text('+'+obj.stock+' extra',x,y+9);doc.setTextColor(0,0,0);doc.setFontSize(8);}
+./js/config-view.js:28:  h+=row('Inventario general',(st.inventario||[]).length);
+./js/config-view.js:103:    s.employees=[];s.proveedores=[];s.inventario=[];s.entregas=[];s.salidas=[];s.stockExtra={};s.comprasAlmacen=[];s.campanias=[];s.stockUniformes=[];s.encuestas=[];
+./js/importar.js:33:  [['ID','Número de empleado','Sí'],['NOMBRE','Nombre(s)','Sí'],['PATERNO','Apellido paterno','No'],['MATERNO','Apellido materno','No'],['AREA','Área de trabajo','Sí'],['ESTADO','activo / baja / movimiento','No']].forEach(r=>{
+./js/importar.js:137:  const inv=(bk.inventario||[]).length;
+./js/importar.js:159:  if(!confirm('⚠️ ¿Restaurar el respaldo?\n\nEsto reemplazará TODOS los datos actuales:\n· Empleados, entregas, proveedores, inventario\n· Usuarios y reglas de áreas\n\nEsta acción no se puede deshacer.'))return;
+./js/importar.js:164:  store.inventario=bk.inventario||[];
+./js/importar.js:167:  store.stockExtra=bk.stockExtra||{};
+./js/user-roles.js:18:    'inventario.ver_basico',
+./js/user-roles.js:23:    'inventario.ver',
+./js/user-roles.js:33:    'inventario.gestionar',
+./js/inventario-sku.js:2: * inventario-sku.js — Módulo UI de Inventario (FASE 1+)
+./js/inventario-sku.js:3: * Pantalla: lista de SKUs, filtros, inventario inicial, detalle de SKU
+./js/inventario-sku.js:10:  generateSKUCode,
+./js/inventario-sku.js:15:  getMovimientosPorSKU,
+./js/inventario-sku.js:22:}from'./sku-api.js';
+./js/inventario-sku.js:35:  inventario_inicial:'Inventario inicial',
+./js/inventario-sku.js:49:  const skus=getAllSkusResumen();
+./js/inventario-sku.js:52:  let h='<div class="page-head"><div class="page-title"><h1>Inventario de Uniformes</h1><p>Catálogo de SKUs · Stock físico · Movimientos</p></div>';
+./js/inventario-sku.js:55:    h+='<button class="btn btn-success" id="skuBtnInicial"><i class="fas fa-layer-group mr-1"></i>Inventario Inicial</button>';
+./js/inventario-sku.js:56:    h+='<button class="btn btn-primary" id="skuBtnEntrada"><i class="fas fa-truck mr-1"></i>Entrada de Proveedor</button>';
+./js/inventario-sku.js:61:  // Banner de stock bajo
+./js/inventario-sku.js:65:    h+='<div><span style="font-weight:700;color:#dc2626">'+bajos.length+' SKU'+(bajos.length===1?'':'s')+' con stock bajo</span>';
+./js/inventario-sku.js:70:  const totalSkus=skus.length;
+./js/inventario-sku.js:71:  const conStock=skus.filter(s=>s.stock_fisico>0).length;
+./js/inventario-sku.js:72:  const sinStock=skus.filter(s=>s.stock_fisico===0).length;
+./js/inventario-sku.js:74:  h+='<div class="kpi"><div class="kpi-label">Total SKUs</div><div class="kpi-value">'+totalSkus+'</div></div>';
+./js/inventario-sku.js:82:  h+='<div><label class="form-label">Categoría</label><select class="form-select" id="skuFCat"><option value="">Todas</option>'+Object.entries(CATS).map(([k,v])=>'<option value="'+k+'">'+v.label+'</option>').join('')+'</select></div>';
+./js/inventario-sku.js:83:  h+='<div><label class="form-label">Modelo / Año</label><select class="form-select" id="skuFMod"><option value="">Todos</option>'+modelos.map(m=>'<option>'+esc(m)+'</option>').join('')+'</select></div>';
+./js/inventario-sku.js:84:  h+='<div><label class="form-label">Buscar</label><input class="form-input" id="skuFQ" placeholder="SKU, nombre, talla..."></div>';
+./js/inventario-sku.js:86:  h+='<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;white-space:nowrap;padding-bottom:2px"><input type="checkbox" id="skuFBajo" style="accent-color:#dc2626;width:16px;height:16px"> Solo bajo</label>';
+./js/inventario-sku.js:87:  h+='<button class="btn btn-ghost" id="skuFClear" title="Limpiar filtros"><i class="fas fa-times"></i></button>';
+./js/inventario-sku.js:90:  // Tabla SKUs
+./js/inventario-sku.js:91:  h+='<div class="card"><div class="card-head"><h3>SKUs registrados</h3><span class="text-sm text-muted" id="skuCount"></span></div>';
+./js/inventario-sku.js:93:  h+='<th>Código SKU</th><th>Prenda</th><th>Talla</th><th>Modelo</th><th>Cat.</th>';
+./js/inventario-sku.js:96:  h+='<tbody id="skuTB"></tbody></table></div></div>';
+./js/inventario-sku.js:98:  // Reporte de movimientos (FASE 3)
+./js/inventario-sku.js:102:      +'<span class="text-sm text-muted">Filtrable por SKU, tipo y fecha</span></div>'
+./js/inventario-sku.js:105:      +'<div><label class="form-label">SKU</label>'
+./js/inventario-sku.js:106:      +'<input class="form-input" id="rmFSku" placeholder="Código SKU..." list="rmSkuL">'
+./js/inventario-sku.js:117:      +'<th>Fecha</th><th>SKU</th><th>Tipo</th>'
+./js/inventario-sku.js:140:  const tb=document.getElementById('skuTB');if(!tb)return;
+./js/inventario-sku.js:141:  const cc=document.getElementById('skuCount');if(cc)cc.textContent=list.length+' SKUs';
+./js/inventario-sku.js:143:    tb.innerHTML='<tr><td colspan="8" class="empty-state"><i class="fas fa-barcode"></i><p>Sin SKUs registrados</p><p class="text-sm text-muted">Usa "Inventario Inicial" para cargar el conteo físico del almacén</p></td></tr>';
+./js/inventario-sku.js:149:      ?'<span style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">Sin stock</span>'
+./js/inventario-sku.js:153:    const stockColor=s.sinStock?'#94a3b8':s.bajoStock?'#dc2626':'#059669';
+./js/inventario-sku.js:160:      +'<td style="text-align:right;font-size:22px;font-weight:900;color:'+stockColor+'">'+s.stock_fisico+'</td>'
+./js/inventario-sku.js:163:      +'<button class="btn btn-sm btn-ghost sku-det" data-id="'+s.id+'" title="Ver detalle y movimientos"><i class="fas fa-eye"></i></button>'
+./js/inventario-sku.js:164:      +(isAdmin?'<button class="btn btn-sm btn-ghost sku-min" data-id="'+s.id+'" title="Editar stock mínimo" style="color:#7c3aed"><i class="fas fa-sliders-h"></i></button>':'')
+./js/inventario-sku.js:165:      +(isAdmin?'<button class="btn btn-sm btn-ghost sku-ajuste" data-id="'+s.id+'" title="Ajuste de inventario" style="color:#d97706"><i class="fas fa-balance-scale"></i></button>':'')
+./js/inventario-sku.js:179:    h+='<div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#1e40af"><i class="fas fa-info-circle mr-2"></i>Registra el conteo físico real del almacén. Cada registro genera un movimiento tipo <strong>inventario_inicial</strong>.</div>';
+./js/inventario-sku.js:199:    // Vista previa SKU
+./js/inventario-sku.js:201:    h+='<span class="text-sm" style="color:var(--text-muted)">Código SKU generado:</span>';
+./js/inventario-sku.js:222:    if(el)el.textContent=(n&&m)?generateSKUCode(n,t||'UNI',m):'—';
+./js/inventario-sku.js:244:    const msg=(res.ajuste?'Ajuste registrado':'Inventario inicial registrado')+': '+res.sku.codigo+' · '+cantidad+' pzs'+(res.ajuste?' (ajuste_positivo)':'');
+./js/inventario-sku.js:260:  h+='<button id="epTabBuscar" class="btn btn-primary" style="flex:1"><i class="fas fa-search mr-1"></i>Buscar SKU existente</button>';
+./js/inventario-sku.js:264:  h+='<div class="form-group mb-3"><label class="form-label">Código SKU o nombre *</label>';
+./js/inventario-sku.js:265:  h+='<input class="form-input" id="epSKUQ" placeholder="Ej: PANT-034-26" autocomplete="off">';
+./js/inventario-sku.js:266:  h+='<div id="epSKURes" style="margin-top:6px"></div></div>';
+./js/inventario-sku.js:280:  h+='<span class="text-sm text-muted">SKU generado:</span><code id="epSkuPrev" style="font-size:16px;font-weight:800;color:var(--primary)">—</code></div>';
+./js/inventario-sku.js:283:  h+='<span class="text-xs text-muted">SKU seleccionado:</span><code id="epSelectedCode" style="font-size:14px;font-weight:800;color:var(--primary);margin-left:8px">—</code>';
+./js/inventario-sku.js:299:  let skuSeleccionadoId=null;
+./js/inventario-sku.js:305:    skuSeleccionadoId=null;
+./js/inventario-sku.js:320:    if(el)el.textContent=(n&&m)?generateSKUCode(n,t||'UNI',m):'—';
+./js/inventario-sku.js:330:  // Búsqueda en vivo de SKU
+./js/inventario-sku.js:331:  document.getElementById('epSKUQ')?.addEventListener('input',function(){
+./js/inventario-sku.js:333:    const res_el=document.getElementById('epSKURes');if(!res_el)return;
+./js/inventario-sku.js:337:    res_el.innerHTML='<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:4px">'+matches.slice(0,8).map(s=>'<div class="sku-pick" data-id="'+s.id+'" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"><div><code style="font-weight:800;color:var(--primary)">'+esc(s.codigo)+'</code><span class="text-xs text-muted ml-2">'+esc(s.nombre)+' · T'+esc(s.talla)+'</span></div><span style="font-weight:700;color:'+(s.stock_fisico>0?'#059669':'#94a3b8')+'">'+s.stock_fisico+' pzs</span></div>').join('')+'</div>';
+./js/inventario-sku.js:338:    res_el.querySelectorAll('.sku-pick').forEach(el=>{
+./js/inventario-sku.js:343:        skuSeleccionadoId=s.id;
+./js/inventario-sku.js:346:        document.getElementById('epSelectedStock').textContent='Stock actual: '+s.stock_fisico+' pzs';
+./js/inventario-sku.js:347:        res_el.innerHTML='';document.getElementById('epSKUQ').value=s.codigo;
+./js/inventario-sku.js:371:      if(!skuSeleccionadoId){notify('Selecciona un SKU de la lista','warning');return;}
+./js/inventario-sku.js:372:      res=registrarEntradaCompra({skuId:skuSeleccionadoId,cantidad:cant,proveedor:prov,factura:fac,costo_unitario:costo,observaciones:obs});
+./js/inventario-sku.js:375:    notify('Entrada registrada: '+res.sku.codigo+' +'+cant+' pzs. Stock: '+res.sku.stock_fisico,'success');
+./js/inventario-sku.js:382:// ─── MODAL: DETALLE DE SKU ────────────────────────────────────────────────────
+./js/inventario-sku.js:383:function openDetalleSKU(skuId){
+./js/inventario-sku.js:384:  const sku=(getStore().skus||[]).find(s=>s.id===skuId);if(!sku)return;
+./js/inventario-sku.js:385:  const sr=getSkuResumen(sku);
+./js/inventario-sku.js:387:  const movs=getMovimientosPorSKU(skuId);
+./js/inventario-sku.js:392:  h+='<code style="font-size:24px;font-weight:900;color:var(--primary);letter-spacing:.04em">'+esc(sku.codigo)+'</code>';
+./js/inventario-sku.js:395:  h+='<p style="font-size:40px;font-weight:900;margin:0;color:'+(sr.sinStock?'#94a3b8':sr.bajoStock?'#dc2626':'#059669')+'">'+sku.stock_fisico+'</p>';
+./js/inventario-sku.js:396:  h+='<p style="font-size:11px;color:var(--text-muted);margin:0">Stock mínimo: '+sku.stock_minimo+'</p></div></div>';
+./js/inventario-sku.js:408:        +'<td style="text-align:right;font-weight:700">'+m.stock_despues+'</td>'
+./js/inventario-sku.js:414:    h+='<div class="empty-state" style="padding:20px"><i class="fas fa-clock"></i><p>Sin movimientos registrados</p></div>';
+./js/inventario-sku.js:416:  modal.open('Detalle SKU — '+sku.codigo,h,'<button class="btn btn-ghost" id="mCancel">Cerrar</button>','lg');
+./js/inventario-sku.js:421:function openEditMinimo(skuId){
+./js/inventario-sku.js:422:  const sku=(getStore().skus||[]).find(s=>s.id===skuId);if(!sku)return;
+./js/inventario-sku.js:423:  const art=(getStore().articulos||[]).find(a=>a.id===sku.articulo_id)||{};
+./js/inventario-sku.js:425:  h+='<code style="font-size:20px;font-weight:900;color:var(--primary)">'+esc(sku.codigo)+'</code>';
+./js/inventario-sku.js:427:  h+='<div class="form-group"><label class="form-label">Stock mínimo (alerta cuando el stock llegue a este número o menos)</label>';
+./js/inventario-sku.js:429:  h+='<input class="form-input" type="number" id="smVal" min="0" value="'+sku.stock_minimo+'" style="text-align:center;font-size:26px;font-weight:900;flex:1">';
+./js/inventario-sku.js:431:  h+='<p class="text-xs text-muted mt-2"><i class="fas fa-info-circle mr-1"></i>Valor 0 = sin alerta de stock bajo.</p></div>';
+./js/inventario-sku.js:432:  modal.open('Stock mínimo — '+sku.codigo,h,'<button class="btn btn-ghost" id="mCancel">Cancelar</button><button class="btn btn-primary" id="smSave"><i class="fas fa-save mr-1"></i>Guardar</button>');
+./js/inventario-sku.js:438:    updateStockMinimo(skuId,Math.max(0,val));
+./js/inventario-sku.js:453:  const skuMap={};(getStore().skus||[]).forEach(s=>{skuMap[s.id]=s;});
+./js/inventario-sku.js:454:  let movs=(getStore().movimientosInventario||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora));
+./js/inventario-sku.js:455:  if(fSku){movs=movs.filter(m=>{const s=skuMap[m.sku_id];return s&&(s.codigo||'').toLowerCase().includes(fSku);});}
+./js/inventario-sku.js:462:    tb.innerHTML='<tr><td colspan="7" class="empty-state" style="padding:20px"><i class="fas fa-history"></i><p>Sin movimientos con los filtros actuales</p></td></tr>';
+./js/inventario-sku.js:468:    const s=skuMap[m.sku_id];
+./js/inventario-sku.js:478:      +'<td style="text-align:right;font-weight:700">'+m.stock_despues+'</td>'
+./js/inventario-sku.js:488:  if(sm)sm.innerHTML='<strong>'+movs.length+'</strong> movimientos · <span style="color:#059669">+'+totalPos+' entradas</span> · <span style="color:#dc2626">−'+totalNeg+' salidas</span>'+(movs.length===200?' <em>(mostrando solo los últimos 200)</em>':'');
+./js/inventario-sku.js:492:function openAjusteSKU(skuId){
+./js/inventario-sku.js:493:  const sku=(getStore().skus||[]).find(s=>s.id===skuId);if(!sku)return;
+./js/inventario-sku.js:494:  const art=(getStore().articulos||[]).find(a=>a.id===sku.articulo_id)||{};
+./js/inventario-sku.js:496:  h+='<div><p class="text-xs text-muted" style="margin:0">'+esc(art.nombre||'')+'</p><code style="font-size:18px;font-weight:900;color:var(--primary)">'+esc(sku.codigo)+'</code></div>';
+./js/inventario-sku.js:497:  h+='<div style="text-align:right"><p class="text-xs text-muted" style="margin:0">Stock actual</p><p style="font-size:32px;font-weight:900;margin:0;color:var(--primary)">'+sku.stock_fisico+'</p></div></div>';
+./js/inventario-sku.js:501:  h+='<input type="radio" name="ajTipo" value="ajuste_positivo" id="ajPos" checked style="accent-color:#059669;width:16px;height:16px"><span style="font-weight:700;color:#059669"><i class="fas fa-plus mr-1"></i>Positivo</span><span class="text-xs text-muted ml-1">(suma stock)</span></label>';
+./js/inventario-sku.js:503:  h+='<input type="radio" name="ajTipo" value="ajuste_negativo" id="ajNeg" style="accent-color:#dc2626;width:16px;height:16px"><span style="font-weight:700;color:#dc2626"><i class="fas fa-minus mr-1"></i>Negativo</span><span class="text-xs text-muted ml-1">(resta stock)</span></label>';
+./js/inventario-sku.js:509:  h+='<p class="text-xs text-muted mt-1" id="ajPreview">Nuevo stock estimado: <strong>'+(sku.stock_fisico+1)+'</strong></p></div>';
+./js/inventario-sku.js:512:  h+='<p class="text-xs text-muted mt-1"><i class="fas fa-lock mr-1"></i>Obligatorio. Queda registrado en el historial de movimientos.</p></div>';
+./js/inventario-sku.js:514:  modal.open('Ajuste de Inventario — '+sku.codigo,h,'<button class="btn btn-ghost" id="ajCancel">Cancelar</button><button class="btn" style="background:#d97706;color:#fff" id="ajGuardar"><i class="fas fa-balance-scale mr-1"></i>Aplicar Ajuste</button>','md');
+./js/inventario-sku.js:520:    const nuevo=sku.stock_fisico+delta;
+./js/inventario-sku.js:522:    if(el)el.innerHTML='Nuevo stock estimado: <strong style="color:'+(nuevo<0?'#dc2626':nuevo===0?'#94a3b8':'#059669')+'">'+Math.max(0,nuevo)+'</strong>'+(nuevo<0?' <span style="color:#dc2626;font-size:11px">(stock insuficiente)</span>':'');
+./js/inventario-sku.js:541:    const res=registrarAjuste({sku_id:skuId,cantidad:cant,tipo,motivo});
+./js/inventario-sku.js:544:    notify('Ajuste aplicado: '+(delta>0?'+':'')+delta+' en '+sku.codigo,'success');
+./js/inventario-sku.js:551:// openNuevaEntrega()    → entrega-sku.js
+./js/inventario-sku.js:552:// openNuevaDevolucion() → devolucion-sku.js
+./js/inventario-sku.js:557:  document.getElementById('skuBtnInicial')?.addEventListener('click',openInventarioInicial);
+./js/inventario-sku.js:558:  document.getElementById('skuBtnEntrada')?.addEventListener('click',openEntradaProveedor);
+./js/inventario-sku.js:559:  ['skuFCat','skuFMod'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{
+./js/inventario-sku.js:560:    _f.cat=document.getElementById('skuFCat')?.value||'';
+./js/inventario-sku.js:561:    _f.modelo=document.getElementById('skuFMod')?.value||'';
+./js/inventario-sku.js:564:  document.getElementById('skuFQ')?.addEventListener('input',function(){_f.q=this.value;renderRows();});
+./js/inventario-sku.js:565:  document.getElementById('skuFBajo')?.addEventListener('change',function(){_f.bajoStock=this.checked;renderRows();});
+./js/inventario-sku.js:566:  document.getElementById('skuFClear')?.addEventListener('click',()=>{
+./js/inventario-sku.js:568:    ['skuFCat','skuFMod','skuFQ'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+./js/inventario-sku.js:569:    const cb=document.getElementById('skuFBajo');if(cb)cb.checked=false;
+./js/inventario-sku.js:572:  document.getElementById('skuTB')?.addEventListener('click',e=>{
+./js/inventario-sku.js:573:    const det=e.target.closest('.sku-det');if(det){openDetalleSKU(det.dataset.id);return;}
+./js/inventario-sku.js:574:    const min=e.target.closest('.sku-min');if(min){openEditMinimo(min.dataset.id);return;}
+./js/inventario-sku.js:575:    const aj=e.target.closest('.sku-ajuste');if(aj){openAjusteSKU(aj.dataset.id);return;}
+./js/inventario-sku.js:578:  // Reporte de movimientos (FASE 3)
+./js/stock-uniformes.js:14:  if(!s.stockUniformes)s.stockUniformes=[];
+./js/stock-uniformes.js:15:  return s.stockUniformes;
+./js/stock-uniformes.js:18:// Suma entradas de stockUniformes por prenda/talla
+./js/stock-uniformes.js:41:  const stock=getStock();
+./js/stock-uniformes.js:62:  h+=`<div class="kpi info"><div class="kpi-label">Disponible</div><div class="kpi-value">${fmt(totalDis)}</div><div class="kpi-sub">piezas en stock</div></div>`;
+./js/stock-uniformes.js:64:  h+=`<div class="kpi ${prendasFalta>0?'danger':'success'}"><div class="kpi-label">${prendasFalta>0?'Combinaciones faltantes':'Todo cubierto'}</div><div class="kpi-value">${prendasFalta>0?prendasFalta:prendasOk}</div><div class="kpi-sub">${prendasFalta>0?'prenda/talla sin cubrir':'combinaciones con stock'}</div></div>`;
+./js/stock-uniformes.js:69:    h+='<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px"><i class="fas fa-exclamation-triangle" style="color:#dc2626;font-size:18px"></i><span style="font-size:13px;color:#991b1b"><strong>'+prendasFalta+' combinaciones</strong> de prenda/talla con stock insuficiente. Registra entradas para cubrir el requerimiento.</span></div>';
+./js/stock-uniformes.js:75:  h+='<button class="su-tab" data-tab="movimientos" style="padding:8px 18px;border:none;background:none;font-weight:600;font-size:13px;cursor:pointer;color:var(--text-muted)">Historial Entradas</button>';
+./js/stock-uniformes.js:138:  const stock=getStock();
+./js/stock-uniformes.js:139:  if(!stock.length){
+./js/stock-uniformes.js:140:    return'<div class="card"><div class="card-body"><div class="empty-state"><i class="fas fa-box-open"></i><p>Sin entradas registradas</p><p class="text-sm text-muted">Registra entradas de uniformes al stock físico</p></div></div></div>';
+./js/stock-uniformes.js:142:  let h='<div class="card"><div class="card-head"><h3>Historial de Entradas</h3><span class="text-sm text-muted">'+stock.length+' registros</span></div><div class="table-wrap"><table class="dt"><thead><tr><th>Fecha</th><th>Prenda</th><th>Talla</th><th style="text-align:center">Cantidad</th><th>Proveedor / Ref</th><th>Costo Unit.</th><th>Registrado por</th></tr></thead><tbody>';
+./js/stock-uniformes.js:143:  stock.slice().reverse().forEach(mov=>{
+./js/stock-uniformes.js:165:      else if(tab==='movimientos'){content.innerHTML=renderMovimientos();}
+./js/stock-uniformes.js:225:    if(!s.stockUniformes)s.stockUniformes=[];
+./js/stock-uniformes.js:226:    s.stockUniformes.push(mov);
+./js/empleados.js:8:import{getDocumentosEntregaByEmpleado,getDocumentosDevolucion}from'./sku-api.js';
+./js/empleados.js:28:  h+='<div><label class="form-label">Estado</label><select class="form-select" id="empFE"><option value="">Todos</option><option value="activo">Activos</option><option value="baja">Baja</option><option value="movimiento">Movimiento</option><option value="incapacidad">Incapacidad</option></select></div>';
+./js/empleados.js:46:    const baja=['baja','movimiento','incapacidad'].includes(e.estado);
+./js/empleados.js:57:    const baja=['baja','movimiento','incapacidad'].includes(e.estado);
+./js/empleados.js:82:    +'<div class="form-group"><label class="form-label">Estado</label><select class="form-select" id="neEst"><option value="activo">Activo</option><option value="baja">Baja</option><option value="movimiento">Movimiento</option><option value="incapacidad">Incapacidad</option></select></div>'
+./js/empleados.js:136:  ['activo','baja','movimiento','incapacidad'].forEach(s=>{h+='<option value="'+s+'"'+(emp.estado===s?' selected':'')+'>'+s.charAt(0).toUpperCase()+s.slice(1)+'</option>';});
+./js/empleados.js:227:  const stBadge=emp.estado==='activo'?'badge-success':['baja','movimiento','incapacidad'].includes(emp.estado)?'badge-neutral':'badge-warning';
+./js/empleados.js:277:  // ── Historial SKU ─────────────────────────────────────────────────────────
+./js/empleados.js:278:  const skuEnts=(getDocumentosEntregaByEmpleado(id).length
+./js/empleados.js:282:  const skuDevs=(getDocumentosDevolucion()||[])
+./js/empleados.js:285:  const totalSkuPzas=skuEnts.reduce((t,d)=>(d.lineas||[]).reduce((s,l)=>s+l.cantidad,t),0);
+./js/empleados.js:286:  const totalDevPzas=skuDevs.reduce((t,d)=>(d.lineas||[]).reduce((s,l)=>s+l.cantidad,t),0);
+./js/empleados.js:288:  if(skuEnts.length||skuDevs.length){
+./js/empleados.js:289:    h+='<div class="divider-label mt-4">Historial SKU</div>';
+./js/empleados.js:293:    h+='<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Entregas SKU</div>';
+./js/empleados.js:294:    h+='<div style="font-size:22px;font-weight:900;color:#7c3aed">'+skuEnts.length+'</div>';
+./js/empleados.js:297:    h+='<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Devoluciones SKU</div>';
+./js/empleados.js:298:    h+='<div style="font-size:22px;font-weight:900;color:#059669">'+skuDevs.length+'</div>';
+./js/empleados.js:301:    // Últimas 5 entregas SKU
+./js/empleados.js:302:    if(skuEnts.length){
+./js/empleados.js:307:      h+=skuEnts.slice(0,5).map(d=>{
+./js/empleados.js:317:      if(skuEnts.length>5)h+='<p class="text-xs text-muted" style="text-align:right;margin-top:4px">+' +(skuEnts.length-5)+' más — ver en Entrega SKU</p>';
+./js/empleados.js:320:    if(skuDevs.length){
+./js/empleados.js:325:      h+=skuDevs.slice(0,3).map(d=>{
+./js/config.js:27:{id:'entrega-sku',icon:'fa-box-open',label:'Entrega SKU'},
+./js/config.js:30:{id:'inventario',icon:'fa-boxes',label:'Inventario'},
+./js/config.js:31:{id:'inventario-sku',icon:'fa-barcode',label:'Inventario SKU'},
+./js/config.js:32:{id:'devolucion-sku',icon:'fa-undo',label:'Devoluciones'},
+./js/config.js:33:{id:'stock-uniformes',icon:'fa-tshirt',label:'Stock Uniformes'},
+./js/sync-engine.js:28:  { key: 'inventario',     storeKey: 'inventario' },
+./js/sync-engine.js:32:  { key: 'stockUniformes', storeKey: 'stockUniformes' },
+./js/sync-engine.js:37:const KV_KEYS = ['stockExtra', 'areasRules', 'users'];
+./js/sync-engine.js:129:  // KV: stockExtra
+./js/sync-engine.js:130:  const kv = await fetchKV('stockExtra');
+./js/sync-engine.js:132:    getStore().stockExtra = kv.value;
+./js/sync-engine.js:245:  // KV: stockExtra
+./js/sync-engine.js:246:  onProgress?.('Subiendo stockExtra…', done, total);
+./js/sync-engine.js:247:  if (Object.keys(store.stockExtra || {}).length) {
+./js/sync-engine.js:248:    await upsertKV('stockExtra', store.stockExtra);
+./js/sync-engine.js:288:    inventario:     saveInventario,
+./js/sync-engine.js:292:    stockUniformes: saveStockUniformes,
+./js/devolucion-sku.js:2: * devolucion-sku.js — Módulo: Devoluciones de Uniformes (sistema SKU)
+./js/devolucion-sku.js:3: * FASE 3.2: extraído de inventario-sku.js sin modificar lógica interna.
+./js/devolucion-sku.js:4: * Lógica de negocio en sku-api.js — NO duplicar funciones aquí.
+./js/devolucion-sku.js:14:}from'./sku-api.js';
+./js/devolucion-sku.js:23:  let h='<div class="page-head"><div class="page-title"><h1>Devoluciones</h1><p>Devolución de uniformes al almacén · Sistema SKU</p></div>';
+./js/devolucion-sku.js:92:  const skuMap={};(getStore().skus||[]).forEach(s=>{skuMap[s.id]=s;});
+./js/devolucion-sku.js:96:    const s=skuMap[l.sku_id];const a=s?artMap[s.articulo_id]:null;
+./js/devolucion-sku.js:142:  <div class="logo-area">ASSA ABLOY México<div class="logo-sub">Control de Uniformes · Sistema SKU</div></div>
+./js/devolucion-sku.js:145:<div class="badge-dev"><i class="fas fa-undo"></i> El empleado devuelve prendas al almacén — stock aumentado</div>
+./js/devolucion-sku.js:153:  <thead><tr><th>#</th><th>Código SKU</th><th>Artículo</th><th>Talla</th><th>Cant.</th></tr></thead>
+./js/devolucion-sku.js:174:// Movida desde inventario-sku.js — lógica interna SIN modificar.
+./js/devolucion-sku.js:176:  const skusAll=getAllSkusResumen();
+./js/devolucion-sku.js:185:      +'<code style="font-size:12px;font-weight:800;color:#059669;min-width:110px">'+esc(l.sku_codigo)+'</code>'
+./js/devolucion-sku.js:186:      +'<span class="text-xs text-muted" style="flex:1">'+esc(l.sku_nombre)+' T'+esc(l.sku_talla)+'</span>'
+./js/devolucion-sku.js:201:  let h='<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#065f46"><i class="fas fa-info-circle mr-2"></i>El empleado devuelve prendas al almacén. El stock de cada SKU <strong>aumenta</strong>.</div>';
+./js/devolucion-sku.js:208:  h+='<div style="display:flex;gap:8px"><input class="form-input" id="dvSkuQ" list="dvSkuL" placeholder="Código SKU..." autocomplete="off" style="flex:1">';
+./js/devolucion-sku.js:209:  h+='<datalist id="dvSkuL">'+skusAll.map(s=>'<option value="'+esc(s.codigo)+'">'+esc(s.nombre)+' T'+esc(s.talla)+'</option>').join('')+'</datalist>';
+./js/devolucion-sku.js:227:    if(!q){notify('Escribe un código SKU','warning');return;}
+./js/devolucion-sku.js:228:    const sku=skusAll.find(s=>s.codigo===q||s.codigo.toLowerCase()===q.toLowerCase());
+./js/devolucion-sku.js:229:    if(!sku){notify('SKU no encontrado: '+q,'warning');return;}
+./js/devolucion-sku.js:230:    const ya=lineas.find(l=>l.sku_id===sku.id);
+./js/devolucion-sku.js:232:    else lineas.push({sku_id:sku.id,sku_codigo:sku.codigo,sku_nombre:sku.nombre,sku_talla:sku.talla,cantidad:1});
+./js/devolucion-sku.js:240:    const res=registrarDocumentoDevolucion({empleado_id:empSel.id,empleado_nombre:empSel.nombre,area:empSel.area,observaciones:obs,lineas:lineas.map(l=>({sku_id:l.sku_id,cantidad:l.cantidad}))});
+./js/devolucion-sku.js:251:  const skuMap={};(getStore().skus||[]).forEach(s=>{skuMap[s.id]=s;});
+./js/devolucion-sku.js:260:  h+='<div class="table-wrap"><table class="dt"><thead><tr><th>SKU</th><th>Artículo</th><th>Talla</th><th style="text-align:right">Cant. devuelta</th></tr></thead><tbody>';
+./js/devolucion-sku.js:262:    const s=skuMap[l.sku_id];const a=s?artMap[s.articulo_id]:null;
+./js/proveedores.js:38:// ETAPA 5 — Actualizar inventario general
+./js/proveedores.js:39:if(!s.inventario)s.inventario=[];
+./js/proveedores.js:40:const e5item=s.inventario.find(i=>(i.nombre||'').toLowerCase().trim()===(art||'').toLowerCase().trim());
+./js/proveedores.js:47:  s.inventario.push({id:'inv_'+e5aid,nombre:art,categoria:'OTROS',cantidad:cant,unidad:'piezas',minStock:0,descripcion:'Creado desde compra',foto:null,updatedAt:new Date().toISOString()});
+./js/proveedores.js:52:modal.close();notify('Compra registrada y stock actualizado ✓','success');renderComprasRows();}else{const prenda=document.getElementById('pvPr')?.value;const talla=document.getElementById('pvT')?.value;if(!prenda||!talla){notify('Selecciona prenda y talla','warning');return;}const e5id=Date.now().toString();
+./js/proveedores.js:55:// ETAPA 5 — Actualizar stockUniformes
+./js/proveedores.js:56:const s5u=getStore();if(!s5u.stockUniformes)s5u.stockUniformes=[];
+./js/proveedores.js:57:s5u.stockUniformes.push({id:'prov_'+e5id,prenda,talla,cantidad:cant,costoUnit:precio,fecha,proveedor:prov,factura:ref,observaciones:obs,registradoPor:'Compra',tipo:'entrada_compra'});
+./js/proveedores.js:59:log('STOCK_UNIF_COMPRA',cant+'×'+prenda+' T'+talla+' → stockUniformes','PROVEEDORES');
+./js/proveedores.js:61:modal.close();notify('Compra registrada y stock actualizado ✓','success');renderComprasRows();}}
+./js/entrega-sku.js:2: * entrega-sku.js — Módulo: Entrega de Uniformes (sistema SKU)
+./js/entrega-sku.js:3: * FASE 3.2: extraído de inventario-sku.js sin modificar lógica interna.
+./js/entrega-sku.js:4: * Lógica de negocio en sku-api.js — NO duplicar funciones aquí.
+./js/entrega-sku.js:14:}from'./sku-api.js';
+./js/entrega-sku.js:23:  let h='<div class="page-head"><div class="page-title"><h1>Entrega de Uniformes</h1><p>Documentos de entrega · Sistema SKU</p></div>';
+./js/entrega-sku.js:92:  const skuMap={};(getStore().skus||[]).forEach(s=>{skuMap[s.id]=s;});
+./js/entrega-sku.js:96:    const s=skuMap[l.sku_id];const a=s?artMap[s.articulo_id]:null;
+./js/entrega-sku.js:141:  <div class="logo-area">ASSA ABLOY México<div class="logo-sub">Control de Uniformes · Sistema SKU</div></div>
+./js/entrega-sku.js:151:  <thead><tr><th>#</th><th>Código SKU</th><th>Artículo</th><th>Talla</th><th>Cant.</th></tr></thead>
+./js/entrega-sku.js:172:// Movida desde inventario-sku.js — lógica interna SIN modificar.
+./js/entrega-sku.js:174:  const skus=getAllSkusResumen().filter(s=>s.stock_fisico>0);
+./js/entrega-sku.js:183:      +'<code style="font-size:12px;font-weight:800;color:var(--primary);min-width:110px">'+esc(l.sku_codigo)+'</code>'
+./js/entrega-sku.js:184:      +'<span class="text-xs text-muted" style="flex:1">'+esc(l.sku_nombre)+' T'+esc(l.sku_talla)+'</span>'
+./js/entrega-sku.js:185:      +'<span class="text-xs" style="color:#94a3b8">Disp:'+l.stock_disp+'</span>'
+./js/entrega-sku.js:196:    document.querySelectorAll('.ne-plus').forEach(btn=>btn.addEventListener('click',()=>{const i=parseInt(btn.dataset.idx,10);if(lineas[i]&&lineas[i].cantidad<lineas[i].stock_disp){lineas[i].cantidad++;redrawLineas();}}));
+./js/entrega-sku.js:200:  let h='<div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#5b21b6"><i class="fas fa-info-circle mr-2"></i>Crea un documento de entrega. El stock se descuenta inmediatamente de cada SKU. Operación <strong>irreversible</strong> (usa Devolución para revertir).</div>';
+./js/entrega-sku.js:207:  h+='<div style="display:flex;gap:8px"><input class="form-input" id="neSkuQ" list="neSkuL" placeholder="Código SKU o nombre..." autocomplete="off" style="flex:1">';
+./js/entrega-sku.js:208:  h+='<datalist id="neSkuL">'+skus.map(s=>'<option value="'+esc(s.codigo)+'">'+esc(s.nombre)+' T'+esc(s.talla)+'</option>').join('')+'</datalist>';
+./js/entrega-sku.js:226:    if(!q){notify('Escribe un código SKU o nombre','warning');return;}
+./js/entrega-sku.js:227:    const sku=skus.find(s=>s.codigo===q||s.codigo.toLowerCase()===q.toLowerCase()||s.nombre.toLowerCase()===q.toLowerCase());
+./js/entrega-sku.js:228:    if(!sku){notify('SKU no encontrado o sin stock: '+q,'warning');return;}
+./js/entrega-sku.js:229:    const ya=lineas.find(l=>l.sku_id===sku.id);
+./js/entrega-sku.js:230:    if(ya){if(ya.cantidad<ya.stock_disp){ya.cantidad++;redrawLineas();}else notify('Cantidad máxima alcanzada ('+ya.stock_disp+')','warning');const inp=document.getElementById('neSkuQ');if(inp)inp.value='';return;}
+./js/entrega-sku.js:231:    lineas.push({sku_id:sku.id,sku_codigo:sku.codigo,sku_nombre:sku.nombre,sku_talla:sku.talla,stock_disp:sku.stock_fisico,cantidad:1});
+./js/entrega-sku.js:239:    const res=registrarDocumentoEntrega({empleado_id:empSel.id,empleado_nombre:empSel.nombre,area:empSel.area,observaciones:obs,lineas:lineas.map(l=>({sku_id:l.sku_id,cantidad:l.cantidad}))});
+./js/entrega-sku.js:250:  const skuMap={};(getStore().skus||[]).forEach(s=>{skuMap[s.id]=s;});
+./js/entrega-sku.js:259:  h+='<div class="table-wrap"><table class="dt"><thead><tr><th>SKU</th><th>Artículo</th><th>Talla</th><th style="text-align:right">Cant.</th></tr></thead><tbody>';
+./js/entrega-sku.js:261:    const s=skuMap[l.sku_id];const a=s?artMap[s.articulo_id]:null;
+./js/dashboard.js:2:import{getAllSkusResumen,getSkusConBajoStock,getDocumentosEntrega,getDocumentosDevolucion}from'./sku-api.js';
+./js/dashboard.js:18:  const alertasStock=(st.inventario||[]).filter(i=>i.minStock>0&&i.cantidad<=i.minStock).length;
+./js/dashboard.js:34:    if(alertasStock>0)h+='<span style="font-size:13px;color:#fbbf24"><i class="fas fa-exclamation-triangle" style="margin-right:6px"></i><strong>'+alertasStock+'</strong> artículo'+(alertasStock>1?'s':'')+' con stock bajo en almacén</span>';
+./js/dashboard.js:104:  // ── Sección SKU ─────────────────────────────────────────────────────────────
+./js/dashboard.js:107:    const skusBajos=getSkusConBajoStock();
+./js/dashboard.js:115:    const totalPzasStock=allSkus.reduce((t,s)=>t+s.stock_fisico,0);
+./js/dashboard.js:116:    const skuConStock=allSkus.filter(s=>s.stock_fisico>0).length;
+./js/dashboard.js:121:    h+='<h3 style="font-size:14px;font-weight:700;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase">Almacén SKU</h3>';
+./js/dashboard.js:122:    if(skusBajos.length)h+='<span style="background:#dc2626;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:2px 8px"><i class="fas fa-exclamation-triangle mr-1"></i>'+skusBajos.length+' en alerta</span>';
+./js/dashboard.js:125:    // KPIs SKU
+./js/dashboard.js:127:    h+='<div class="kpi" style="border-top:2px solid #7c3aed"><div class="kpi-label">SKUs registrados</div><div class="kpi-value">'+allSkus.length+'</div><div class="kpi-sub">'+skuConStock+' con stock</div></div>';
+./js/dashboard.js:128:    h+='<div class="kpi" style="border-top:2px solid #2563eb"><div class="kpi-label">Piezas en stock</div><div class="kpi-value">'+totalPzasStock+'</div><div class="kpi-sub">unidades físicas totales</div></div>';
+./js/dashboard.js:129:    h+='<div class="kpi" style="border-top:2px solid #059669"><div class="kpi-label">Entregas SKU — '+now.toLocaleDateString('es-MX',{month:'short'})+'</div><div class="kpi-value">'+entMes.length+'</div><div class="kpi-sub">'+pzasEnt+' piezas entregadas</div></div>';
+./js/dashboard.js:130:    h+='<div class="kpi" style="border-top:2px solid #0891b2"><div class="kpi-label">Devoluciones SKU — '+now.toLocaleDateString('es-MX',{month:'short'})+'</div><div class="kpi-value">'+devMes.length+'</div><div class="kpi-sub">+'+pzasDev+' piezas retornadas</div></div>';
+./js/dashboard.js:131:    if(skusBajos.length)h+='<div class="kpi" style="border-top:2px solid #dc2626"><div class="kpi-label"><i class="fas fa-exclamation-triangle mr-1" style="color:#dc2626"></i>SKUs bajo mínimo</div><div class="kpi-value" style="color:#dc2626">'+skusBajos.length+'</div><div class="kpi-sub">requieren reposición</div></div>';
+./js/dashboard.js:134:    // Mini-tabla: SKUs críticos (bajo mínimo o sin stock)
+./js/dashboard.js:137:      h+='<div class="card mt-3"><div class="card-head"><h3><i class="fas fa-exclamation-triangle mr-2" style="color:#dc2626"></i>SKUs que requieren atención</h3><span class="text-xs text-muted">'+criticos.length+' artículo'+(criticos.length!==1?'s':'')+' en alerta</span></div>';
+./js/dashboard.js:138:      h+='<div class="table-wrap"><table class="dt" style="font-size:13px"><thead><tr><th>Código SKU</th><th>Artículo</th><th>Talla</th><th style="text-align:right">Stock actual</th><th style="text-align:right">Mínimo</th><th style="text-align:center">Estado</th></tr></thead><tbody>';
+./js/dashboard.js:141:          ?'<span style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">Sin stock</span>'
+./js/dashboard.js:147:          +'<td style="text-align:right;font-size:20px;font-weight:900;color:'+(s.sinStock?'#94a3b8':'#dc2626')+'">'+s.stock_fisico+'</td>'
+./js/dashboard.js:148:          +'<td style="text-align:right;font-size:13px;color:var(--text-muted)">'+s.stock_minimo+'</td>'
+./js/supabase-client.js:169: * Guarda un valor clave-valor en Supabase (para stockExtra, areasRules, etc.)
+./js/captura.js:3:function filterCap(){const fa=document.getElementById('capA')?.value||'';const fe=document.getElementById('capE')?.value||'';const fb=(document.getElementById('capS')?.value||'').toLowerCase();const list=getStore().employees.filter(e=>{if(fa&&e.area!==fa)return false;if(fb&&!((e.nombre||'').toLowerCase().includes(fb)||(e.paterno||'').toLowerCase().includes(fb)||e.id.includes(fb)))return false;const cap=verificarCaptura(e);const baja=['baja','movimiento','incapacidad'].includes(e.estado);if(fe==='capturado'&&!cap)return false;if(fe==='pendiente'&&(cap||baja))return false;if(fe==='baja'&&!baja)return false;return true;});const tb=document.getElementById('capT');if(!tb)return;if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty-state"><i class="fas fa-clipboard-list"></i><p>Sin resultados</p></td></tr>';document.getElementById('capC').textContent='0';return;}tb.innerHTML=list.map(e=>{const baja=['baja','movimiento','incapacidad'].includes(e.estado);const cap=verificarCaptura(e);const rc=baja?'inactive':(cap?'capturado':'');const tallas=Object.entries(e.tallas||{}).filter(p=>p[1]).map(p=>p[0]+':'+p[1]).join(', ')||'—';const esSup=e.area==='SUPERVISORES';return'<tr class="'+rc+'"'+(esSup?' style="background:#fffbeb"':'')+'><td class="font-mono text-xs">'+esc(e.id)+'</td><td class="font-bold">'+esc(e.nombre)+' '+esc(e.paterno||'')+'</td><td>'+buildAreaBadge(e.area)+'</td><td>'+buildStatusBadge(e)+'</td><td class="text-xs truncate" style="max-width:250px" title="'+esc(tallas)+'">'+esc(tallas.substring(0,50))+'</td><td class="flex gap-2"><button class="btn btn-accent btn-sm cap-edit" data-id="'+e.id+'"><i class="fas fa-edit"></i></button>'+(esSup&&e.areaOriginal?'<button class="btn btn-ghost btn-sm cap-ret" data-id="'+e.id+'"><i class="fas fa-undo"></i></button>':'')+'</td></tr>';}).join('');document.getElementById('capC').textContent=list.length;}
+./js/inventario.js:5:let uniformesSubTab='stock';
+./js/inventario.js:7:function calcStockPorModelo(){const map={};(getStore().stockUniformes||[]).forEach(mov=>{const key=(mov.prenda||'')+'\x00'+(mov.talla||'')+'\x00'+(mov.modelo||'');if(!map[key])map[key]={prenda:mov.prenda||'',talla:mov.talla||'',modelo:mov.modelo||'Sin modelo',cantidad:0,ultMov:''};map[key].cantidad+=(mov.cantidad||0);if(!map[key].ultMov||(mov.fecha||'')>map[key].ultMov)map[key].ultMov=mov.fecha||'';});return Object.values(map);}
+./js/inventario.js:8:function renderUniformesStock(){const rows=calcStockPorModelo().filter(r=>r.cantidad>0);const totalPiezas=rows.reduce((s,r)=>s+r.cantidad,0);let h='<div class="kpi-grid"><div class="kpi success"><div class="kpi-label">Total Piezas en Stock</div><div class="kpi-value">'+totalPiezas.toLocaleString('es-MX')+'</div></div></div>';h+='<div class="card"><div class="table-wrap"><table class="dt"><thead><tr><th>Prenda</th><th>Talla</th><th>Modelo</th><th style="text-align:right">Existencia</th><th>Último Mov.</th></tr></thead><tbody>';if(rows.length){rows.sort((a,b)=>{if(a.prenda!==b.prenda)return a.prenda.localeCompare(b.prenda);return(a.talla||'').localeCompare(b.talla||'');});rows.forEach(r=>{h+='<tr><td class="font-bold">'+esc(r.prenda)+'</td><td>'+esc(r.talla||'—')+'</td><td>'+esc(r.modelo)+'</td><td style="text-align:right;font-weight:700;color:var(--success)">'+r.cantidad+'</td><td class="text-xs text-muted">'+fmtDate(r.ultMov)+'</td></tr>';});}else{h+='<tr><td colspan="5" class="empty-state"><i class="fas fa-tshirt"></i><p>Sin stock registrado</p><p class="text-sm text-muted">Usa "Recibir Mercancía" para agregar piezas</p></td></tr>';}h+='</tbody></table></div></div>';document.getElementById('uniContent').innerHTML=h;}
+./js/inventario.js:9:function renderUniformesReq(){const det=calcTotalesDetallados();const rows=[];Object.entries(det).forEach(([prenda,tallas])=>{Object.entries(tallas).forEach(([talla,obj])=>{rows.push({prenda,talla,base:obj.base,stock:obj.stock,total:obj.total});});});const totalPiezas=rows.reduce((s,r)=>s+r.total,0);let h='<div class="kpi-grid"><div class="kpi info"><div class="kpi-label">Total Piezas Requeridas</div><div class="kpi-value">'+totalPiezas.toLocaleString('es-MX')+'</div></div></div>';h+='<div class="card"><div class="table-wrap"><table class="dt"><thead><tr><th>Prenda</th><th>Talla</th><th style="text-align:right">Empleados</th><th style="text-align:right">Stock Extra</th><th style="text-align:right">Total</th></tr></thead><tbody>';if(rows.length){rows.forEach(r=>{h+='<tr><td class="font-bold">'+esc(r.prenda)+'</td><td>'+r.talla+'</td><td style="text-align:right">'+r.base+'</td><td style="text-align:right">'+(r.stock?'<span class="badge badge-info">+'+r.stock+'</span>':'—')+'</td><td style="text-align:right;font-weight:700;color:var(--success)">'+r.total+'</td></tr>';}); }else{h+='<tr><td colspan="5" class="empty-state"><i class="fas fa-tshirt"></i><p>Sin datos de uniformes</p></td></tr>';}h+='</tbody></table></div></div>';document.getElementById('uniContent').innerHTML=h;}
+./js/inventario.js:10:function renderUniformes(){let h='<div class="tabs mb-3" style="border-bottom:none"><button class="tab-btn'+(uniformesSubTab==='stock'?' active':'')+'" id="uniTabStock"><i class="fas fa-boxes mr-1"></i>Stock Físico</button><button class="tab-btn'+(uniformesSubTab==='req'?' active':'')+'" id="uniTabReq"><i class="fas fa-clipboard-list mr-1"></i>Requerimiento</button></div><div id="uniContent"></div>';document.getElementById('tabContent').innerHTML=h;document.getElementById('invNewBtn').style.display='none';document.getElementById('uniTabStock')?.addEventListener('click',()=>{uniformesSubTab='stock';document.getElementById('uniTabStock').classList.add('active');document.getElementById('uniTabReq').classList.remove('active');renderUniformesStock();});document.getElementById('uniTabReq')?.addEventListener('click',()=>{uniformesSubTab='req';document.getElementById('uniTabReq').classList.add('active');document.getElementById('uniTabStock').classList.remove('active');renderUniformesReq();});if(uniformesSubTab==='stock')renderUniformesStock();else renderUniformesReq();}
+./js/inventario.js:11:function renderAlmacen(){const items=getStore().inventario||[];const totalItems=items.length;const conStock=items.filter(i=>i.cantidad>0).length;const alertas=items.filter(i=>i.cantidad<=(i.minStock||0)).length;let h='<div class="kpi-grid"><div class="kpi"><div class="kpi-label">Total Artículos</div><div class="kpi-value">'+totalItems+'</div></div><div class="kpi success"><div class="kpi-label">Con Stock</div><div class="kpi-value">'+conStock+'</div></div>';if(alertas){h+='<div class="kpi warning"><div class="kpi-label"><i class="fas fa-exclamation-triangle mr-1"></i>Stock Bajo</div><div class="kpi-value" style="color:#d97706">'+alertas+'</div><div class="kpi-sub">Requieren reposición</div></div>';}h+='</div>';h+='<div class="card mb-4"><div class="card-body"><div class="form-row c3"><div><label class="form-label">Categoría</label><select class="form-select" id="almCat"><option value="">Todas</option>'+Object.entries(CATS).map(([k,v])=>'<option value="'+k+'">'+v.icon+' '+v.label+'</option>').join('')+'</select></div><div><label class="form-label">Buscar</label><input class="form-input" id="almSearch" placeholder="Nombre del artículo..."></div><div class="flex items-center" style="align-items:flex-end"><button class="btn btn-ghost" style="width:100%" id="almClear"><i class="fas fa-times"></i> Limpiar</button></div></div></div></div>';h+='<div id="almGrid" class="form-row c3" style="align-items:start"></div>';document.getElementById('tabContent').innerHTML=h;document.getElementById('invNewBtn').style.display='';attachAlmacenEvents();renderAlmacenGrid();}
+./js/inventario.js:12:function renderAlmacenGrid(){const items=getStore().inventario||[];const cat=document.getElementById('almCat')?.value||'';const q=(document.getElementById('almSearch')?.value||'').toLowerCase();let list=items;if(cat)list=list.filter(i=>i.categoria===cat);if(q)list=list.filter(i=>(i.nombre||'').toLowerCase().includes(q));const grid=document.getElementById('almGrid');if(!grid)return;if(!list.length){grid.innerHTML='<div style="grid-column:1/-1" class="empty-state"><i class="fas fa-boxes"></i><p>'+(items.length?'Sin resultados':'Sin artículos en almacén')+'</p></div>';return;}grid.innerHTML=list.map(item=>{const c=CATS[item.categoria]||CATS.OTROS;const alerta=item.cantidad<=(item.minStock||0);const img=item.foto?'<img src="'+item.foto+'" style="width:100%;height:80px;object-fit:cover;border-radius:8px;margin-bottom:8px">':'<div style="height:60px;display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:8px">'+c.icon+'</div>';return'<div class="card" style="cursor:default'+(alerta?';border:1px solid #fbbf24':'')+'"><div class="card-body" style="padding:16px">'+img+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span class="font-bold text-sm">'+esc(item.nombre)+'</span><span style="background:'+c.bg+';color:'+c.color+';font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">'+c.label+'</span></div>'+(item.descripcion?'<p class="text-xs text-muted mb-2">'+esc(item.descripcion)+'</p>':'')+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span class="text-xs text-muted">Existencia:</span><span style="font-size:22px;font-weight:800;color:'+(alerta?'#d97706':'#059669')+'">'+item.cantidad+'<span class="text-xs text-muted font-normal ml-1">'+(item.unidad||'pzs')+'</span></span></div>'+(alerta?'<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:6px 10px;font-size:11px;color:#92400e;margin-bottom:8px"><i class="fas fa-exclamation-triangle mr-1"></i>Stock bajo (mín: '+(item.minStock||0)+')</div>':'')+'<div class="flex gap-2"><button class="btn btn-sm btn-ghost alm-hist" data-id="'+item.id+'" title="Ver historial" style="color:#7c3aed"><i class="fas fa-history"></i></button><button class="btn btn-sm btn-ghost alm-edit" data-id="'+item.id+'" style="flex:1"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-ghost alm-stock" data-id="'+item.id+'" style="flex:1;color:#059669"><i class="fas fa-plus"></i></button><button class="btn btn-sm btn-ghost alm-del" data-id="'+item.id+'" style="flex:1;color:#dc2626"><i class="fas fa-trash"></i></button></div></div></div>';}).join('');}
+./js/inventario.js:13:function openItemModal(id){const item=id?getStore().inventario.find(i=>i.id===id):null;const foto=item?.foto||null;let fotoData=foto;let h='<div class="form-row c2 mb-3"><div class="form-group"><label class="form-label">Nombre *</label><input class="form-input" id="itmN" value="'+esc(item?.nombre||'')+'" placeholder="Ej: Agua embotellada"></div><div class="form-group"><label class="form-label">Categoría</label><select class="form-select" id="itmC"><option value="">Sin categoría</option>'+Object.entries(CATS).map(([k,v])=>'<option value="'+k+'"'+(item?.categoria===k?' selected':'')+'>'+v.icon+' '+v.label+'</option>').join('')+'</select></div></div><div class="form-row c3 mb-3"><div class="form-group"><label class="form-label">Cantidad</label><input class="form-input" type="number" id="itmQ" min="0" value="'+(item?.cantidad||0)+'" placeholder="0"></div><div class="form-group"><label class="form-label">Mín. Stock</label><input class="form-input" type="number" id="itmMin" min="0" value="'+(item?.minStock||0)+'" placeholder="0"></div><div class="form-group"><label class="form-label">Unidad</label><select class="form-select" id="itmU"><option value="piezas">Piezas</option><option value="cajas"'+(item?.unidad==='cajas'?' selected':'')+'>Cajas</option><option value="kg"'+(item?.unidad==='kg'?' selected':'')+'>Kg</option><option value="litros"'+(item?.unidad==='litros'?' selected':'')+'>Litros</option></select></div></div><div class="form-group mb-3"><label class="form-label">Descripción</label><input class="form-input" id="itmD" value="'+esc(item?.descripcion||'')+'" placeholder="Descripción opcional"></div>';h+='<div class="form-group"><label class="form-label">Imagen (opcional)</label><div id="itmFotoBox" style="margin-top:8px">';if(fotoData){h+='<img id="itmFotoPreview" src="'+fotoData+'" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px"><button class="btn btn-sm btn-ghost" id="itmFotoRm" style="color:#dc2626"><i class="fas fa-trash"></i> Quitar foto</button>';}else{h+='<label style="display:block;border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;color:var(--text-muted)"><i class="fas fa-image fa-2x mb-2"></i><p class="text-sm">Toca para subir imagen</p><input type="file" id="itmFotoIn" accept="image/*" capture="environment" style="display:none"></label>';}h+='</div></div>';modal.open(id?'Editar Artículo':'Nuevo Artículo',h,'<button class="btn btn-ghost" id="mCancel">Cancelar</button><button class="btn btn-success" id="mSaveItm"><i class="fas fa-save"></i> Guardar</button>');document.getElementById('mCancel')?.addEventListener('click',()=>modal.close());document.getElementById('itmFotoIn')?.addEventListener('change',function(){const f=this.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{fotoData=ev.target.result;const box=document.getElementById('itmFotoBox');if(box){box.innerHTML='<img id="itmFotoPreview" src="'+fotoData+'" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px"><button class="btn btn-sm btn-ghost" id="itmFotoRm2" style="color:#dc2626"><i class="fas fa-trash"></i> Quitar foto</button>';box.querySelector('#itmFotoRm2')?.addEventListener('click',()=>{fotoData=null;box.innerHTML='<label style="display:block;border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;color:var(--text-muted)"><i class="fas fa-image fa-2x mb-2"></i><p class="text-sm">Toca para subir imagen</p><input type="file" id="itmFotoIn2" accept="image/*" capture="environment" style="display:none"></label>';box.querySelector('#itmFotoIn2')?.addEventListener('change',function(){const r2=new FileReader();r2.onload=e2=>{fotoData=e2.target.result;box.innerHTML='<img src="'+fotoData+'" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px">';};r2.readAsDataURL(this.files[0]);});});}};r.readAsDataURL(f);});document.getElementById('itmFotoRm')?.addEventListener('click',()=>{fotoData=null;const box=document.getElementById('itmFotoBox');if(box)box.innerHTML='<label style="display:block;border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;color:var(--text-muted)"><i class="fas fa-image fa-2x mb-2"></i><p class="text-sm">Toca para subir imagen</p><input type="file" id="itmFotoIn" accept="image/*" capture="environment" style="display:none"></label>';});document.getElementById('mSaveItm')?.addEventListener('click',()=>saveItem(id,()=>fotoData));}
+./js/inventario.js:14:function saveItem(id,getFoto){const nom=(document.getElementById('itmN')?.value||'').trim();if(!nom){notify('Escribe un nombre','warning');return;}const items=getStore().inventario;if(id){const it=items.find(i=>i.id===id);if(it){it.nombre=nom;it.categoria=document.getElementById('itmC')?.value||'OTROS';it.cantidad=parseInt(document.getElementById('itmQ')?.value||'0',10);it.minStock=parseInt(document.getElementById('itmMin')?.value||'0',10);it.unidad=document.getElementById('itmU')?.value||'piezas';it.descripcion=document.getElementById('itmD')?.value||'';it.foto=getFoto();it.updatedAt=new Date().toISOString();}}else{items.push({id:Date.now().toString(),nombre:nom,categoria:document.getElementById('itmC')?.value||'OTROS',cantidad:parseInt(document.getElementById('itmQ')?.value||'0',10),minStock:parseInt(document.getElementById('itmMin')?.value||'0',10),unidad:document.getElementById('itmU')?.value||'piezas',descripcion:document.getElementById('itmD')?.value||'',foto:getFoto()||null,updatedAt:new Date().toISOString()});}saveInventario();log(id?'EDIT_ITEM':'NEW_ITEM',nom);modal.close();notify('Artículo guardado','success');renderAlmacenGrid();}
+./js/inventario.js:16:  const it=getStore().inventario.find(i=>i.id===id);if(!it)return;
+./js/inventario.js:41:    if(delta<0&&(cur+delta)<0){notify('No se puede registrar una salida mayor al stock actual ('+cur+' '+( it.unidad||'pzs')+')','error');return;}
+./js/inventario.js:58:function delItem(id){const it=getStore().inventario.find(i=>i.id===id);if(!it)return;if(!confirm('¿Eliminar "'+it.nombre+'"?'))return;getStore().inventario.splice(getStore().inventario.indexOf(it),1);saveInventario();log('DEL_ITEM',it.nombre);notify('Artículo eliminado','success');renderAlmacenGrid();}
+./js/inventario.js:61:  const it=getStore().inventario.find(i=>i.id===id);if(!it)return;
+./js/inventario.js:74:    h+='<p class="text-xs text-muted mb-2"><strong>Movimientos de stock ('+movs.length+')</strong></p>';
+./js/inventario.js:79:  if(!compras.length&&!movs.length){h+='<p class="text-sm text-muted text-center" style="padding:20px">Sin historial de movimientos registrado</p>';}
+./js/inventario.js:105:    const items=getStore().inventario||[];
+./js/inventario.js:155:      if(!s.stockUniformes)s.stockUniformes=[];
+./js/inventario.js:157:      s.stockUniformes.push({id:'rcpu_'+Date.now(),prenda,talla,modelo,cantidad:cant,costoUnit:precio,fecha,proveedor:prov,factura,foto:fotoData,observaciones:'',registradoPor:_getUser()});
+./js/inventario.js:173:        if(!s.inventario)s.inventario=[];
+./js/inventario.js:174:        s.inventario.push({id:'alm_'+Date.now(),nombre:nom,categoria:cat,cantidad:cant,unidad,minStock,descripcion:'',foto:fotoData,updatedAt:new Date().toISOString()});
+./js/inventario.js:180:        const item=s.inventario?.find(i=>i.id===artId);
+./js/inventario.js:212:  const items=(getStore().inventario||[]).filter(i=>i.cantidad>0);
+./js/inventario.js:214:    modal.open('Registrar Salida','<div class="empty-state"><i class="fas fa-boxes"></i><p>No hay artículos con stock disponible</p><p class="text-sm text-muted">Registra entradas primero</p></div>','<button class="btn btn-ghost" id="slClose">Cerrar</button>');
+./js/inventario.js:219:  h+='<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#f87171"><i class="fas fa-exclamation-triangle mr-1"></i>Una salida descuenta el stock permanentemente. Solo para mermas, daños o ajustes autorizados.</div>';
+./js/inventario.js:229:  h+='<div class="form-group"><label class="form-label">Motivo *</label><select class="form-select" id="slMotivo"><option>Merma</option><option>Daño</option><option>Devolución</option><option>Ajuste de inventario</option><option>Uso interno</option><option>Otro</option></select></div>';
+./js/inventario.js:258:    const item=s.inventario?.find(i=>i.id===artId);
+./js/inventario.js:266:    s.salidas.push({id:'sal_alm_'+Date.now(),tipo:'almacen',articuloId:artId,articuloNombre:item.nombre,prenda:item.nombre,talla:'—',cantidad:cant,fecha,motivo,observaciones:obs,stockAnterior:anterior,stockNuevo:item.cantidad});
+./js/inventario.js:274:function attachAlmacenEvents(){const isOp=getUserRole()==='operador';if(!isOp){document.getElementById('invNewBtn')?.addEventListener('click',()=>openItemModal(null));}else{const nb=document.getElementById('invNewBtn');if(nb)nb.style.display='none';}['almCat'].forEach(id=>document.getElementById(id)?.addEventListener('change',renderAlmacenGrid));document.getElementById('almSearch')?.addEventListener('input',renderAlmacenGrid);document.getElementById('almClear')?.addEventListener('click',()=>{document.getElementById('almCat').value='';document.getElementById('almSearch').value='';renderAlmacenGrid();});document.getElementById('almGrid')?.addEventListener('click',e=>{const ed=e.target.closest('.alm-edit');const st=e.target.closest('.alm-stock');const dl=e.target.closest('.alm-del');const hs=e.target.closest('.alm-hist');if(hs)verHistorial(hs.dataset.id);if(ed)openItemModal(ed.dataset.id);if(st)addStock(st.dataset.id);if(dl){if(getUserRole()==='operador'){notify('Se requiere autorización del administrador','warning');return;}delItem(dl.dataset.id);}});}
+./js/app.js:9:import{render as renderInventario,init as initInventario}from'./inventario.js';
+./js/app.js:17:import{render as renderAdvancedReports,init as initAdvancedReports}from'./advanced-reports.js';import{render as renderEntregasV2,init as initEntregasV2}from'./mod-entregas-v2-ui.js';import{render as renderUsuarios,init as initUsuarios}from'./users.js';import{render as renderAreas,init as initAreas}from'./areas-config.js';import{render as renderCentroCostos,init as initCentroCostos}from'./centro-costos.js';import{render as renderCampanias,init as initCampanias}from'./campanias.js';import{render as renderStockUniformes,init as initStockUniformes}from'./stock-uniformes.js';import{render as renderBitacora,init as initBitacora}from'./bitacora.js';import{render as renderInventarioSKU,init as initInventarioSKU}from'./inventario-sku.js';import{render as renderEntregaSKU,init as initEntregaSKU}from'./entrega-sku.js';import{render as renderDevolucionSKU,init as initDevolucionSKU}from'./devolucion-sku.js';
+./js/app.js:18:const views={dashboard:{render:renderDashboard,init:initDashboard},empleados:{render:renderEmpleados,init:initEmpleados},captura:{render:renderCaptura,init:initCaptura},entregas:{render:renderEntregas,init:initEntregas},entregasv2:{render:renderEntregasV2,init:initEntregasV2},totales:{render:renderTotales,init:initTotales},tablero:{render:renderTablero},proveedores:{render:renderProveedores,init:initProveedores},inventario:{render:renderInventario,init:initInventario},salidas:{render:renderSalidas,init:initSalidas},importar:{render:renderImportar,init:initImportar},exportar:{render:renderExportar,init:initExportar},catalogo:{render:renderCatalogo},config:{render:renderConfig,init:initConfig},admin:{render:renderAdminDash,init:initAdminDash},operador:{render:renderOperatorDelivery,init:initOperatorDelivery},reportes:{render:renderAdvancedReports,init:initAdvancedReports},usuarios:{render:renderUsuarios,init:initUsuarios},areas:{render:renderAreas,init:initAreas},'centro-costos':{render:renderCentroCostos,init:initCentroCostos},campanias:{render:renderCampanias,init:initCampanias},'stock-uniformes':{render:renderStockUniformes,init:initStockUniformes},bitacora:{render:renderBitacora,init:initBitacora},'inventario-sku':{render:renderInventarioSKU,init:initInventarioSKU},'entrega-sku':{render:renderEntregaSKU,init:initEntregaSKU},'devolucion-sku':{render:renderDevolucionSKU,init:initDevolucionSKU}};window.views=views;
+./js/storage.js:22:const store={employees:[],proveedores:[],inventario:[],entregas:[],salidas:[],areas:[],stockExtra:{},auditLog:[],comprasAlmacen:[],campanias:[],stockUniformes:[],encuestas:[],articulos:[],skus:[],movimientosInventario:[],documentosEntrega:[],documentosDevolucion:[]};
+./js/storage.js:32:  store.inventario=load('_inventario',[]);
+./js/storage.js:37:  store.stockExtra=load('_stock',{});
+./js/storage.js:40:  store.stockUniformes=load('_stock_uniformes',[]);
+./js/storage.js:43:  store.skus=load('_skus',[]);
+./js/storage.js:44:  store.movimientosInventario=load('_mov_inv',[]);
+./js/storage.js:47:  const fixed={};Object.entries(store.stockExtra).forEach(([prenda,tallas])=>{fixed[prenda]=fixed[prenda]||{};Object.entries(tallas||{}).forEach(([t,c])=>{const tt=normTalla(t);const n=Math.max(0,parseInt(c,10)||0);if(tt&&n>0)fixed[prenda][tt]=(fixed[prenda][tt]||0)+n;});if(!Object.keys(fixed[prenda]).length)delete fixed[prenda];});store.stockExtra=fixed;
+./js/storage.js:54:export function saveInventario(){save('_inventario',store.inventario);_push('inventario',store.inventario);}
+./js/storage.js:58:export function saveStockExtra(){save('_stock',store.stockExtra);_pushKV('stockExtra',store.stockExtra);}
+./js/storage.js:62:export function saveStockUniformes(){save('_stock_uniformes',store.stockUniformes);_push('stockUniformes',store.stockUniformes);}
+./js/storage.js:65:export function saveSkus(){save('_skus',store.skus);}
+./js/storage.js:66:export function saveMovimientosInventario(){save('_mov_inv',store.movimientosInventario);}
+./js/storage.js:71:export function getStockExtra(prenda,talla){return parseInt((store.stockExtra[prenda]||{})[normTalla(talla)]||0,10);}
+./js/storage.js:72:export function setStockExtra(prenda,talla,cantidad){if(!store.stockExtra[prenda])store.stockExtra[prenda]={};const tt=normTalla(talla);const n=Math.max(0,parseInt(cantidad,10)||0);if(n>0)store.stockExtra[prenda][tt]=n;else delete store.stockExtra[prenda][tt];if(!Object.keys(store.stockExtra[prenda]).length)delete store.stockExtra[prenda];saveStockExtra();}
+./js/storage.js:77:    _meta:{version:VERSION,exportedAt:new Date().toISOString(),counts:{employees:s.employees.length,entregas:s.entregas.length,proveedores:s.proveedores.length,inventario:s.inventario.length,salidas:s.salidas.length,comprasAlmacen:s.comprasAlmacen.length,campanias:s.campanias.length,stockUniformes:s.stockUniformes.length,encuestas:s.encuestas.length,auditLog:s.auditLog.length}},
+./js/storage.js:78:    employees:s.employees,proveedores:s.proveedores,inventario:s.inventario,
+./js/storage.js:79:    entregas:s.entregas,salidas:s.salidas,stockExtra:s.stockExtra,areas:s.areas,
+./js/storage.js:81:    stockUniformes:s.stockUniformes,encuestas:s.encuestas,
+./js/storage.js:96:  store.inventario=bk.inventario||[];store.entregas=bk.entregas||[];
+./js/storage.js:97:  store.salidas=bk.salidas||[];store.stockExtra=bk.stockExtra||{};
+./js/storage.js:100:  store.stockUniformes=bk.stockUniformes||[];store.encuestas=bk.encuestas||[];
+./sw.js:3:const APP_SHELL=['./','./index.html','./css/styles.css','./icons/icon-192.png','./icons/icon-512.png','./js/app.js','./js/config.js','./js/utils.js','./js/storage.js','./js/rules.js','./js/ui.js','./js/dashboard.js','./js/empleados.js','./js/captura.js','./js/entregas.js','./js/totales.js','./js/tablero.js','./js/proveedores.js','./js/inventario.js','./js/salidas.js','./js/importar.js','./js/exportar.js','./js/catalogo.js','./js/config-view.js','./js/user-roles.js','./js/delivery-evidence.js','./js/kpi-metrics.js','./js/signature-capture.js','./js/offline-storage.js','./js/operator-delivery.js','./js/admin-dashboard.js','./js/advanced-reports.js','./js/mod-auth.js','./js/mod-entregas-v2.js','./js/mod-entregas-v2-ui.js','./js/mod-costos-base.js','./js/users.js','./js/areas-config.js','./js/centro-costos.js','./js/campanias.js','./js/stock-uniformes.js','./js/supabase-client.js','./js/sync-engine.js','./js/bitacora.js','./js/sku-api.js','./js/inventario-sku.js','./js/entrega-sku.js','./js/devolucion-sku.js','./manifest.json'];

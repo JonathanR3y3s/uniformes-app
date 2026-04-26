@@ -1,0 +1,209 @@
+./js/entregas.js:68:  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty-state"><i class="fas fa-hand-holding"></i><p>Sin entregas registradas</p></td></tr>';return;}
+./js/bitacora.js:74:    tb.innerHTML='<tr><td colspan="5" class="empty-state"><i class="fas fa-clipboard-list"></i><p>Sin eventos'+(fm||fu||fs||fd||fh?' que coincidan con los filtros':'')+'</p></td></tr>';
+./js/delivery-evidence.js:66:  const stored = localStorage.getItem('_folio_counter');
+./js/delivery-evidence.js:67:  if (stored) {
+./js/delivery-evidence.js:68:    folioCounter = parseInt(stored, 10);
+./js/centro-costos.js:169:  if(!g.length){tb.innerHTML='<tr><td colspan="8" class="empty-state"><i class="fas fa-chart-line"></i><p>Sin registros de gasto para este período</p></td></tr>';return;}
+./js/mod-auth.js:2: * MÓDULO DE AUTENTICACIÓN — Login contra store dinámico de usuarios
+./js/kpi-metrics.js:182:  const store = getStore();
+./js/kpi-metrics.js:183:  const entregas = store.entregas || [];
+./js/kpi-metrics.js:184:  const inventario = store.inventario || [];
+./js/kpi-metrics.js:210:    stockActual: calculateCurrentStock(store),
+./js/kpi-metrics.js:214:function calculateCurrentStock(store) {
+./js/kpi-metrics.js:216:  store.inventario?.forEach(item => {
+./js/kpi-metrics.js:221:  store.entregas?.forEach(d => {
+./js/config-view.js:2:import{getStore,saveEmployees,saveProveedores,saveEntregas,saveSalidas,saveStockExtra,saveAuditLog,buildBackup,restoreBackup,getStorageUsageKB,log}from'./storage.js';
+./js/config-view.js:35:  // Backup & Restore
+./js/config-view.js:39:  h+='<div style="border:2px dashed var(--border);border-radius:var(--radius);padding:16px;text-align:center;cursor:pointer;transition:border-color .15s" id="dropRestore"><i class="fas fa-upload" style="font-size:24px;color:var(--text-muted);display:block;margin-bottom:8px"></i><p class="text-sm font-bold">Restaurar desde backup</p><p class="text-xs text-muted">Arrastra el archivo .json o haz clic para seleccionar</p><input type="file" id="fileRestore" accept=".json" style="display:none"></div>';
+./js/config-view.js:40:  h+='<div id="restoreInfo" style="margin-top:12px"></div>';
+./js/config-view.js:76:function showRestorePreview(bk){
+./js/config-view.js:77:  const box=document.getElementById('restoreInfo');if(!box)return;
+./js/config-view.js:88:    <button class="btn btn-danger" style="width:100%" id="btnConfirmRestore"><i class="fas fa-history mr-2"></i>Confirmar Restauración</button>
+./js/config-view.js:90:  document.getElementById('btnConfirmRestore')?.addEventListener('click',()=>{
+./js/config-view.js:92:    const result=restoreBackup(bk);
+./js/config-view.js:117:  if(e.target.closest('#dropRestore')||e.target.closest('#fileRestore')){
+./js/config-view.js:118:    document.getElementById('fileRestore')?.click();
+./js/config-view.js:172:  // File input for restore
+./js/config-view.js:173:  const fi=document.getElementById('fileRestore');
+./js/config-view.js:177:    r.onload=ev=>{try{const bk=JSON.parse(ev.target.result);showRestorePreview(bk);}catch{document.getElementById('restoreInfo').innerHTML='<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px;color:#dc2626;font-size:13px"><i class="fas fa-times-circle mr-2"></i>No se pudo leer el archivo. Asegúrate de seleccionar un archivo JSON válido.</div>';}};
+./js/config-view.js:181:  const drop=document.getElementById('dropRestore');
+./js/config-view.js:188:      const r=new FileReader();r.onload=ev=>{try{const bk=JSON.parse(ev.target.result);showRestorePreview(bk);}catch{notify('Archivo no válido','error');}};r.readAsText(f);
+./js/operator-delivery.js:47:  const store = getStore();
+./js/operator-delivery.js:48:  const activos = store.employees.filter(e => e.estado === 'activo');
+./js/operator-delivery.js:63:    h += '<div class="empty-state"><i class="fas fa-users"></i><p>No hay empleados activos</p></div>';
+./js/operator-delivery.js:102:    h += '<div class="empty-state"><i class="fas fa-shirt"></i><p>Sin tallas capturadas para este empleado</p></div>';
+./js/operator-delivery.js:276:  const store = getStore();
+./js/operator-delivery.js:277:  const activos = store.employees.filter(e => e.estado === 'activo');
+./js/operator-delivery.js:292:    resultsContainer.innerHTML = '<div class="empty-state"><i class="fas fa-search"></i><p>No encontrado</p></div>';
+./js/areas-config.js:22:  // Mantener store.areas sincronizado
+./js/areas-config.js:23:  const store=getStore();
+./js/areas-config.js:24:  store.areas=Object.keys(rules).map(n=>({nombre:n,activa:true}));
+./js/areas-config.js:36:  const store=getStore();
+./js/areas-config.js:42:  if(!Object.keys(rules).length){h+='<tr><td colspan="5" class="empty-state"><i class="fas fa-layer-group"></i><p>Sin áreas configuradas</p></td></tr>';}
+./js/areas-config.js:44:    const emps=store.employees.filter(e=>e.area===nombre).length;
+./js/areas-config.js:253:  const store=getStore();
+./js/areas-config.js:254:  const emps=store.employees.filter(e=>e.area===nombre).length;
+./js/importar.js:14:  h+='<button class="tab-btn'+(currentTab==='restore'?' active':'')+'" id="tabRestore">💾 Restaurar respaldo JSON</button>';
+./js/importar.js:21:  return currentTab==='excel'?renderExcel():renderRestore();
+./js/importar.js:102:function renderRestore(){
+./js/importar.js:117:function handleRestoreFile(file){
+./js/importar.js:123:      previewRestore(bk);
+./js/importar.js:129:function previewRestore(bk){
+./js/importar.js:152:  h+='<button class="btn btn-danger" id="execRestore" style="width:100%"><i class="fas fa-undo"></i> Restaurar este respaldo (reemplaza todo)</button>';
+./js/importar.js:155:  document.getElementById('execRestore')?.addEventListener('click',()=>execRestore(bk));
+./js/importar.js:158:function execRestore(bk){
+./js/importar.js:160:  const store=getStore();
+./js/importar.js:161:  // Datos del store principal
+./js/importar.js:162:  store.employees=bk.employees||[];
+./js/importar.js:163:  store.proveedores=bk.proveedores||[];
+./js/importar.js:164:  store.inventario=bk.inventario||[];
+./js/importar.js:165:  store.entregas=bk.entregas||[];
+./js/importar.js:166:  store.salidas=bk.salidas||[];
+./js/importar.js:167:  store.stockExtra=bk.stockExtra||{};
+./js/importar.js:168:  store.areas=bk.areas||[];
+./js/importar.js:169:  store.auditLog=bk.auditLog||[];store.comprasAlmacen=bk.comprasAlmacen||[];
+./js/importar.js:172:  if(bk.users&&bk.users.length)localStorage.setItem('_users_store',JSON.stringify(bk.users));
+./js/importar.js:184:  document.getElementById('tabRestore')?.addEventListener('click',()=>{currentTab='restore';document.getElementById('impTabContent').innerHTML=renderTab();initTabListeners();});
+./js/importar.js:204:      dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files.length)handleRestoreFile(e.dataTransfer.files[0]);});
+./js/importar.js:206:    fi?.addEventListener('change',function(){if(this.files.length)handleRestoreFile(this.files[0]);});
+./js/user-roles.js:43:  const stored = localStorage.getItem('_user');
+./js/user-roles.js:44:  if (stored) {
+./js/user-roles.js:46:      currentUser = JSON.parse(stored);
+./js/inventario-sku.js:143:    tb.innerHTML='<tr><td colspan="8" class="empty-state"><i class="fas fa-barcode"></i><p>Sin SKUs registrados</p><p class="text-sm text-muted">Usa "Inventario Inicial" para cargar el conteo físico del almacén</p></td></tr>';
+./js/inventario-sku.js:414:    h+='<div class="empty-state" style="padding:20px"><i class="fas fa-clock"></i><p>Sin movimientos registrados</p></div>';
+./js/inventario-sku.js:462:    tb.innerHTML='<tr><td colspan="7" class="empty-state" style="padding:20px"><i class="fas fa-history"></i><p>Sin movimientos con los filtros actuales</p></td></tr>';
+./js/stock-uniformes.js:87:    return'<div class="card"><div class="card-body"><div class="empty-state"><i class="fas fa-tshirt"></i><p>Sin datos de requerimiento</p><p class="text-sm text-muted">Captura las tallas de los empleados para ver el requerimiento</p></div></div></div>';
+./js/stock-uniformes.js:140:    return'<div class="card"><div class="card-body"><div class="empty-state"><i class="fas fa-box-open"></i><p>Sin entradas registradas</p><p class="text-sm text-muted">Registra entradas de uniformes al stock físico</p></div></div></div>';
+./js/empleados.js:55:  if(!list.length){tb.innerHTML='<tr><td colspan="7" class="empty-state"><i class="fas fa-users"></i><p>No hay empleados con esos filtros</p></td></tr>';return;}
+./js/empleados.js:263:    h+='<div class="empty-state" style="padding:24px"><i class="fas fa-ruler"></i><p>Sin tallas capturadas todavía</p></div>';
+./js/empleados.js:401:    window.location.hash='importar';window.dispatchEvent(new PopStateEvent('popstate',{state:{v:'importar'}}));
+./js/users.js:3: * Store: localStorage '_users_store'  [{id,username,name,password,role,activo,createdAt}]
+./js/users.js:10:const KEY='_users_store';
+./js/users.js:41:  if(!users.length){h+='<tr><td colspan="7" class="empty-state"><i class="fas fa-users"></i><p>No hay usuarios registrados</p></td></tr>';}
+./js/campanias.js:33:    h+='<div class="card"><div class="card-body"><div class="empty-state"><i class="fas fa-calendar-plus"></i><p>Sin campañas registradas</p><p class="text-sm text-muted">Crea la primera campaña para organizar las entregas</p></div></div></div>';
+./js/sync-engine.js:25:  { key: 'employees',      storeKey: 'employees' },
+./js/sync-engine.js:26:  { key: 'entregas',       storeKey: 'entregas' },
+./js/sync-engine.js:27:  { key: 'proveedores',    storeKey: 'proveedores' },
+./js/sync-engine.js:28:  { key: 'inventario',     storeKey: 'inventario' },
+./js/sync-engine.js:29:  { key: 'salidas',        storeKey: 'salidas' },
+./js/sync-engine.js:30:  { key: 'comprasAlmacen', storeKey: 'comprasAlmacen' },
+./js/sync-engine.js:31:  { key: 'campanias',      storeKey: 'campanias' },
+./js/sync-engine.js:32:  { key: 'stockUniformes', storeKey: 'stockUniformes' },
+./js/sync-engine.js:33:  { key: 'encuestas',      storeKey: 'encuestas' },
+./js/sync-engine.js:34:  { key: 'areas',          storeKey: 'areas' },
+./js/sync-engine.js:110:    const store = getStore();
+./js/sync-engine.js:111:    const local = store[col.storeKey] || [];
+./js/sync-engine.js:123:      store[col.storeKey] = merged;
+./js/sync-engine.js:125:      _saveCollection(col.storeKey);
+./js/sync-engine.js:232:  const store = getStore();
+./js/sync-engine.js:237:    const items = store[col.storeKey] || [];
+./js/sync-engine.js:247:  if (Object.keys(store.stockExtra || {}).length) {
+./js/sync-engine.js:248:    await upsertKV('stockExtra', store.stockExtra);
+./js/sync-engine.js:255:    const users = JSON.parse(localStorage.getItem('_users_store') || '[]');
+./js/sync-engine.js:283:function _saveCollection(storeKey) {
+./js/sync-engine.js:296:  saves[storeKey]?.();
+./js/devolucion-sku.js:69:    tb.innerHTML='<tr><td colspan="7" class="empty-state" style="padding:24px"><i class="fas fa-undo"></i><p>Sin devoluciones con estos filtros</p></td></tr>';
+./js/proveedores.js:7:function renderComprasRows(){const s=getStore();const fp=document.getElementById('pvFP')?.value||'';const fs=(document.getElementById('pvFS')?.value||'').toLowerCase();const unif=s.proveedores.map(p=>({...p,_tipo:'UNIF',_art:p.prenda,_talla:p.talla||'—'}));const alm=(s.comprasAlmacen||[]).map(c=>({...c,_tipo:'ALM',_art:c.articulo,_talla:'—'}));let list=[...unif,...alm].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));if(fp)list=list.filter(p=>p.proveedor===fp);if(fs)list=list.filter(p=>(p._art||'').toLowerCase().includes(fs));const tb=document.getElementById('pvTB');if(!tb)return;const cc=document.getElementById('pvCount');if(cc)cc.textContent=list.length+' registros';if(!list.length){tb.innerHTML='<tr><td colspan="10" class="empty-state"><i class="fas fa-truck"></i><p>Sin compras registradas</p></td></tr>';return;}tb.innerHTML=list.map(p=>{const total=p.cantidad*p.precioUnitario;const badge=p._tipo==='UNIF'?'<span style="background:#dbeafe;color:#1d4ed8;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">Uniforme</span>':'<span style="background:#ede9fe;color:#7c3aed;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">Almacén</span>';const delBtn=p._tipo==='UNIF'?'<button class="btn btn-ghost btn-sm pv-del" data-id="'+p.id+'" style="color:var(--danger)"><i class="fas fa-trash"></i></button>':'<button class="btn btn-ghost btn-sm pv-del-alm" data-id="'+p.id+'" style="color:var(--danger)"><i class="fas fa-trash"></i></button>';return'<tr><td class="text-xs font-mono">'+fmtDate(p.fecha)+'</td><td>'+badge+'</td><td class="font-bold">'+esc(p.proveedor||'—')+'</td><td>'+esc(p._art)+'</td><td><span class="badge badge-neutral">'+esc(p._talla)+'</span></td><td style="text-align:center;font-weight:700">'+p.cantidad+'</td><td style="text-align:right">'+fmtMoney(p.precioUnitario)+'</td><td style="text-align:right;font-weight:700;color:var(--success)">'+fmtMoney(total)+'</td><td class="text-xs text-muted">'+esc(p.referencia||'—')+'</td><td>'+delBtn+'</td></tr>';}).join('');}
+./js/proveedores.js:66:function renderCatGrid(){const cats=getCats();const s=getStore();const grid=document.getElementById('catGrid');if(!grid)return;if(!cats.length){grid.innerHTML='<div style="grid-column:1/-1" class="empty-state"><i class="fas fa-address-book"></i><p>Sin proveedores en el catálogo</p><p class="text-xs text-muted mt-2">Agrégalos aquí para seleccionarlos rápido al registrar compras</p></div>';return;}grid.innerHTML=cats.map(c=>{const compras=s.proveedores.filter(p=>p.proveedor===c.nombre).length;const totalGasto=s.proveedores.filter(p=>p.proveedor===c.nombre).reduce((sum,p)=>sum+p.cantidad*p.precioUnitario,0);return'<div class="card"><div class="card-body" style="padding:18px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="width:44px;height:44px;background:#dbeafe;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-truck" style="color:#2563eb;font-size:18px"></i></div><div style="flex:1;min-width:0"><p class="font-bold" style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(c.nombre)+'</p>'+(c.contacto?'<p class="text-xs text-muted">'+esc(c.contacto)+'</p>':'')+'</div></div>'+(c.tel?'<p class="text-xs mb-1"><i class="fas fa-phone mr-1 text-muted"></i>'+esc(c.tel)+'</p>':'')+(c.email?'<p class="text-xs mb-1"><i class="fas fa-envelope mr-1 text-muted"></i>'+esc(c.email)+'</p>':'')+(c.notas?'<p class="text-xs text-muted mt-1 mb-2">'+esc(c.notas)+'</p>':'')+'<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border);margin-top:8px"><div><p class="text-xs text-muted">Órdenes</p><p class="font-bold">'+compras+'</p></div><div style="text-align:right"><p class="text-xs text-muted">Gasto total</p><p class="font-bold" style="color:var(--success)">'+fmtMoney(totalGasto)+'</p></div></div><div class="flex gap-2 mt-2"><button class="btn btn-ghost btn-sm cat-edit" data-id="'+c.id+'" style="flex:1"><i class="fas fa-edit"></i></button><button class="btn btn-ghost btn-sm cat-del" data-id="'+c.id+'" style="flex:1;color:var(--danger)"><i class="fas fa-trash"></i></button></div></div></div>';}).join('');}
+./js/salidas.js:2:function renderTable(){const s=getStore();let h='';h+='<div class="page-head"><div class="page-title"><h1>Salidas de Inventario</h1><p>Mermas, daños y ajustes</p></div><button class="btn btn-danger" id="salNew"><i class="fas fa-sign-out-alt"></i> Nueva Salida</button></div>';h+='<div class="card"><div class="table-wrap"><table class="dt"><thead><tr><th>Fecha</th><th>Prenda</th><th>Talla</th><th>Cantidad</th><th>Motivo</th><th>Obs</th></tr></thead><tbody>';if(s.salidas.length){s.salidas.slice().reverse().forEach(sal=>{h+='<tr><td class="text-xs">'+fmtDate(sal.fecha)+'</td><td class="font-bold">'+esc(sal.prenda)+'</td><td>'+esc(sal.talla)+'</td><td style="color:var(--danger);font-weight:700">-'+sal.cantidad+'</td><td><span class="badge badge-neutral">'+esc(sal.motivo||'—')+'</span></td><td class="text-xs text-sec">'+esc(sal.observaciones||'')+'</td></tr>';});}else{h+='<tr><td colspan="6" class="empty-state"><i class="fas fa-sign-out-alt"></i><p>No hay salidas registradas</p></td></tr>';}h+='</tbody></table></div></div>';return h;}
+./js/entrega-sku.js:69:    tb.innerHTML='<tr><td colspan="7" class="empty-state" style="padding:24px"><i class="fas fa-hand-holding"></i><p>Sin entregas con estos filtros</p></td></tr>';
+./js/tablero.js:20:if(!granTotal){h+='<div class="empty-state"><i class="fas fa-clipboard-list"></i><p>Sin datos de tallas capturadas</p><p class="text-xs text-muted">Captura las tallas de los empleados para generar el tablero</p></div>';return h;}
+./js/mod-entregas-v2.js:8:const store = {
+./js/mod-entregas-v2.js:19:    store.entregas = data ? JSON.parse(data) : [];
+./js/mod-entregas-v2.js:21:    store.entregas = [];
+./js/mod-entregas-v2.js:26:  localStorage.setItem(STORAGE_KEY_V2, JSON.stringify(store.entregas));
+./js/mod-entregas-v2.js:30:  return store;
+./js/mod-entregas-v2.js:45:  store.entregas.push(entrega);
+./js/mod-entregas-v2.js:51:  const entrega = store.entregas.find(e => e.id === id);
+./js/mod-entregas-v2.js:63:  return store.entregas.find(e => e.id === id);
+./js/mod-entregas-v2.js:67:  const idx = store.entregas.findIndex(e => e.id === id);
+./js/mod-entregas-v2.js:69:  store.entregas.splice(idx, 1);
+./js/mod-entregas-v2.js:75:  return store.entregas.filter(e => e.estado === estado);
+./js/mod-entregas-v2.js:79:  return store.entregas.filter(e => e.tipo === tipo);
+./js/mod-entregas-v2.js:83:  return store.entregas.filter(e => e.empleadoId === empleadoId);
+./js/mod-entregas-v2.js:87:  return store.entregas.filter(e => e.fecha === fecha);
+./js/mod-entregas-v2.js:91:  let result = store.entregas;
+./js/mod-entregas-v2.js:101:  store.entregas.forEach(e => {
+./js/offline-storage.js:78:    const store = tx.objectStore(STORES.DELIVERIES);
+./js/offline-storage.js:86:    const request = store.put(deliveryToSave);
+./js/offline-storage.js:107:    const store = tx.objectStore(STORES.DELIVERIES);
+./js/offline-storage.js:108:    const request = store.get(id);
+./js/offline-storage.js:125:    const store = tx.objectStore(STORES.DELIVERIES);
+./js/offline-storage.js:126:    const request = store.getAll();
+./js/offline-storage.js:143:    const store = tx.objectStore(STORES.DELIVERIES);
+./js/offline-storage.js:144:    const index = store.index('syncStatus');
+./js/offline-storage.js:166:    const store = tx.objectStore(STORES.SYNC_QUEUE);
+./js/offline-storage.js:177:    const request = store.add(queueItem);
+./js/offline-storage.js:196:    const store = tx.objectStore(STORES.SYNC_QUEUE);
+./js/offline-storage.js:197:    const index = store.index('status');
+./js/offline-storage.js:215:    const store = tx.objectStore(STORES.SYNC_QUEUE);
+./js/offline-storage.js:218:    const getRequest = store.get(queueId);
+./js/offline-storage.js:231:      const updateRequest = store.put(item);
+./js/offline-storage.js:254:    const store = tx.objectStore(STORES.SYNC_QUEUE);
+./js/offline-storage.js:256:    const getRequest = store.get(queueId);
+./js/offline-storage.js:273:      const updateRequest = store.put(item);
+./js/offline-storage.js:299:    const store = tx.objectStore(STORES.CONFLICTS);
+./js/offline-storage.js:310:    const request = store.add(conflict);
+./js/offline-storage.js:328:    const store = tx.objectStore(STORES.CONFLICTS);
+./js/offline-storage.js:329:    const request = store.getAll();
+./js/offline-storage.js:371:  const stored = localStorage.getItem(key);
+./js/offline-storage.js:372:  return stored ? JSON.parse(stored) : null;
+./js/captura.js:3:function filterCap(){const fa=document.getElementById('capA')?.value||'';const fe=document.getElementById('capE')?.value||'';const fb=(document.getElementById('capS')?.value||'').toLowerCase();const list=getStore().employees.filter(e=>{if(fa&&e.area!==fa)return false;if(fb&&!((e.nombre||'').toLowerCase().includes(fb)||(e.paterno||'').toLowerCase().includes(fb)||e.id.includes(fb)))return false;const cap=verificarCaptura(e);const baja=['baja','movimiento','incapacidad'].includes(e.estado);if(fe==='capturado'&&!cap)return false;if(fe==='pendiente'&&(cap||baja))return false;if(fe==='baja'&&!baja)return false;return true;});const tb=document.getElementById('capT');if(!tb)return;if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty-state"><i class="fas fa-clipboard-list"></i><p>Sin resultados</p></td></tr>';document.getElementById('capC').textContent='0';return;}tb.innerHTML=list.map(e=>{const baja=['baja','movimiento','incapacidad'].includes(e.estado);const cap=verificarCaptura(e);const rc=baja?'inactive':(cap?'capturado':'');const tallas=Object.entries(e.tallas||{}).filter(p=>p[1]).map(p=>p[0]+':'+p[1]).join(', ')||'—';const esSup=e.area==='SUPERVISORES';return'<tr class="'+rc+'"'+(esSup?' style="background:#fffbeb"':'')+'><td class="font-mono text-xs">'+esc(e.id)+'</td><td class="font-bold">'+esc(e.nombre)+' '+esc(e.paterno||'')+'</td><td>'+buildAreaBadge(e.area)+'</td><td>'+buildStatusBadge(e)+'</td><td class="text-xs truncate" style="max-width:250px" title="'+esc(tallas)+'">'+esc(tallas.substring(0,50))+'</td><td class="flex gap-2"><button class="btn btn-accent btn-sm cap-edit" data-id="'+e.id+'"><i class="fas fa-edit"></i></button>'+(esSup&&e.areaOriginal?'<button class="btn btn-ghost btn-sm cap-ret" data-id="'+e.id+'"><i class="fas fa-undo"></i></button>':'')+'</td></tr>';}).join('');document.getElementById('capC').textContent=list.length;}
+./js/inventario.js:8:function renderUniformesStock(){const rows=calcStockPorModelo().filter(r=>r.cantidad>0);const totalPiezas=rows.reduce((s,r)=>s+r.cantidad,0);let h='<div class="kpi-grid"><div class="kpi success"><div class="kpi-label">Total Piezas en Stock</div><div class="kpi-value">'+totalPiezas.toLocaleString('es-MX')+'</div></div></div>';h+='<div class="card"><div class="table-wrap"><table class="dt"><thead><tr><th>Prenda</th><th>Talla</th><th>Modelo</th><th style="text-align:right">Existencia</th><th>Último Mov.</th></tr></thead><tbody>';if(rows.length){rows.sort((a,b)=>{if(a.prenda!==b.prenda)return a.prenda.localeCompare(b.prenda);return(a.talla||'').localeCompare(b.talla||'');});rows.forEach(r=>{h+='<tr><td class="font-bold">'+esc(r.prenda)+'</td><td>'+esc(r.talla||'—')+'</td><td>'+esc(r.modelo)+'</td><td style="text-align:right;font-weight:700;color:var(--success)">'+r.cantidad+'</td><td class="text-xs text-muted">'+fmtDate(r.ultMov)+'</td></tr>';});}else{h+='<tr><td colspan="5" class="empty-state"><i class="fas fa-tshirt"></i><p>Sin stock registrado</p><p class="text-sm text-muted">Usa "Recibir Mercancía" para agregar piezas</p></td></tr>';}h+='</tbody></table></div></div>';document.getElementById('uniContent').innerHTML=h;}
+./js/inventario.js:9:function renderUniformesReq(){const det=calcTotalesDetallados();const rows=[];Object.entries(det).forEach(([prenda,tallas])=>{Object.entries(tallas).forEach(([talla,obj])=>{rows.push({prenda,talla,base:obj.base,stock:obj.stock,total:obj.total});});});const totalPiezas=rows.reduce((s,r)=>s+r.total,0);let h='<div class="kpi-grid"><div class="kpi info"><div class="kpi-label">Total Piezas Requeridas</div><div class="kpi-value">'+totalPiezas.toLocaleString('es-MX')+'</div></div></div>';h+='<div class="card"><div class="table-wrap"><table class="dt"><thead><tr><th>Prenda</th><th>Talla</th><th style="text-align:right">Empleados</th><th style="text-align:right">Stock Extra</th><th style="text-align:right">Total</th></tr></thead><tbody>';if(rows.length){rows.forEach(r=>{h+='<tr><td class="font-bold">'+esc(r.prenda)+'</td><td>'+r.talla+'</td><td style="text-align:right">'+r.base+'</td><td style="text-align:right">'+(r.stock?'<span class="badge badge-info">+'+r.stock+'</span>':'—')+'</td><td style="text-align:right;font-weight:700;color:var(--success)">'+r.total+'</td></tr>';}); }else{h+='<tr><td colspan="5" class="empty-state"><i class="fas fa-tshirt"></i><p>Sin datos de uniformes</p></td></tr>';}h+='</tbody></table></div></div>';document.getElementById('uniContent').innerHTML=h;}
+./js/inventario.js:12:function renderAlmacenGrid(){const items=getStore().inventario||[];const cat=document.getElementById('almCat')?.value||'';const q=(document.getElementById('almSearch')?.value||'').toLowerCase();let list=items;if(cat)list=list.filter(i=>i.categoria===cat);if(q)list=list.filter(i=>(i.nombre||'').toLowerCase().includes(q));const grid=document.getElementById('almGrid');if(!grid)return;if(!list.length){grid.innerHTML='<div style="grid-column:1/-1" class="empty-state"><i class="fas fa-boxes"></i><p>'+(items.length?'Sin resultados':'Sin artículos en almacén')+'</p></div>';return;}grid.innerHTML=list.map(item=>{const c=CATS[item.categoria]||CATS.OTROS;const alerta=item.cantidad<=(item.minStock||0);const img=item.foto?'<img src="'+item.foto+'" style="width:100%;height:80px;object-fit:cover;border-radius:8px;margin-bottom:8px">':'<div style="height:60px;display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:8px">'+c.icon+'</div>';return'<div class="card" style="cursor:default'+(alerta?';border:1px solid #fbbf24':'')+'"><div class="card-body" style="padding:16px">'+img+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span class="font-bold text-sm">'+esc(item.nombre)+'</span><span style="background:'+c.bg+';color:'+c.color+';font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">'+c.label+'</span></div>'+(item.descripcion?'<p class="text-xs text-muted mb-2">'+esc(item.descripcion)+'</p>':'')+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span class="text-xs text-muted">Existencia:</span><span style="font-size:22px;font-weight:800;color:'+(alerta?'#d97706':'#059669')+'">'+item.cantidad+'<span class="text-xs text-muted font-normal ml-1">'+(item.unidad||'pzs')+'</span></span></div>'+(alerta?'<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;padding:6px 10px;font-size:11px;color:#92400e;margin-bottom:8px"><i class="fas fa-exclamation-triangle mr-1"></i>Stock bajo (mín: '+(item.minStock||0)+')</div>':'')+'<div class="flex gap-2"><button class="btn btn-sm btn-ghost alm-hist" data-id="'+item.id+'" title="Ver historial" style="color:#7c3aed"><i class="fas fa-history"></i></button><button class="btn btn-sm btn-ghost alm-edit" data-id="'+item.id+'" style="flex:1"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-ghost alm-stock" data-id="'+item.id+'" style="flex:1;color:#059669"><i class="fas fa-plus"></i></button><button class="btn btn-sm btn-ghost alm-del" data-id="'+item.id+'" style="flex:1;color:#dc2626"><i class="fas fa-trash"></i></button></div></div></div>';}).join('');}
+./js/inventario.js:214:    modal.open('Registrar Salida','<div class="empty-state"><i class="fas fa-boxes"></i><p>No hay artículos con stock disponible</p><p class="text-sm text-muted">Registra entradas primero</p></div>','<button class="btn btn-ghost" id="slClose">Cerrar</button>');
+./js/app.js:22:window.addEventListener('popstate',e=>{const v=(e.state&&e.state.v)||location.hash.slice(1)||'dashboard';currentView=views[v]?v:'dashboard';buildNav(currentView);render();});
+./js/storage.js:22:const store={employees:[],proveedores:[],inventario:[],entregas:[],salidas:[],areas:[],stockExtra:{},auditLog:[],comprasAlmacen:[],campanias:[],stockUniformes:[],encuestas:[],articulos:[],skus:[],movimientosInventario:[],documentosEntrega:[],documentosDevolucion:[]};
+./js/storage.js:29:  store.employees=load('',[]);
+./js/storage.js:30:  store.employees.forEach(emp=>{if(!emp||!emp.tallas)return;const fixed={};Object.entries(emp.tallas).forEach(([k,v])=>{const tt=normTalla(v);if(tt)fixed[k]=tt;});emp.tallas=fixed;});
+./js/storage.js:31:  store.proveedores=load('_proveedores',[]);
+./js/storage.js:32:  store.inventario=load('_inventario',[]);
+./js/storage.js:33:  store.entregas=load('_entregas',[]);
+./js/storage.js:34:  store.salidas=load('_salidas',[]);
+./js/storage.js:35:  store.areas=load('_areas',[]);
+./js/storage.js:36:  store.auditLog=load('_log',[]);
+./js/storage.js:37:  store.stockExtra=load('_stock',{});
+./js/storage.js:38:  store.comprasAlmacen=load('_compras_almacen',[]);
+./js/storage.js:39:  store.campanias=load('_campanias',[]);
+./js/storage.js:40:  store.stockUniformes=load('_stock_uniformes',[]);
+./js/storage.js:41:  store.encuestas=load('_encuestas',[]);
+./js/storage.js:42:  store.articulos=load('_articulos',[]);
+./js/storage.js:43:  store.skus=load('_skus',[]);
+./js/storage.js:44:  store.movimientosInventario=load('_mov_inv',[]);
+./js/storage.js:45:  store.documentosEntrega=load('_docs_entrega',[]);
+./js/storage.js:46:  store.documentosDevolucion=load('_docs_dev',[]);
+./js/storage.js:47:  const fixed={};Object.entries(store.stockExtra).forEach(([prenda,tallas])=>{fixed[prenda]=fixed[prenda]||{};Object.entries(tallas||{}).forEach(([t,c])=>{const tt=normTalla(t);const n=Math.max(0,parseInt(c,10)||0);if(tt&&n>0)fixed[prenda][tt]=(fixed[prenda][tt]||0)+n;});if(!Object.keys(fixed[prenda]).length)delete fixed[prenda];});store.stockExtra=fixed;
+./js/storage.js:48:  if(!store.areas.length&&REGLAS){store.areas=Object.keys(REGLAS).map(n=>({nombre:n,activa:true}));saveAreas();}
+./js/storage.js:49:  let changed=false;store.employees.forEach(emp=>{if(emp.area==='SUPERVISORES'&&emp.tallas&&Object.keys(emp.tallas).length>0&&!emp.capturadoManual){emp.capturadoManual=true;changed=true;}});if(changed)saveEmployees();
+./js/storage.js:51:export function getStore(){return store;}
+./js/storage.js:52:export function saveEmployees(){save('',store.employees);_push('employees',store.employees);}
+./js/storage.js:53:export function saveProveedores(){save('_proveedores',store.proveedores);_push('proveedores',store.proveedores);}
+./js/storage.js:54:export function saveInventario(){save('_inventario',store.inventario);_push('inventario',store.inventario);}
+./js/storage.js:55:export function saveEntregas(){save('_entregas',store.entregas);_push('entregas',store.entregas);}
+./js/storage.js:56:export function saveSalidas(){save('_salidas',store.salidas);_push('salidas',store.salidas);}
+./js/storage.js:57:export function saveAreas(){save('_areas',store.areas);_push('areas',store.areas);}
+./js/storage.js:58:export function saveStockExtra(){save('_stock',store.stockExtra);_pushKV('stockExtra',store.stockExtra);}
+./js/storage.js:59:export function saveComprasAlmacen(){save('_compras_almacen',store.comprasAlmacen);_push('comprasAlmacen',store.comprasAlmacen);}
+./js/storage.js:60:export function saveAuditLog(){save('_log',store.auditLog.slice(-1000));}  // audit log: no sync (voluminoso)
+./js/storage.js:61:export function saveCampanias(){save('_campanias',store.campanias);_push('campanias',store.campanias);}
+./js/storage.js:62:export function saveStockUniformes(){save('_stock_uniformes',store.stockUniformes);_push('stockUniformes',store.stockUniformes);}
+./js/storage.js:63:export function saveEncuestas(){save('_encuestas',store.encuestas);_push('encuestas',store.encuestas);}
+./js/storage.js:64:export function saveArticulos(){save('_articulos',store.articulos);}
+./js/storage.js:65:export function saveSkus(){save('_skus',store.skus);}
+./js/storage.js:66:export function saveMovimientosInventario(){save('_mov_inv',store.movimientosInventario);}
+./js/storage.js:67:export function saveDocumentosEntrega(){save('_docs_entrega',store.documentosEntrega);}
+./js/storage.js:68:export function saveDocumentosDevolucion(){save('_docs_dev',store.documentosDevolucion);}
+./js/storage.js:69:export function log(action,det,modulo){store.auditLog.push({ts:new Date().toISOString(),action,det:det||'',modulo:modulo||'',user:_getCurrentUser()});saveAuditLog();}
+./js/storage.js:71:export function getStockExtra(prenda,talla){return parseInt((store.stockExtra[prenda]||{})[normTalla(talla)]||0,10);}
+./js/storage.js:72:export function setStockExtra(prenda,talla,cantidad){if(!store.stockExtra[prenda])store.stockExtra[prenda]={};const tt=normTalla(talla);const n=Math.max(0,parseInt(cantidad,10)||0);if(n>0)store.stockExtra[prenda][tt]=n;else delete store.stockExtra[prenda][tt];if(!Object.keys(store.stockExtra[prenda]).length)delete store.stockExtra[prenda];saveStockExtra();}
+./js/storage.js:75:  const s=store;
+./js/storage.js:82:    users:JSON.parse(localStorage.getItem('_users_store')||'[]'),
+./js/storage.js:88:export function restoreBackup(bk){
+./js/storage.js:95:  store.employees=bk.employees||[];store.proveedores=bk.proveedores||[];
+./js/storage.js:96:  store.inventario=bk.inventario||[];store.entregas=bk.entregas||[];
+./js/storage.js:97:  store.salidas=bk.salidas||[];store.stockExtra=bk.stockExtra||{};
+./js/storage.js:98:  store.areas=bk.areas||[];store.auditLog=bk.auditLog||[];
+./js/storage.js:99:  store.comprasAlmacen=bk.comprasAlmacen||[];store.campanias=bk.campanias||[];
+./js/storage.js:100:  store.stockUniformes=bk.stockUniformes||[];store.encuestas=bk.encuestas||[];
+./js/storage.js:104:  if(bk.users)localStorage.setItem('_users_store',JSON.stringify(bk.users));

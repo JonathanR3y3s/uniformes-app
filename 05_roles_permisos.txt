@@ -1,0 +1,137 @@
+./index.html:9:  <meta name="apple-mobile-web-app-title" content="Control Store Pro">
+./index.html:11:  <meta name="description" content="Control Store Pro — Sistema de gestión de almacén y uniformes ASSA ABLOY">
+./index.html:14:  <title>Control Store Pro</title>
+./index.html:31:        <div class="sidebar-brand"><div class="sidebar-title">Control Store Pro</div><div class="sidebar-sub">ASSA ABLOY México</div></div>
+./js/entregas.js:1:import{getStore,saveEntregas,saveStockUniformes,log}from'./storage.js';import{esc,fmtDate,today}from'./utils.js';import{buildAreaBadge,notify,modal}from'./ui.js';import{initSignatureCapture,getSignatureData}from'./signature-capture.js';import{getUser,getUserRole}from'./user-roles.js';
+./js/entregas.js:44:  const isAdmin=getUserRole()==='admin';
+./js/entregas.js:65:  const isAdmin=getUserRole()==='admin';
+./js/entregas.js:229:      if(getUserRole()==='operador'){
+./js/entregas.js:230:        notify('Stock insuficiente para: '+lista+'. Solicita autorización de administrador.','error');
+./js/bitacora.js:4: * Solo accesible para el rol 'admin'.
+./js/delivery-evidence.js:3: * Captura completa: folio, firma, timestamp, operador, sincronización
+./js/delivery-evidence.js:7:import { getUser } from './user-roles.js';
+./js/delivery-evidence.js:22:  operadorId: 'op_456',
+./js/delivery-evidence.js:23:  operadorNombre: 'Carlos López',
+./js/delivery-evidence.js:104:    operadorId: user.id,
+./js/delivery-evidence.js:105:    operadorNombre: user.name,
+./js/advanced-reports.js:28:  entregas_por_operador: {
+./js/ui.js:1:import{NAV}from'./config.js';import{esc}from'./utils.js';import{verificarCaptura}from'./rules.js';import{getUserRole,getUser}from'./user-roles.js';import{getStore}from'./storage.js';
+./js/ui.js:10:  const role=getUserRole();
+./js/ui.js:14:  const hiddenForOperador=['dashboard','admin','reportes','config','proveedores','salidas','catalogo','tablero','totales','centro-costos','importar','exportar','usuarios','areas','stock-uniformes','bitacora','campanias','inventario-sku','devolucion-sku'];
+./js/ui.js:15:  const hiddenForConsulta=['admin','importar','usuarios','config','bitacora'];
+./js/ui.js:19:    if(role==='operador'&&hiddenForOperador.includes(n.id))return;
+./js/ui.js:20:    if(role==='consulta'&&hiddenForConsulta.includes(n.id))return;
+./js/ui.js:28:  if(role==='operador')nav.classList.add('operador-nav');else nav.classList.remove('operador-nav');
+./js/ui.js:35:    const roleLabel=role==='admin'?'Administrador':role==='consulta'?'Solo Lectura':'Operador';
+./js/ui.js:36:    footer.innerHTML=`<div class="sidebar-user"><div class="sidebar-user-avatar">${initials}</div><div class="sidebar-user-info"><div class="sidebar-user-name">${esc(name)}</div><div class="sidebar-user-role">${roleLabel}</div></div></div><button class="sidebar-toggle" id="sidebarToggle"><i class="fas fa-chevron-left" id="sidebarIcon"></i><span class="sidebar-label">Colapsar</span></button>`;
+./js/ui.js:63:  document.getElementById('logoutBtn')?.addEventListener('click',()=>{if(confirm('¿Cerrar sesión?'))import('./mod-auth.js').then(m=>m.logout());});
+./js/centro-costos.js:35:  h+='<div class="page-head"><div class="page-title"><h1>Control Financiero</h1><p>Análisis de inversión · Métricas por área · Comparativas</p></div>';
+./js/mod-auth.js:4:import{setUser,getUser,logout as logoutUser,getUserRole}from'./user-roles.js';
+./js/mod-auth.js:10:  if(!user||!user.role){showLoginScreen();return false;}
+./js/mod-auth.js:22:          <h1 style="margin:0 0 4px;font-size:18px;color:#fff;font-weight:700;letter-spacing:-.02em">Control Store Pro</h1>
+./js/mod-auth.js:35:        <p style="text-align:center;color:#aaa;font-size:11px">Control Store Pro v5.0</p>
+./js/mod-auth.js:52:    if(!u.activo){showError('Usuario inactivo — contacta al administrador',errorDiv);passInput.value='';return;}
+./js/mod-auth.js:54:    setUser(u.role,u.name,u.username);
+./js/kpi-metrics.js:54:    if (!byOperador[d.operadorId]) byOperador[d.operadorId] = { nombre: d.operadorNombre || d.operadorId, total: 0 };
+./js/kpi-metrics.js:55:    byOperador[d.operadorId].total++;
+./js/kpi-metrics.js:76:export function getOperatorPerformance(operadorId, dateFrom, dateTo) {
+./js/kpi-metrics.js:78:    d => d.operadorId === operadorId
+./js/kpi-metrics.js:85:    operadorId,
+./js/kpi-metrics.js:86:    operadorNombre: deliveries[0]?.operadorNombre || operadorId,
+./js/kpi-metrics.js:91:    entregazHoy: getDeliveriesToday(operadorId),
+./js/kpi-metrics.js:95:function getDeliveriesToday(operadorId) {
+./js/kpi-metrics.js:97:  return (getStore().entregas || []).filter(d => d.fecha === today && d.operadorId === operadorId).length;
+./js/exportar.js:163:  doc.text('Control Store Pro — ASSA ABLOY México',10,7);
+./js/exportar.js:173:  doc.text('Control Store Pro v6.4 — ASSA ABLOY México',10,290);
+./js/config-view.js:78:  if(!bk._meta){box.innerHTML='<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px;color:#dc2626;font-size:13px"><i class="fas fa-times-circle mr-2"></i>Archivo no reconocido como backup de Control Store Pro</div>';return;}
+./js/config-view.js:144:    const addLine=(msg)=>{const el=document.getElementById('migLog');if(el){const line=document.createElement('div');line.textContent=msg;el.appendChild(line);el.scrollTop=el.scrollHeight;}};
+./js/operator-delivery.js:8:import { getUser } from './user-roles.js';
+./js/operator-delivery.js:200:      const render_fn = window.views?.operador?.render || render;
+./js/operator-delivery.js:224:      const render_fn = window.views?.operador?.render || render;
+./js/operator-delivery.js:233:      const render_fn = window.views?.operador?.render || render;
+./js/operator-delivery.js:255:      const render_fn = window.views?.operador?.render || render;
+./js/operator-delivery.js:266:      const render_fn = window.views?.operador?.render || render;
+./js/operator-delivery.js:321:  const render_fn = window.views?.operador?.render || render;
+./js/importar.js:131:    document.getElementById('restP').innerHTML='<div class="card" style="background:var(--danger-light);border-color:var(--danger)"><div class="card-body"><p class="font-bold" style="color:var(--danger)"><i class="fas fa-times-circle"></i> Archivo incompatible</p><p class="text-sm mt-1">Este archivo no es un respaldo válido de Control Store Pro (versión '+( bk.version||'desconocida')+').</p></div></div>';
+./js/user-roles.js:3: * Gestiona operador vs administrador y permisos específicos
+./js/user-roles.js:7:  OPERADOR: 'operador',
+./js/user-roles.js:8:  ADMIN: 'admin',
+./js/user-roles.js:9:  CONSULTA: 'consulta',
+./js/user-roles.js:13:  operador: [
+./js/user-roles.js:20:  consulta: [
+./js/user-roles.js:27:  admin: [
+./js/user-roles.js:52:    currentUser = { role: ROLES.ADMIN, name: 'Sistema', id: 'system' };
+./js/user-roles.js:57:export function setUser(role, name, operadorId) {
+./js/user-roles.js:58:  currentUser = { role, name, id: operadorId || Date.now().toString() };
+./js/user-roles.js:67:  return currentUser?.role || ROLES.ADMIN;
+./js/user-roles.js:70:export function hasPermission(permission) {
+./js/user-roles.js:71:  const role = getUserRole();
+./js/user-roles.js:72:  const perms = PERMISSIONS[role] || [];
+./js/user-roles.js:73:  return perms.includes(permission);
+./js/inventario-sku.js:8:import{getUserRole}from'./user-roles.js';
+./js/inventario-sku.js:28:  accesorios:{label:'Accesorios',icon:'fa-glasses',color:'#059669',bg:'#d1fae5'},
+./js/inventario-sku.js:47:  const isAdmin=getUserRole()==='admin';
+./js/inventario-sku.js:132:  const isAdmin=getUserRole()==='admin';
+./js/stock-uniformes.js:7:import{getStore,saveStockUniformes,log}from'./storage.js';import{esc,fmtDate,fmtMoney,fmt,sortTallas,getTallasOpts}from'./utils.js';import{notify,modal,confirm}from'./ui.js';import{getUserRole}from'./user-roles.js';import{calcTotalesDetallados}from'./rules.js';import{CATEGORIAS}from'./config.js';
+./js/stock-uniformes.js:38:  const isOp=getUserRole()==='operador';
+./js/stock-uniformes.js:152:  const isOp=getUserRole()==='operador';
+./js/empleados.js:6:import{getUserRole,getUser}from'./user-roles.js';
+./js/empleados.js:69:      +(getUserRole()!=='operador'?'<button class="btn btn-ghost btn-sm del-emp" data-id="'+e.id+'" title="Eliminar"><i class="fas fa-trash"></i></button>':'')
+./js/empleados.js:128:  const isOp=getUserRole()==='operador';
+./js/empleados.js:380:  modal.open('Verificar identidad','<p class="text-sm" style="color:var(--text-sec);margin-bottom:14px">Para editar este empleado, confirma tu contraseña de operador:</p><div class="form-group"><input type="password" class="form-input" id="opPassInput" placeholder="••••••••" style="font-size:18px;letter-spacing:.1em;text-align:center"></div>','<button class="btn btn-ghost" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mOpConfirm"><i class="fas fa-check"></i> Confirmar</button>');
+./js/empleados.js:406:    if(eb){const eid=eb.dataset.id;if(getUserRole()==='operador'){promptOpPass(()=>openEditEmp(eid));}else{openEditEmp(eid);}}
+./js/users.js:3: * Store: localStorage '_users_store'  [{id,username,name,password,role,activo,createdAt}]
+./js/users.js:7:import{getUser}from'./user-roles.js';
+./js/users.js:15:      {id:'admin',username:'admin',name:'Administrador',password:'admin2026',role:'admin',activo:true,createdAt:new Date().toISOString()},
+./js/users.js:16:      {id:'operador',username:'operador',name:'Operador General',password:'operador2026',role:'operador',activo:true,createdAt:new Date().toISOString()}
+./js/users.js:34:  let h='<div class="page-head"><div class="page-title"><h1>Usuarios</h1><p>Control de acceso al sistema</p></div>';
+./js/users.js:44:    const roleColor=u.role==='admin'?'badge-info':u.role==='consulta'?'badge-warning':'badge-neutral';
+./js/users.js:46:    const avatarBg=u.role==='admin'?'#004B87':u.role==='consulta'?'#7c3aed':'#6b7280';
+./js/users.js:52:    h+='<td><span class="badge '+roleColor+'">'+u.role.toUpperCase()+'</span></td>';
+./js/users.js:76:        <option value="operador">Operador — entregas y captura</option>
+./js/users.js:77:        <option value="consulta">Consulta — solo lectura</option>
+./js/users.js:78:        <option value="admin">Administrador — acceso completo</option>
+./js/users.js:96:  const role=document.getElementById('nuRole')?.value||'operador';
+./js/users.js:108:  users.push({id:genId(),username,name,password:pass,role,activo,createdAt:new Date().toISOString()});
+./js/users.js:110:  log('USUARIO_ALTA',username+' ('+role+')');
+./js/users.js:129:        <option value="operador"${u.role==='operador'?' selected':''}>Operador</option>
+./js/users.js:130:        <option value="consulta"${u.role==='consulta'?' selected':''}>Consulta (solo lectura)</option>
+./js/users.js:131:        <option value="admin"${u.role==='admin'?' selected':''}>Administrador</option>
+./js/users.js:138:    ${isSelf?'<p class="text-xs text-muted mt-3"><i class="fas fa-info-circle"></i> No puedes cambiar tu propio rol o estado.</p>':''}`;
+./js/users.js:149:      users2[idx].role=document.getElementById('euRole')?.value||u.role;
+./js/users.js:192:  const admins=users.filter(x=>x.role==='admin'&&x.activo);
+./js/users.js:193:  if(u.role==='admin'&&admins.length<=1){notify('No puedes eliminar el único administrador','error');return;}
+./js/campanias.js:1:import{getStore,saveCampanias,log}from'./storage.js';import{esc,fmtDate,today,fmtMoney}from'./utils.js';import{notify,modal,confirm}from'./ui.js';import{getUserRole}from'./user-roles.js';
+./js/campanias.js:19:  const isOp=getUserRole()==='operador';
+./js/campanias.js:114:  const isOp=getUserRole()==='operador';
+./js/mod-entregas-v2-ui.js:219:  const firma = prompt('Firma del operador:');
+./js/mod-entregas-v2-ui.js:229:  notify('Edición en desarrollo', 'warning');
+./js/config.js:39:{id:'centro-costos',icon:'fa-chart-line',label:'Control Financiero'},
+./js/sync-engine.js:2: * SYNC ENGINE — Control Store Pro
+./js/devolucion-sku.js:9:import{getUserRole}from'./user-roles.js';
+./js/devolucion-sku.js:142:  <div class="logo-area">ASSA ABLOY México<div class="logo-sub">Control de Uniformes · Sistema SKU</div></div>
+./js/devolucion-sku.js:162:<div class="footer">Documento generado el ${new Date().toLocaleString('es-MX')} · ${esc(doc.numero)} · ASSA ABLOY México — Control Store Pro</div>
+./js/proveedores.js:5:export function render(){let h='<div class="page-head"><div class="page-title"><h1>Proveedores</h1><p>Catálogo de proveedores y control de compras</p></div><div id="provHeaderBtn"></div></div>';h+='<div class="tabs mb-4"><button class="tab-btn active" data-tab="compras"><i class="fas fa-file-invoice-dollar mr-2"></i>Compras</button><button class="tab-btn" data-tab="catalogo"><i class="fas fa-address-book mr-2"></i>Catálogo de Proveedores</button></div>';h+='<div id="provTabContent"></div>';return h;}
+./js/admin-dashboard.js:17:  h += '<div class="page admin-dashboard-page">';
+./js/entrega-sku.js:9:import{getUserRole}from'./user-roles.js';
+./js/entrega-sku.js:141:  <div class="logo-area">ASSA ABLOY México<div class="logo-sub">Control de Uniformes · Sistema SKU</div></div>
+./js/entrega-sku.js:160:<div class="footer">Documento generado el ${new Date().toLocaleString('es-MX')} · ${esc(doc.numero)} · ASSA ABLOY México — Control Store Pro</div>
+./js/dashboard.js:29:  h+='<div class="page-head"><div class="page-title"><h1>Dashboard</h1><p>Control Store Pro — ASSA ABLOY México · '+mes+'</p></div><span style="background:rgba(59,130,246,.1);color:#60a5fa;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:.05em;border:1px solid rgba(59,130,246,.2)">v'+VERSION+'</span></div>';
+./js/supabase-client.js:2: * SUPABASE CLIENT — Control Store Pro
+./js/supabase-client.js:4: * Usa SOLO la publishable key — nunca la service_role key en frontend.
+./js/supabase-client.js:63:      auth: { persistSession: false, autoRefreshToken: false },
+./js/inventario.js:1:import{calcTotalesDetallados}from'./rules.js';import{getStore,saveInventario,saveComprasAlmacen,saveStockUniformes,saveSalidas,log}from'./storage.js';import{esc,today,fmtMoney,fmtDate,getTallasOpts}from'./utils.js';import{notify,modal}from'./ui.js';import{getUserRole}from'./user-roles.js';
+./js/inventario.js:17:  const cur=it.cantidad;const isOp=getUserRole()==='operador';
+./js/inventario.js:20:    // Admin: permite entradas y salidas
+./js/inventario.js:24:    h+='<div class="form-group mb-3"><label class="form-label">Cantidad a ingresar *</label><div class="flex gap-2"><button class="btn btn-ghost" id="stkM" style="min-width:48px;font-size:20px">−</button><input class="form-input" type="number" id="stkQ" value="1" min="1" style="text-align:center;font-size:22px;font-weight:700;flex:1"><button class="btn btn-ghost" id="stkP" style="min-width:48px;font-size:20px">+</button></div><p class="text-xs" style="color:#059669;margin-top:4px"><i class="fas fa-info-circle mr-1"></i>Solo entradas. Para salidas o ajustes contacta al administrador.</p></div>';
+./js/inventario.js:219:  h+='<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#f87171"><i class="fas fa-exclamation-triangle mr-1"></i>Una salida descuenta el stock permanentemente. Solo para mermas, daños o ajustes autorizados.</div>';
+./js/inventario.js:274:function attachAlmacenEvents(){const isOp=getUserRole()==='operador';if(!isOp){document.getElementById('invNewBtn')?.addEventListener('click',()=>openItemModal(null));}else{const nb=document.getElementById('invNewBtn');if(nb)nb.style.display='none';}['almCat'].forEach(id=>document.getElementById(id)?.addEventListener('change',renderAlmacenGrid));document.getElementById('almSearch')?.addEventListener('input',renderAlmacenGrid);document.getElementById('almClear')?.addEventListener('click',()=>{document.getElementById('almCat').value='';document.getElementById('almSearch').value='';renderAlmacenGrid();});document.getElementById('almGrid')?.addEventListener('click',e=>{const ed=e.target.closest('.alm-edit');const st=e.target.closest('.alm-stock');const dl=e.target.closest('.alm-del');const hs=e.target.closest('.alm-hist');if(hs)verHistorial(hs.dataset.id);if(ed)openItemModal(ed.dataset.id);if(st)addStock(st.dataset.id);if(dl){if(getUserRole()==='operador'){notify('Se requiere autorización del administrador','warning');return;}delItem(dl.dataset.id);}});}
+./js/inventario.js:279:  // Botón Recibir Mercancía: solo visible para operador
+./js/inventario.js:280:  const isOp=getUserRole()==='operador';
+./js/app.js:1:import{REGLAS,VERSION}from'./config.js';import{init as initStorage}from'./storage.js';import{initOfflineStorage}from'./offline-storage.js';import{initUserRoles,getUserRole}from'./user-roles.js';import{initDeliveryEvidence}from'./delivery-evidence.js';import{buildNav,setupEvents,destroyCharts}from'./ui.js';import{initAuth}from'./mod-auth.js';import{initSync}from'./sync-engine.js';
+./js/app.js:15:import{render as renderAdminDash,init as initAdminDash}from'./admin-dashboard.js';
+./js/app.js:18:const views={dashboard:{render:renderDashboard,init:initDashboard},empleados:{render:renderEmpleados,init:initEmpleados},captura:{render:renderCaptura,init:initCaptura},entregas:{render:renderEntregas,init:initEntregas},entregasv2:{render:renderEntregasV2,init:initEntregasV2},totales:{render:renderTotales,init:initTotales},tablero:{render:renderTablero},proveedores:{render:renderProveedores,init:initProveedores},inventario:{render:renderInventario,init:initInventario},salidas:{render:renderSalidas,init:initSalidas},importar:{render:renderImportar,init:initImportar},exportar:{render:renderExportar,init:initExportar},catalogo:{render:renderCatalogo},config:{render:renderConfig,init:initConfig},admin:{render:renderAdminDash,init:initAdminDash},operador:{render:renderOperatorDelivery,init:initOperatorDelivery},reportes:{render:renderAdvancedReports,init:initAdvancedReports},usuarios:{render:renderUsuarios,init:initUsuarios},areas:{render:renderAreas,init:initAreas},'centro-costos':{render:renderCentroCostos,init:initCentroCostos},campanias:{render:renderCampanias,init:initCampanias},'stock-uniformes':{render:renderStockUniformes,init:initStockUniformes},bitacora:{render:renderBitacora,init:initBitacora},'inventario-sku':{render:renderInventarioSKU,init:initInventarioSKU},'entrega-sku':{render:renderEntregaSKU,init:initEntregaSKU},'devolucion-sku':{render:renderDevolucionSKU,init:initDevolucionSKU}};window.views=views;
+./js/app.js:23:(async function(){initStorage(REGLAS);initUserRoles();if(!initAuth()){return;}initDeliveryEvidence();await initOfflineStorage().catch(e=>console.warn('[OFFLINE]',e));const role=getUserRole();const isOp=role==='operador';const defView=isOp?'empleados':'dashboard';const _v=location.hash.slice(1)||defView;currentView=(views[_v]&&!(isOp&&_v==='dashboard')&&!(role==='consulta'&&_v==='admin'))?_v:defView;buildNav(currentView);setupEvents(navigate);render();console.log('[ASSA ABLOY] Sistema de Uniformes v'+VERSION+' — Listo.');// Iniciar sync con Supabase en segundo plano (no bloquea UI)
+./sw.js:3:const APP_SHELL=['./','./index.html','./css/styles.css','./icons/icon-192.png','./icons/icon-512.png','./js/app.js','./js/config.js','./js/utils.js','./js/storage.js','./js/rules.js','./js/ui.js','./js/dashboard.js','./js/empleados.js','./js/captura.js','./js/entregas.js','./js/totales.js','./js/tablero.js','./js/proveedores.js','./js/inventario.js','./js/salidas.js','./js/importar.js','./js/exportar.js','./js/catalogo.js','./js/config-view.js','./js/user-roles.js','./js/delivery-evidence.js','./js/kpi-metrics.js','./js/signature-capture.js','./js/offline-storage.js','./js/operator-delivery.js','./js/admin-dashboard.js','./js/advanced-reports.js','./js/mod-auth.js','./js/mod-entregas-v2.js','./js/mod-entregas-v2-ui.js','./js/mod-costos-base.js','./js/users.js','./js/areas-config.js','./js/centro-costos.js','./js/campanias.js','./js/stock-uniformes.js','./js/supabase-client.js','./js/sync-engine.js','./js/bitacora.js','./js/sku-api.js','./js/inventario-sku.js','./js/entrega-sku.js','./js/devolucion-sku.js','./manifest.json'];
+./sw.js:7:self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(!u.protocol.startsWith('http'))return;if(u.pathname.match(/\/icons\/icon-\d+\.png$/)){e.respondWith(caches.open(ICONS_CACHE).then(c=>c.match(e.request).then(h=>{if(h)return h;return fetch(e.request).then(r=>{if(r.ok){c.put(e.request,r.clone());return r;}throw new Error('404');}).catch(()=>genIcon(u.pathname).then(b=>{const rg=new Response(b,{headers:{'Content-Type':'image/png','Cache-Control':'public, max-age=31536000'}});c.put(e.request,rg.clone());return rg;}));})));return;}if(u.origin===self.location.origin){if(e.request.mode==='navigate'){e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE_NAME).then(x=>x.put(e.request,c));return r;}).catch(()=>caches.match(e.request).then(c=>c||caches.match('./index.html'))));return;}e.respondWith(caches.match(e.request).then(h=>{if(h)return h;return fetch(e.request).then(r=>{if(r.ok){const c=r.clone();caches.open(CACHE_NAME).then(x=>x.put(e.request,c));}return r;}).catch(()=>undefined);}));return;}e.respondWith(fetch(e.request).then(r=>{if(r.ok){const c=r.clone();caches.open(CACHE_NAME).then(x=>x.put(e.request,c));}return r;}).catch(()=>caches.match(e.request)));});
+./sw.js:10:self.addEventListener('message',e=>{if(e.data&&e.data.type==='CACHE_ICONS'){caches.open(ICONS_CACHE).then(c=>{e.data.icons.forEach(i=>{const u=new URL(i.url,self.location.origin).href;const r=new Response(i.blob,{headers:{'Content-Type':'image/png','Cache-Control':'public, max-age=31536000'}});c.put(u,r);});});}});

@@ -1,0 +1,230 @@
+./js/entregas.js:7:  const tot=s.entregas.length;
+./js/entregas.js:8:  const da=s.entregas.filter(e=>e.tipo==='DOTACION_ANUAL').length;
+./js/entregas.js:9:  const ni=s.entregas.filter(e=>e.tipo==='NUEVO_INGRESO').length;
+./js/entregas.js:10:  const su=s.entregas.filter(e=>e.tipo==='SUSTITUCION').length;
+./js/entregas.js:11:  const cf=s.entregas.filter(e=>e.firma).length;
+./js/entregas.js:12:  // Cobertura: empleados activos con al menos una entrega este año
+./js/entregas.js:14:  const empConEntrega=new Set(s.entregas.filter(e=>e.fecha&&e.fecha.startsWith(thisYear)).map(e=>e.empleadoId));
+./js/entregas.js:58:  let list=s.entregas.slice().reverse();
+./js/entregas.js:68:  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty-state"><i class="fas fa-hand-holding"></i><p>Sin entregas registradas</p></td></tr>';return;}
+./js/entregas.js:95:  const ent=s.entregas.find(e=>e.id===id);if(!ent)return;
+./js/entregas.js:108:    h+='<p class="text-xs text-muted mb-2"><strong>Prendas entregadas ('+prendas.length+')</strong></p>';
+./js/entregas.js:124:  const ent=s.entregas.find(e=>e.id===id);if(!ent)return;
+./js/entregas.js:127:  if(!confirm('¿Eliminar la entrega de '+nom+' ('+fmtDate(ent.fecha)+')?\nEsta acción no se puede deshacer.'))return;
+./js/entregas.js:128:  s.entregas=s.entregas.filter(e=>e.id!==id);
+./js/entregas.js:130:  log('ENTREGA_DELETE','Eliminada entrega de emp#'+ent.empleadoId+' ('+ent.tipo+', '+fmtDate(ent.fecha)+')','ENTREGAS');
+./js/entregas.js:150:  if(!entries.length){box.innerHTML='<div style="background:var(--warning-light);border:1px solid var(--warning);border-radius:8px;padding:12px 16px"><i class="fas fa-exclamation-triangle mr-2" style="color:var(--warning)"></i><span class="text-sm">Sin tallas capturadas — se puede registrar la entrega pero sin detalle de tallas</span></div>';return;}
+./js/entregas.js:151:  box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><label class="form-label" style="margin:0">Prendas a entregar — desactiva las que NO se entregan esta vez:</label><span class="badge badge-info">'+entries.length+' prendas</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px">'+entries.map((p,i)=>{const modelos=calcModelosDisponibles(p[0],p[1]);const hayStock=modelos.length>0;const stockBadge=hayStock?'<span style="color:#059669;font-size:10px;font-weight:700"><i class="fas fa-check-circle mr-1"></i>En stock</span>':'<span style="color:#dc2626;font-size:10px;font-weight:700"><i class="fas fa-times-circle mr-1"></i>Sin stock</span>';const modeloSel=hayStock?'<select class="form-select entModSel" data-idx="'+i+'" style="margin-top:6px;font-size:11px;padding:4px 8px;height:auto">'+modelos.map(m=>'<option value="'+esc(m.modelo)+'">'+esc(m.modelo)+' ('+m.cant+' disp.)</option>').join('')+'</select>':'<p style="font-size:11px;color:#dc2626;margin-top:5px;font-weight:600"><i class="fas fa-ban mr-1"></i>Sin stock disponible</p>';return'<div style="padding:12px;border-radius:8px;border:2px solid '+(hayStock?'var(--border)':'#fca5a5')+';background:'+(hayStock?'var(--surface-2)':'#fef2f2')+'"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer"><input type="checkbox" value="'+esc(p[0])+'" data-talla="'+esc(p[1])+'" data-idx="'+i+'" class="entC" '+(hayStock?'checked':'')+' style="width:20px;height:20px;flex-shrink:0;accent-color:#004B87;margin-top:2px;cursor:pointer"><div style="flex:1;min-width:0"><p style="font-weight:700;font-size:13px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p[0])+'</p><p style="font-size:11px;color:var(--text-muted);margin:2px 0">Talla: <strong>'+esc(p[1])+'</strong> · '+stockBadge+'</p></div></label>'+modeloSel+'</div>';}).join('')+'</div>';
+./js/entregas.js:166:  h+='<input class="form-input mt-2" id="entTOtro" placeholder="Describe el tipo de entrega..." style="display:none">';
+./js/entregas.js:174:  h+='<div class="mb-4"><label class="form-label" style="font-size:13px;margin-bottom:8px"><i class="fas fa-pen-fancy mr-1"></i>Firma del empleado — dibuja con el dedo en el área blanca</label><div id="sigContainer"></div><p class="text-xs text-muted mt-2"><i class="fas fa-info-circle mr-1"></i>La firma queda guardada como evidencia de la entrega</p></div>';
+./js/entregas.js:211:  if(!tipo){notify('Selecciona el tipo de entrega','warning');return;}
+./js/entregas.js:213:  if(tipo==='OTRO'&&!tipoCustom){notify('Describe el tipo de entrega','warning');return;}
+./js/entregas.js:233:        if(!confirm('⚠️ Stock insuficiente para:\n• '+lista.split(', ').join('\n• ')+'\n\n¿Confirmar la entrega de todas formas?'))return;
+./js/entregas.js:240:  getStore().entregas.push(ent);
+./js/entregas.js:260:        tipo:'salida_entrega',
+./js/entregas.js:261:        entregaId:ent.id
+./js/entregas.js:274:  const ent=getStore().entregas.find(e=>e.id===id);if(!ent||!ent.firma)return;
+./js/sku-api.js:74:  const docs=getStore().documentosEntrega||[];
+./js/sku-api.js:79:  const docs=getStore().documentosDevolucion||[];
+./js/sku-api.js:160:export function registrarMovimiento({tipo,sku_id,cantidad,documento_id=null,proveedor='',factura='',costo_unitario=0,foto_factura=null,observaciones=''}){
+./js/sku-api.js:178:    documento_id,
+./js/sku-api.js:261: * Cada línea genera un MovimientoInventario tipo 'salida_entrega' (cantidad negativa).
+./js/sku-api.js:265:  if(!s.documentosEntrega)s.documentosEntrega=[];
+./js/sku-api.js:277:      const mov=registrarMovimiento({tipo:'salida_entrega',sku_id:l.sku_id,cantidad:-(l.cantidad),documento_id:doc_id,observaciones:observaciones||''});
+./js/sku-api.js:282:  s.documentosEntrega.push(doc);
+./js/sku-api.js:285:  return{ok:true,documento:doc};
+./js/sku-api.js:294:  if(!s.documentosDevolucion)s.documentosDevolucion=[];
+./js/sku-api.js:303:      const mov=registrarMovimiento({tipo:'entrada_devolucion',sku_id:l.sku_id,cantidad:l.cantidad,documento_id:doc_id,observaciones:observaciones||''});
+./js/sku-api.js:308:  s.documentosDevolucion.push(doc);
+./js/sku-api.js:311:  return{ok:true,documento:doc};
+./js/sku-api.js:314:export function getDocumentosEntrega(){return getStore().documentosEntrega||[];}
+./js/sku-api.js:315:export function getDocumentosDevolucion(){return getStore().documentosDevolucion||[];}
+./js/sku-api.js:316:export function getDocumentosEntregaByEmpleado(empleadoId){return(getStore().documentosEntrega||[]).filter(d=>d.empleado_id===empleadoId);}
+./js/delivery-evidence.js:9:// Estructura de entrega mejorada con evidencia
+./js/delivery-evidence.js:38:  completaONoEntregadas: [], // IDs de prendas no entregadas si es parcial
+./js/advanced-reports.js:18:  entregas_por_area: {
+./js/advanced-reports.js:23:  entregas_por_sitio: {
+./js/advanced-reports.js:28:  entregas_por_operador: {
+./js/advanced-reports.js:194:    const pct = info.total > 0 ? Math.round((info.entregados / info.total) * 100) : 0;
+./js/advanced-reports.js:195:    h += `<tr><td>${area}</td><td class="text-right">${info.entregados}</td><td class="text-right">${info.total}</td><td class="text-right">${pct}%</td></tr>`;
+./js/advanced-reports.js:210:    const pct = info.total > 0 ? Math.round((info.entregados / info.total) * 100) : 0;
+./js/advanced-reports.js:211:    h += `<tr><td>${sitio}</td><td class="text-right">${info.entregados}</td><td class="text-right">${info.total}</td><td class="text-right">${pct}%</td></tr>`;
+./js/advanced-reports.js:268:    h += `<tr><td>${emp.nombre}</td><td class="text-right">${emp.entregas}</td><td class="text-right">$${emp.costo.toLocaleString()}</td><td class="text-right">$${emp.promedio.toLocaleString()}</td></tr>`;
+./js/centro-costos.js:29:  const pzasEntregadas=(s.entregas||[]).filter(e=>currentYear==='todos'||(e.fecha||'').startsWith(currentYear)).reduce((t,e)=>t+(e.prendas||[]).length,0);
+./js/centro-costos.js:46:  h+='<div class="kpi" style="border-top:3px solid #475569"><div class="kpi-label"><i class="fas fa-hand-holding mr-1" style="color:#475569"></i>Piezas Entregadas</div><div class="kpi-value" style="color:#475569">'+fmt(pzasEntregadas)+'</div><div class="kpi-sub">'+(s.entregas||[]).filter(e=>currentYear==='todos'||(e.fecha||'').startsWith(currentYear)).length+' entregas realizadas</div></div>';
+./js/centro-costos.js:82:  const entregasFilt=(s.entregas||[]).filter(e=>currentYear==='todos'||(e.fecha||'').startsWith(currentYear));
+./js/centro-costos.js:89:    const ents=entregasFilt.filter(e=>e.area===area||(s.employees.find(x=>x.id===e.empleadoId)?.area===area));
+./js/kpi-metrics.js:14:  const deliveries = filterDeliveriesByDate(getStore().entregas || [], dateFrom, dateTo);
+./js/kpi-metrics.js:28:    if (!byArea[emp.area]) byArea[emp.area] = { total: 0, entregados: 0 };
+./js/kpi-metrics.js:34:    if (emp && byArea[emp.area]) byArea[emp.area].entregados++;
+./js/kpi-metrics.js:40:    if (!bySitio[sitio]) bySitio[sitio] = { total: 0, entregados: 0 };
+./js/kpi-metrics.js:48:      if (bySitio[sitio]) bySitio[sitio].entregados++;
+./js/kpi-metrics.js:77:  const deliveries = filterDeliveriesByDate(getStore().entregas || [], dateFrom, dateTo).filter(
+./js/kpi-metrics.js:91:    entregazHoy: getDeliveriesToday(operadorId),
+./js/kpi-metrics.js:97:  return (getStore().entregas || []).filter(d => d.fecha === today && d.operadorId === operadorId).length;
+./js/kpi-metrics.js:105:  const deliveries = filterDeliveriesByDate(getStore().entregas || [], dateFrom, dateTo);
+./js/kpi-metrics.js:119:        entregas: empDeliveries.length,
+./js/kpi-metrics.js:171:function calculateProjection(empleados, entregados) {
+./js/kpi-metrics.js:173:  const gastoPromedio = entregados.length > 0 ? entregados.reduce((s, d) => s + (d.costTotal || 0), 0) / entregados.length : 0;
+./js/kpi-metrics.js:174:  return (totalEmpleados - entregados.length) * gastoPromedio;
+./js/kpi-metrics.js:183:  const entregas = store.entregas || [];
+./js/kpi-metrics.js:187:  entregas.forEach(d => {
+./js/kpi-metrics.js:194:  entregas.forEach(d => {
+./js/kpi-metrics.js:221:  store.entregas?.forEach(d => {
+./js/kpi-metrics.js:255:    alertas.push({ nivel: 'crítico', mensaje: 'Menos del 50% de entregas completadas' });
+./js/kpi-metrics.js:258:    alertas.push({ nivel: 'aviso', mensaje: `${operational.pendingSync} entregas pendientes de sincronizar` });
+./js/kpi-metrics.js:261:    alertas.push({ nivel: 'aviso', mensaje: `Solo ${operational.porcentajeFirmado}% de entregas firmadas` });
+./js/mod-costos-base.js:7:import { getStore as getEntregasStore } from './mod-entregas-v2.js';
+./js/exportar.js:27:  h+='<div class="card"><div class="card-body text-center" style="padding:28px"><i class="fas fa-hand-holding" style="font-size:32px;color:#dc2626;margin-bottom:10px;display:block"></i><h3 class="mb-2">Entregas PDF</h3><p class="text-sm text-sec mb-4">Historial de entregas</p><button class="btn btn-danger" style="width:100%" id="expEntPdf"><i class="fas fa-file-pdf mr-1"></i> PDF</button></div></div>';
+./js/exportar.js:62:  s.entregas.forEach(ent=>{
+./js/exportar.js:99:  // Hoja 1: resumen de documentos
+./js/exportar.js:101:  (s.documentosEntrega||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora)).forEach(d=>{
+./js/exportar.js:107:  (s.documentosEntrega||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora)).forEach(d=>{
+./js/exportar.js:126:  // Hoja 1: resumen de documentos
+./js/exportar.js:128:  (s.documentosDevolucion||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora)).forEach(d=>{
+./js/exportar.js:134:  (s.documentosDevolucion||[]).slice().sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora)).forEach(d=>{
+./js/exportar.js:250:  s.entregas.slice().reverse().forEach((ent,i)=>{
+./js/config-view.js:25:  h+=row('Entregas',st.entregas.length);
+./js/config-view.js:103:    s.employees=[];s.proveedores=[];s.inventario=[];s.entregas=[];s.salidas=[];s.stockExtra={};s.comprasAlmacen=[];s.campanias=[];s.stockUniformes=[];s.encuestas=[];
+./js/operator-delivery.js:4: * Máximo 2-3 pantallas por entrega
+./js/operator-delivery.js:53:  h += '<p class="text-muted mb-4">Escanea o busca el empleado a entregar uniformes</p>';
+./js/operator-delivery.js:137:  h += '<p class="text-muted mb-4">Confirma la entrega firmando abajo</p>';
+./js/importar.js:135:  const ents=(bk.entregas||[]).length;
+./js/importar.js:159:  if(!confirm('⚠️ ¿Restaurar el respaldo?\n\nEsto reemplazará TODOS los datos actuales:\n· Empleados, entregas, proveedores, inventario\n· Usuarios y reglas de áreas\n\nEsta acción no se puede deshacer.'))return;
+./js/importar.js:165:  store.entregas=bk.entregas||[];
+./js/user-roles.js:14:    'entrega.ver',
+./js/user-roles.js:15:    'entrega.crear',
+./js/user-roles.js:16:    'entrega.firmar',
+./js/user-roles.js:21:    'entrega.ver',
+./js/user-roles.js:28:    'entrega.ver',
+./js/user-roles.js:29:    'entrega.crear',
+./js/user-roles.js:30:    'entrega.editar',
+./js/user-roles.js:31:    'entrega.eliminar',
+./js/inventario-sku.js:37:  salida_entrega:'Entrega',
+./js/inventario-sku.js:409:        +'<td class="text-xs text-muted" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(m.documento_id||m.factura||m.observaciones||'—')+'</td>'
+./js/inventario-sku.js:479:      +'<td class="text-xs text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(m.documento_id||m.factura||m.observaciones||'—')+'">'+esc(m.documento_id||m.factura||m.observaciones||'—')+'</td>'
+./js/inventario-sku.js:551:// openNuevaEntrega()    → entrega-sku.js
+./js/empleados.js:223:  const entregas=getStore().entregas.filter(e=>e.empleadoId===id);
+./js/empleados.js:224:  const lastEnt=entregas.slice(-1)[0];
+./js/empleados.js:247:  h+='<span><i class="fas fa-hand-holding mr-1"></i>'+entregas.length+' entrega'+(entregas.length!==1?'s':'')+'</span>';
+./js/empleados.js:266:  // Última entrega
+./js/empleados.js:269:    h+='<div class="divider-label mt-4">Última entrega</div>';
+./js/empleados.js:280:    :(getStore().documentosEntrega||[]).filter(d=>d.empleado_nombre===(emp.nombre||'')))
+./js/empleados.js:301:    // Últimas 5 entregas SKU
+./js/empleados.js:303:      h+='<p class="text-xs text-muted mb-1" style="font-weight:700">Últimas entregas</p>';
+./js/users.js:76:        <option value="operador">Operador — entregas y captura</option>
+./js/campanias.js:9:  const entregas=s.entregas.filter(e=>e.campaniaId===camp.id);
+./js/campanias.js:10:  const empleados=new Set(entregas.map(e=>e.empleadoId)).size;
+./js/campanias.js:11:  const prendas=entregas.reduce((t,e)=>(e.prendas||[]).length+t,0);
+./js/campanias.js:13:  return{entregas:entregas.length,empleados,prendas,costo};
+./js/campanias.js:20:  let h='<div class="page-head"><div class="page-title"><h1>Campañas de Dotación</h1><p>Periodos de entrega de uniformes</p></div></div>';
+./js/campanias.js:24:  const totalEnt=camps.reduce((t,c)=>{const st=calcCampStats(c);return t+st.entregas;},0);
+./js/campanias.js:33:    h+='<div class="card"><div class="card-body"><div class="empty-state"><i class="fas fa-calendar-plus"></i><p>Sin campañas registradas</p><p class="text-sm text-muted">Crea la primera campaña para organizar las entregas</p></div></div></div>';
+./js/campanias.js:52:              <div style="font-size:22px;font-weight:800;color:var(--primary)">${st.entregas}</div>
+./js/mod-entregas-v2-ui.js:5:import { getStore, initEntregasV2, createEntrega, completeEntrega, deleteEntrega, filterEntregas } from './mod-entregas-v2.js';
+./js/mod-entregas-v2-ui.js:19:  const pendientes = v2.entregas.filter(e => e.estado === 'pendiente');
+./js/mod-entregas-v2-ui.js:20:  const completadas = v2.entregas.filter(e => e.estado === 'completada');
+./js/mod-entregas-v2-ui.js:44:        <div class="kpi-value">${v2.entregas.length}</div>
+./js/mod-entregas-v2-ui.js:62:          ${renderTabContent(currentTab, v2.entregas)}
+./js/mod-entregas-v2-ui.js:82:      .entrega-card {
+./js/mod-entregas-v2-ui.js:89:      .entrega-header {
+./js/mod-entregas-v2-ui.js:95:      .entrega-actions {
+./js/mod-entregas-v2-ui.js:99:      .entrega-actions button {
+./js/mod-entregas-v2-ui.js:109:function renderTabContent(tab, entregas) {
+./js/mod-entregas-v2-ui.js:110:  const filtered = entregas.filter(e => {
+./js/mod-entregas-v2-ui.js:119:      <p>Sin entregas en este estado</p>
+./js/mod-entregas-v2-ui.js:129:      <div class="entrega-card">
+./js/mod-entregas-v2-ui.js:130:        <div class="entrega-header">
+./js/mod-entregas-v2-ui.js:144:        <div class="entrega-actions">
+./js/mod-entregas-v2-ui.js:169:  const tipos = ['nuevo_ingreso', 'dotacion', 'reposicion', 'extra'];
+./js/mod-entregas-v2-ui.js:233:  if (confirm('¿Eliminar esta entrega?')) {
+./js/config.js:26:{id:'entregas',icon:'fa-hand-holding',label:'Entrega de Uniformes'},
+./js/config.js:27:{id:'entrega-sku',icon:'fa-box-open',label:'Entrega SKU'},
+./js/sync-engine.js:26:  { key: 'entregas',       storeKey: 'entregas' },
+./js/sync-engine.js:286:    entregas:       saveEntregas,
+./js/devolucion-sku.js:45:  h+='<div class="card"><div class="card-head"><h3>Historial de devoluciones</h3><span class="text-sm text-muted" id="dvCount">'+docs.length+' documentos</span></div>';
+./js/devolucion-sku.js:66:  const cnt=document.getElementById('dvCount');if(cnt)cnt.textContent=docs.length+' documentos';
+./js/devolucion-sku.js:91:  const doc=(getStore().documentosDevolucion||[]).find(d=>d.id===docId);if(!doc)return;
+./js/devolucion-sku.js:242:    notify('Devolución '+res.documento.numero+' registrada — '+lineas.length+' artículo(s)','success');
+./js/devolucion-sku.js:250:  const doc=(getStore().documentosDevolucion||[]).find(d=>d.id===docId);if(!doc)return;
+./js/proveedores.js:67:function openProvModal(id){const cats=getCats();const c=id?cats.find(x=>x.id===id):null;let h='<div class="form-row c2 mb-3"><div class="form-group"><label class="form-label">Nombre *</label><input class="form-input" id="cpN" value="'+esc(c?.nombre||'')+'" placeholder="Ej: Uniformes García S.A."></div><div class="form-group"><label class="form-label">Contacto</label><input class="form-input" id="cpCon" value="'+esc(c?.contacto||'')+'" placeholder="Nombre del representante"></div></div><div class="form-row c2 mb-3"><div class="form-group"><label class="form-label">Teléfono</label><input class="form-input" id="cpTel" value="'+esc(c?.tel||'')+'" placeholder="55 1234 5678" type="tel"></div><div class="form-group"><label class="form-label">Email</label><input class="form-input" id="cpEmail" value="'+esc(c?.email||'')+'" placeholder="correo@proveedor.com" type="email"></div></div><div class="form-group"><label class="form-label">Notas (condiciones de pago, plazos, etc.)</label><textarea class="form-input" id="cpNotas" rows="3" placeholder="Ej: 30 días crédito, entrega en 2 semanas...">'+esc(c?.notas||'')+'</textarea></div>';modal.open(id?'Editar Proveedor':'Nuevo Proveedor',h,'<button class="btn btn-ghost" id="mCancel">Cancelar</button><button class="btn btn-success" id="mSaveCat"><i class="fas fa-save"></i> Guardar</button>');document.getElementById('mCancel')?.addEventListener('click',()=>modal.close());document.getElementById('mSaveCat')?.addEventListener('click',()=>{const nom=(document.getElementById('cpN')?.value||'').trim();if(!nom){notify('Escribe el nombre del proveedor','warning');return;}const cats2=getCats();if(id){const existing=cats2.find(x=>x.id===id);if(existing){existing.nombre=nom;existing.contacto=document.getElementById('cpCon')?.value||'';existing.tel=document.getElementById('cpTel')?.value||'';existing.email=document.getElementById('cpEmail')?.value||'';existing.notas=document.getElementById('cpNotas')?.value||'';}}else{cats2.push({id:Date.now().toString(),nombre:nom,contacto:document.getElementById('cpCon')?.value||'',tel:document.getElementById('cpTel')?.value||'',email:document.getElementById('cpEmail')?.value||'',notas:document.getElementById('cpNotas')?.value||''});}saveCats(cats2);modal.close();notify('Proveedor guardado','success');renderCatGrid();});}
+./js/admin-dashboard.js:75:    const percentage = data.total > 0 ? Math.round((data.entregados / data.total) * 100) : 0;
+./js/admin-dashboard.js:82:        <div class="metric-value">${data.entregados}/${data.total}</div>
+./js/admin-dashboard.js:171:    h += `<p class="mb-3"><strong>${operational.pendingSync}</strong> entregas pendientes de sincronizar</p>`;
+./js/entrega-sku.js:2: * entrega-sku.js — Módulo: Entrega de Uniformes (sistema SKU)
+./js/entrega-sku.js:23:  let h='<div class="page-head"><div class="page-title"><h1>Entrega de Uniformes</h1><p>Documentos de entrega · Sistema SKU</p></div>';
+./js/entrega-sku.js:30:  h+='<div class="kpi"><div class="kpi-label">Total entregas</div><div class="kpi-value">'+docs.length+'</div></div>';
+./js/entrega-sku.js:32:  h+='<div class="kpi"><div class="kpi-label">Piezas entregadas</div><div class="kpi-value">'+totalPzs+'</div></div>';
+./js/entrega-sku.js:45:  h+='<div class="card"><div class="card-head"><h3>Historial de entregas</h3><span class="text-sm text-muted" id="esCount">'+docs.length+' documentos</span></div>';
+./js/entrega-sku.js:66:  const cnt=document.getElementById('esCount');if(cnt)cnt.textContent=docs.length+' documentos';
+./js/entrega-sku.js:69:    tb.innerHTML='<tr><td colspan="7" class="empty-state" style="padding:24px"><i class="fas fa-hand-holding"></i><p>Sin entregas con estos filtros</p></td></tr>';
+./js/entrega-sku.js:91:  const doc=(getStore().documentosEntrega||[]).find(d=>d.id===docId);if(!doc)return;
+./js/entrega-sku.js:153:  <tfoot><tr class="total-row"><td colspan="4" style="padding:10px 6px">Total piezas entregadas:</td><td style="text-align:center;font-size:16px;font-weight:900;padding:10px 6px">${totalPzas}</td></tr></tfoot>
+./js/entrega-sku.js:200:  let h='<div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#5b21b6"><i class="fas fa-info-circle mr-2"></i>Crea un documento de entrega. El stock se descuenta inmediatamente de cada SKU. Operación <strong>irreversible</strong> (usa Devolución para revertir).</div>';
+./js/entrega-sku.js:241:    notify('Entrega '+res.documento.numero+' registrada — '+lineas.length+' artículo(s)','success');
+./js/entrega-sku.js:249:  const doc=(getStore().documentosEntrega||[]).find(d=>d.id===docId);if(!doc)return;
+./js/mod-entregas-v2.js:3: * Sistema avanzado de entregas con parcialidad y grabación
+./js/mod-entregas-v2.js:6:const STORAGE_KEY_V2 = 'uniformes_v2_entregas';
+./js/mod-entregas-v2.js:9:  entregas: []
+./js/mod-entregas-v2.js:19:    store.entregas = data ? JSON.parse(data) : [];
+./js/mod-entregas-v2.js:21:    store.entregas = [];
+./js/mod-entregas-v2.js:26:  localStorage.setItem(STORAGE_KEY_V2, JSON.stringify(store.entregas));
+./js/mod-entregas-v2.js:34:  const entrega = {
+./js/mod-entregas-v2.js:45:  store.entregas.push(entrega);
+./js/mod-entregas-v2.js:47:  return entrega;
+./js/mod-entregas-v2.js:51:  const entrega = store.entregas.find(e => e.id === id);
+./js/mod-entregas-v2.js:52:  if (!entrega) return null;
+./js/mod-entregas-v2.js:53:  Object.assign(entrega, updates, { updatedAt: new Date().toISOString() });
+./js/mod-entregas-v2.js:55:  return entrega;
+./js/mod-entregas-v2.js:63:  return store.entregas.find(e => e.id === id);
+./js/mod-entregas-v2.js:67:  const idx = store.entregas.findIndex(e => e.id === id);
+./js/mod-entregas-v2.js:69:  store.entregas.splice(idx, 1);
+./js/mod-entregas-v2.js:75:  return store.entregas.filter(e => e.estado === estado);
+./js/mod-entregas-v2.js:79:  return store.entregas.filter(e => e.tipo === tipo);
+./js/mod-entregas-v2.js:83:  return store.entregas.filter(e => e.empleadoId === empleadoId);
+./js/mod-entregas-v2.js:87:  return store.entregas.filter(e => e.fecha === fecha);
+./js/mod-entregas-v2.js:91:  let result = store.entregas;
+./js/mod-entregas-v2.js:101:  store.entregas.forEach(e => {
+./js/offline-storage.js:46:      // Almacén de entregas
+./js/offline-storage.js:96:      console.error('[Offline] Error guardando entrega:', request.error);
+./js/dashboard.js:13:  const totalEnt=st.entregas.length;
+./js/dashboard.js:14:  const entConFirma=st.entregas.filter(e=>e.firma).length;
+./js/dashboard.js:20:  // Cobertura entregas año en curso
+./js/dashboard.js:22:  const empConEntrega=new Set(st.entregas.filter(e=>e.fecha&&e.fecha.startsWith(thisYear)).map(e=>e.empleadoId));
+./js/dashboard.js:25:  // Empleados sin entrega este año
+./js/dashboard.js:70:  // Gráficas de entregas
+./js/dashboard.js:74:  // Tipos de entrega / últimas
+./js/dashboard.js:80:    // Si no hay entregas, mostrar cobertura donut
+./js/dashboard.js:82:    h+='<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span>Con entrega</span><strong style="color:'+cobColor+'">'+empConEntrega.size+'</strong></div>';
+./js/dashboard.js:83:    h+='<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span>Sin entrega</span><strong style="color:#dc2626">'+sinEntrega.length+'</strong></div>';
+./js/dashboard.js:88:  // Últimas entregas + Empleados sin entrega
+./js/dashboard.js:90:  // Últimas entregas
+./js/dashboard.js:92:  // Empleados sin entrega este año
+./js/dashboard.js:129:    h+='<div class="kpi" style="border-top:2px solid #059669"><div class="kpi-label">Entregas SKU — '+now.toLocaleDateString('es-MX',{month:'short'})+'</div><div class="kpi-value">'+entMes.length+'</div><div class="kpi-sub">'+pzasEnt+' piezas entregadas</div></div>';
+./js/dashboard.js:168:  const empConEntrega=new Set(st.entregas.filter(e=>e.fecha&&e.fecha.startsWith(thisYear)).map(e=>e.empleadoId));
+./js/dashboard.js:177:  st.entregas.forEach(e=>{if(e.fecha){const mk=e.fecha.slice(0,7);if(!countsByMonth[mk])countsByMonth[mk]=0;countsByMonth[mk]++;}});
+./js/dashboard.js:194:  // Tipos de entrega (ECharts)
+./js/dashboard.js:195:  const da=st.entregas.filter(e=>e.tipo==='DOTACION_ANUAL').length;
+./js/dashboard.js:196:  const ni=st.entregas.filter(e=>e.tipo==='NUEVO_INGRESO').length;
+./js/dashboard.js:197:  const su=st.entregas.filter(e=>e.tipo==='SUSTITUCION').length;
+./js/dashboard.js:198:  const otro=st.entregas.filter(e=>!['DOTACION_ANUAL','NUEVO_INGRESO','SUSTITUCION'].includes(e.tipo)).length;
+./js/dashboard.js:215:    // Gauge cobertura cuando no hay entregas tipificadas
+./js/dashboard.js:231:  // Últimas entregas
+./js/dashboard.js:235:    if(!st.entregas.length){lb.innerHTML='<p class="text-sm text-muted" style="padding:12px 0">Sin entregas registradas</p>';return;}
+./js/dashboard.js:236:    lb.innerHTML=st.entregas.slice(-8).reverse().map(ent=>{
+./js/supabase-client.js:81: * collection: 'employees' | 'entregas' | etc.
+./js/app.js:5:import{render as renderEntregas,init as initEntregas}from'./entregas.js';
+./js/app.js:17:import{render as renderAdvancedReports,init as initAdvancedReports}from'./advanced-reports.js';import{render as renderEntregasV2,init as initEntregasV2}from'./mod-entregas-v2-ui.js';import{render as renderUsuarios,init as initUsuarios}from'./users.js';import{render as renderAreas,init as initAreas}from'./areas-config.js';import{render as renderCentroCostos,init as initCentroCostos}from'./centro-costos.js';import{render as renderCampanias,init as initCampanias}from'./campanias.js';import{render as renderStockUniformes,init as initStockUniformes}from'./stock-uniformes.js';import{render as renderBitacora,init as initBitacora}from'./bitacora.js';import{render as renderInventarioSKU,init as initInventarioSKU}from'./inventario-sku.js';import{render as renderEntregaSKU,init as initEntregaSKU}from'./entrega-sku.js';import{render as renderDevolucionSKU,init as initDevolucionSKU}from'./devolucion-sku.js';
+./js/app.js:18:const views={dashboard:{render:renderDashboard,init:initDashboard},empleados:{render:renderEmpleados,init:initEmpleados},captura:{render:renderCaptura,init:initCaptura},entregas:{render:renderEntregas,init:initEntregas},entregasv2:{render:renderEntregasV2,init:initEntregasV2},totales:{render:renderTotales,init:initTotales},tablero:{render:renderTablero},proveedores:{render:renderProveedores,init:initProveedores},inventario:{render:renderInventario,init:initInventario},salidas:{render:renderSalidas,init:initSalidas},importar:{render:renderImportar,init:initImportar},exportar:{render:renderExportar,init:initExportar},catalogo:{render:renderCatalogo},config:{render:renderConfig,init:initConfig},admin:{render:renderAdminDash,init:initAdminDash},operador:{render:renderOperatorDelivery,init:initOperatorDelivery},reportes:{render:renderAdvancedReports,init:initAdvancedReports},usuarios:{render:renderUsuarios,init:initUsuarios},areas:{render:renderAreas,init:initAreas},'centro-costos':{render:renderCentroCostos,init:initCentroCostos},campanias:{render:renderCampanias,init:initCampanias},'stock-uniformes':{render:renderStockUniformes,init:initStockUniformes},bitacora:{render:renderBitacora,init:initBitacora},'inventario-sku':{render:renderInventarioSKU,init:initInventarioSKU},'entrega-sku':{render:renderEntregaSKU,init:initEntregaSKU},'devolucion-sku':{render:renderDevolucionSKU,init:initDevolucionSKU}};window.views=views;
+./js/storage.js:22:const store={employees:[],proveedores:[],inventario:[],entregas:[],salidas:[],areas:[],stockExtra:{},auditLog:[],comprasAlmacen:[],campanias:[],stockUniformes:[],encuestas:[],articulos:[],skus:[],movimientosInventario:[],documentosEntrega:[],documentosDevolucion:[]};
+./js/storage.js:33:  store.entregas=load('_entregas',[]);
+./js/storage.js:45:  store.documentosEntrega=load('_docs_entrega',[]);
+./js/storage.js:46:  store.documentosDevolucion=load('_docs_dev',[]);
+./js/storage.js:55:export function saveEntregas(){save('_entregas',store.entregas);_push('entregas',store.entregas);}
+./js/storage.js:67:export function saveDocumentosEntrega(){save('_docs_entrega',store.documentosEntrega);}
+./js/storage.js:68:export function saveDocumentosDevolucion(){save('_docs_dev',store.documentosDevolucion);}
+./js/storage.js:77:    _meta:{version:VERSION,exportedAt:new Date().toISOString(),counts:{employees:s.employees.length,entregas:s.entregas.length,proveedores:s.proveedores.length,inventario:s.inventario.length,salidas:s.salidas.length,comprasAlmacen:s.comprasAlmacen.length,campanias:s.campanias.length,stockUniformes:s.stockUniformes.length,encuestas:s.encuestas.length,auditLog:s.auditLog.length}},
+./js/storage.js:79:    entregas:s.entregas,salidas:s.salidas,stockExtra:s.stockExtra,areas:s.areas,
+./js/storage.js:92:  if(!bk.entregas||!Array.isArray(bk.entregas))errors.push('Falta entregas');
+./js/storage.js:96:  store.inventario=bk.inventario||[];store.entregas=bk.entregas||[];
+./sw.js:3:const APP_SHELL=['./','./index.html','./css/styles.css','./icons/icon-192.png','./icons/icon-512.png','./js/app.js','./js/config.js','./js/utils.js','./js/storage.js','./js/rules.js','./js/ui.js','./js/dashboard.js','./js/empleados.js','./js/captura.js','./js/entregas.js','./js/totales.js','./js/tablero.js','./js/proveedores.js','./js/inventario.js','./js/salidas.js','./js/importar.js','./js/exportar.js','./js/catalogo.js','./js/config-view.js','./js/user-roles.js','./js/delivery-evidence.js','./js/kpi-metrics.js','./js/signature-capture.js','./js/offline-storage.js','./js/operator-delivery.js','./js/admin-dashboard.js','./js/advanced-reports.js','./js/mod-auth.js','./js/mod-entregas-v2.js','./js/mod-entregas-v2-ui.js','./js/mod-costos-base.js','./js/users.js','./js/areas-config.js','./js/centro-costos.js','./js/campanias.js','./js/stock-uniformes.js','./js/supabase-client.js','./js/sync-engine.js','./js/bitacora.js','./js/sku-api.js','./js/inventario-sku.js','./js/entrega-sku.js','./js/devolucion-sku.js','./manifest.json'];
