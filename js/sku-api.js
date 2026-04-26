@@ -315,6 +315,27 @@ export function getDocumentosEntrega(){return getStore().documentosEntrega||[];}
 export function getDocumentosDevolucion(){return getStore().documentosDevolucion||[];}
 export function getDocumentosEntregaByEmpleado(empleadoId){return(getStore().documentosEntrega||[]).filter(d=>d.empleado_id===empleadoId);}
 
+// ─── AJUSTES DE INVENTARIO (FASE 3) ──────────────────────────────────────────
+/**
+ * Ajuste manual de inventario con motivo obligatorio.
+ * tipo = 'ajuste_positivo' | 'ajuste_negativo'
+ * cantidad: siempre positivo (internamente se invierte para negativos).
+ * Lanza error si el ajuste negativo deja stock < 0.
+ */
+export function registrarAjuste({sku_id,cantidad,tipo,motivo=''}){
+  const s=getStore();
+  const cant=parseInt(cantidad,10);
+  if(isNaN(cant)||cant<=0)return{ok:false,error:'La cantidad debe ser mayor a cero'};
+  if(!['ajuste_positivo','ajuste_negativo'].includes(tipo))return{ok:false,error:'Tipo inválido'};
+  if(!(motivo||'').trim())return{ok:false,error:'El motivo del ajuste es obligatorio'};
+  const delta=tipo==='ajuste_negativo'?-cant:cant;
+  try{
+    const mov=registrarMovimiento({tipo,sku_id,cantidad:delta,observaciones:'[AJUSTE] '+motivo.trim()});
+    log('AJUSTE_INV',((delta>0?'+':'')+delta)+' '+getSkuById(sku_id)?.codigo+' — '+motivo,'INVENTARIO-SKU');
+    return{ok:true,mov};
+  }catch(e){return{ok:false,error:e.message};}
+}
+
 // ─── CONSULTAS ────────────────────────────────────────────────────────────────
 export function getMovimientosPorSKU(skuId){
   return(getStore().movimientosInventario||[]).filter(m=>m.sku_id===skuId).sort((a,b)=>b.fecha_hora.localeCompare(a.fecha_hora));
