@@ -278,9 +278,10 @@ export function init(){
   document.getElementById('dvFArea')?.addEventListener('change',renderTabla);
   document.getElementById('dvFDesde')?.addEventListener('change',renderTabla);
   document.getElementById('dvFHasta')?.addEventListener('change',renderTabla);
-  document.getElementById('mainContent')?.addEventListener('click',e=>{
+  const main=document.getElementById('mainContent');
+  if(main)main.onclick=e=>{
     const det=e.target.closest('.dv-det');if(det){openDetalleDevolucion(det.dataset.id);}
     const prnt=e.target.closest('.dv-print');if(prnt){imprimirComprobante(prnt.dataset.id);}
-  });
+  };
   renderTabla();
 }
