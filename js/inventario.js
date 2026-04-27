@@ -142,6 +142,13 @@ function getFilterros() {
   };
 }
 
+function tipoProductoBadge(tipo = 'personal') {
+  const isConsumible = tipo === 'consumible';
+  const color = isConsumible ? '#2563eb' : '#059669';
+  const label = isConsumible ? 'Consumible' : 'Personal';
+  return `<span style="display:inline-block;padding:2px 8px;background:${color}22;border:1px solid ${color};border-radius:4px;font-size:11px;color:${color}">${label}</span>`;
+}
+
 function renderProductos() {
   const filtros = getFilterros();
   const productos = getProductos(filtros);
@@ -162,6 +169,7 @@ function renderProductos() {
       const cat = catMap[p.categoria_id];
       const foto = p.foto ? `data:image/png;base64,${p.foto}` : null;
       const bgColor = cat?.color || '#666';
+      const tipo = p.tipo || 'personal';
 
       let stockHtml = '';
       let stockNum = 0;
@@ -189,6 +197,7 @@ function renderProductos() {
             </div>
             <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">
               <span style="display:inline-block;padding:2px 8px;background:${bgColor}33;border:1px solid ${bgColor};border-radius:4px;font-size:11px;color:${bgColor}">${esc(cat?.nombre || 'Sin categoría')}</span>
+              ${tipoProductoBadge(tipo)}
             </div>
             ${isAdmin ? `<div style="font-size:12px;color:#999;margin-top:4px">${fmtMoney((p.costo_promedio || 0) * stockNum)}</div>` : ''}
           </div>
@@ -204,6 +213,7 @@ function renderProductos() {
           <th>SKU</th>
           <th>Producto</th>
           <th>Categoría</th>
+          <th>Tipo</th>
           <th>Stock</th>
           ${isAdmin ? '<th>Costo</th><th>Valor</th>' : ''}
           <th>Estado</th>
@@ -215,6 +225,7 @@ function renderProductos() {
 
     productos.forEach(p => {
       const cat = catMap[p.categoria_id];
+      const tipo = p.tipo || 'personal';
       if (p.es_por_variante) {
         (p.variantes || []).forEach(v => {
           const valor = (v.stock_actual || 0) * (v.ultimo_costo || 0);
@@ -230,6 +241,7 @@ function renderProductos() {
               <td>${esc(v.sku_variante)}</td>
               <td>${esc(p.nombre)} (${esc(v.nombre)})</td>
               <td>${esc(cat?.nombre || '—')}</td>
+              <td>${tipoProductoBadge(tipo)}</td>
               <td style="text-align:center;font-weight:bold">${v.stock_actual || 0}</td>
               ${isAdmin ? `<td style="text-align:right">${fmtMoney(v.ultimo_costo || 0)}</td><td style="text-align:right">${fmtMoney(valor)}</td>` : ''}
               <td>${estado}</td>
@@ -253,6 +265,7 @@ function renderProductos() {
             <td>${esc(p.sku)}</td>
             <td>${esc(p.nombre)}</td>
             <td>${esc(cat?.nombre || '—')}</td>
+            <td>${tipoProductoBadge(tipo)}</td>
             <td style="text-align:center;font-weight:bold">${p.stock_actual || 0}</td>
             ${isAdmin ? `<td style="text-align:right">${fmtMoney(p.costo_promedio || 0)}</td><td style="text-align:right">${fmtMoney(valor)}</td>` : ''}
             <td>${estado}</td>
@@ -338,6 +351,16 @@ function openNuevoProducto() {
           </select>
         </div>
         <div>
+          <label>Tipo</label>
+          <select id="formTipo" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+            <option value="personal">Personal</option>
+            <option value="consumible">Consumible</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row c2">
+        <div>
           <label>Stock Mínimo</label>
           <input type="number" id="formStockMin" value="5" min="0" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
         </div>
@@ -345,9 +368,9 @@ function openNuevoProducto() {
 
       <div class="form-row c2">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="formEntregable"> ¿Se entrega a personal?
+          <input type="checkbox" id="formEntregable"> <span id="formEntregableLabel">¿Se entrega a personal?</span>
         </label>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <label id="formVarianteWrap" style="display:flex;align-items:center;gap:8px;cursor:pointer">
           <input type="checkbox" id="formVariante"> ¿Tiene variantes (talla/modelo/color)?
         </label>
       </div>
@@ -392,10 +415,26 @@ function openNuevoProducto() {
 
   // Event listeners
   const nombre = document.getElementById('formNombre');
+  const tipoSelect = document.getElementById('formTipo');
+  const entregableCheckbox = document.getElementById('formEntregable');
+  const entregableLabel = document.getElementById('formEntregableLabel');
   const varianteCheckbox = document.getElementById('formVariante');
+  const varianteWrap = document.getElementById('formVarianteWrap');
   const fotoInput = document.getElementById('formFoto');
 
   nombre.addEventListener('keyup', () => updateSKUPreview());
+
+  tipoSelect.addEventListener('change', () => {
+    const esConsumible = tipoSelect.value === 'consumible';
+    if (esConsumible) {
+      varianteCheckbox.checked = false;
+      entregableCheckbox.checked = true;
+      document.getElementById('variantesList').innerHTML = '';
+    }
+    entregableLabel.textContent = esConsumible ? '¿Se entrega como consumible?' : '¿Se entrega a personal?';
+    varianteWrap.style.display = esConsumible ? 'none' : 'flex';
+    document.getElementById('variantesSection').style.display = !esConsumible && varianteCheckbox.checked ? 'block' : 'none';
+  });
 
   varianteCheckbox.addEventListener('change', () => {
     document.getElementById('variantesSection').style.display = varianteCheckbox.checked ? 'block' : 'none';
@@ -434,9 +473,10 @@ function openNuevoProducto() {
     const nombreVal = nombre.value.trim();
     const categoriaVal = document.getElementById('formCategoria').value;
     const unidadVal = document.getElementById('formUnidad').value;
+    const tipoVal = document.getElementById('formTipo').value;
     const stockMinVal = parseInt(document.getElementById('formStockMin').value || 5, 10);
     const entregableVal = document.getElementById('formEntregable').checked;
-    const varianteVal = document.getElementById('formVariante').checked;
+    const varianteVal = tipoVal === 'personal' && document.getElementById('formVariante').checked;
     const proveedorVal = document.getElementById('formProveedor').value.trim();
     const descripcionVal = document.getElementById('formDescripcion').value.trim();
     const fotoVal = fotoInput.dataset.base64 || null;
@@ -453,6 +493,7 @@ function openNuevoProducto() {
       descripcion: descripcionVal,
       unidad: unidadVal,
       foto: fotoVal,
+      tipo: tipoVal,
       es_entregable: entregableVal,
       es_por_variante: varianteVal,
       stock_minimo: stockMinVal,
@@ -501,6 +542,7 @@ function openDetalleProducto(id) {
   const cat = catMap[prod.categoria_id];
   const role = getUserRole();
   const isAdmin = role === 'admin';
+  const tipo = prod.tipo || 'personal';
 
   let movimientos = getMovimientos({ producto_id: id });
   movimientos = movimientos.slice(0, 10);
@@ -546,6 +588,7 @@ function openDetalleProducto(id) {
         <div style="margin-top:8px">
           <strong>${esc(cat?.nombre || 'Sin categoría')}</strong> | ${esc(prod.unidad)}
         </div>
+        <div style="margin-top:8px">${tipoProductoBadge(tipo)}</div>
         <div style="margin-top:16px">
           <div style="color:#999">Stock Actual:</div>
           <div style="font-size:24px;font-weight:bold;color:#4ade80">${prod.stock_actual || 0}</div>
