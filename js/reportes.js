@@ -9,13 +9,72 @@ import { notify, modal } from './ui.js';
 import { getUserRole } from './user-roles.js';
 import { getProductos, getMovimientos } from './almacen-api.js';
 
+const TIPOS_ENTRADA = new Set(['entrada_compra', 'inventario_inicial', 'ajuste_positivo', 'entrada']);
+const TIPOS_COMPRA = new Set(['entrada_compra', 'entrada']);
+const TIPOS_SALIDA = new Set([
+  'salida_colocacion',
+  'salida_merma',
+  'salida_ajuste',
+  'salida_devolucion_proveedor',
+  'salida_uso_interno',
+  'ajuste_negativo',
+  'salida',
+  'ajuste',
+]);
+const TIPOS_ENTREGA = new Set(['salida_entrega', 'entrega']);
+const TIPOS_DEVOLUCION = new Set(['entrada_devolucion', 'devolucion']);
+
+function fechaMov(m) {
+  return m.fecha_hora || m.fecha || '';
+}
+
+function tipoMov(m) {
+  return m.tipo || m.tipo_movimiento || '';
+}
+
+function mesMov(m) {
+  return fechaMov(m).slice(0, 7);
+}
+
+function cantidadAbs(m) {
+  return Math.abs(Number(m.cantidad) || 0);
+}
+
+function importeMov(m) {
+  return cantidadAbs(m) * (Number(m.costo_unitario) || 0);
+}
+
+function labelTipo(m, withIcon = false) {
+  const labels = {
+    entrada_compra: ['Entrada compra', '⬆️ Entrada compra'],
+    salida_entrega: ['Entrega', '👤 Entrega'],
+    salida_colocacion: ['Salida colocación', '⬇️ Colocación'],
+    salida_merma: ['Merma', '⬇️ Merma'],
+    salida_ajuste: ['Salida ajuste', '🔧 Ajuste'],
+    salida_devolucion_proveedor: ['Devolución proveedor', '⬇️ Dev. proveedor'],
+    salida_uso_interno: ['Uso interno', '⬇️ Uso interno'],
+    entrada_devolucion: ['Devolución personal', '↩️ Devolución'],
+    inventario_inicial: ['Inventario inicial', '⬆️ Inventario inicial'],
+    ajuste_positivo: ['Ajuste positivo', '🔧 Ajuste +'],
+    ajuste_negativo: ['Ajuste negativo', '🔧 Ajuste -'],
+    entrada: ['Entrada', '⬆️ Entrada'],
+    salida: ['Salida', '⬇️ Salida'],
+    entrega: ['Entrega', '👤 Entrega'],
+    devolucion: ['Devolución', '↩️ Devolución'],
+    ajuste: ['Ajuste', '🔧 Ajuste'],
+  };
+  const pair = labels[tipoMov(m)];
+  if (!pair) return tipoMov(m) || '—';
+  return withIcon ? pair[1] : pair[0];
+}
+
 export function render() {
   const mesActual = new Date().toISOString().slice(0, 7);
-  const movimientosMes = getMovimientos().filter(m => m.fecha.startsWith(mesActual));
+  const movimientosMes = getMovimientos().filter(m => fechaMov(m).startsWith(mesActual));
 
   const gastoTotal = movimientosMes
-    .filter(m => m.tipo_movimiento === 'entrada')
-    .reduce((sum, m) => sum + (m.costo_unitario * m.cantidad || 0), 0);
+    .filter(m => TIPOS_COMPRA.has(tipoMov(m)))
+    .reduce((sum, m) => sum + importeMov(m), 0);
 
   const productos = getProductos();
   const stockValorizado = productos.reduce((sum, p) => {
@@ -71,12 +130,13 @@ function openReporteGastos() {
     return;
   }
 
-  const movimientos = getMovimientos().filter(m => m.tipo_movimiento === 'entrada');
+  const movimientos = getMovimientos().filter(m => TIPOS_COMPRA.has(tipoMov(m)));
 
   // Agrupar por mes
   const porMes = {};
   movimientos.forEach(m => {
-    const mes = m.fecha.slice(0, 7);
+    const mes = mesMov(m);
+    if (!mes) return;
     if (!porMes[mes]) porMes[mes] = [];
     porMes[mes].push(m);
   });
@@ -87,8 +147,8 @@ function openReporteGastos() {
 
   meses.forEach(mes => {
     const movsMes = porMes[mes];
-    const gasto = movsMes.reduce((sum, m) => sum + (m.costo_unitario * m.cantidad || 0), 0);
-    const cantidad = movsMes.reduce((sum, m) => sum + m.cantidad, 0);
+    const gasto = movsMes.reduce((sum, m) => sum + importeMov(m), 0);
+    const cantidad = movsMes.reduce((sum, m) => sum + cantidadAbs(m), 0);
     datos.push({ mes, gasto, cantidad, movimientos: movsMes.length });
   });
 
@@ -150,10 +210,10 @@ function openReporteConsumo() {
 
   productos.forEach(p => {
     const movsProducto = movimientos.filter(m => m.producto_id === p.id);
-    const entradas = movsProducto.filter(m => m.tipo_movimiento === 'entrada').reduce((s, m) => s + m.cantidad, 0);
-    const salidas = movsProducto.filter(m => m.tipo_movimiento === 'salida').reduce((s, m) => s + m.cantidad, 0);
-    const entregas = movsProducto.filter(m => m.tipo_movimiento === 'entrega').reduce((s, m) => s + m.cantidad, 0);
-    const devoluciones = movsProducto.filter(m => m.tipo_movimiento === 'devolucion').reduce((s, m) => s + m.cantidad, 0);
+    const entradas = movsProducto.filter(m => TIPOS_ENTRADA.has(tipoMov(m))).reduce((s, m) => s + cantidadAbs(m), 0);
+    const salidas = movsProducto.filter(m => TIPOS_SALIDA.has(tipoMov(m))).reduce((s, m) => s + cantidadAbs(m), 0);
+    const entregas = movsProducto.filter(m => TIPOS_ENTREGA.has(tipoMov(m))).reduce((s, m) => s + cantidadAbs(m), 0);
+    const devoluciones = movsProducto.filter(m => TIPOS_DEVOLUCION.has(tipoMov(m))).reduce((s, m) => s + cantidadAbs(m), 0);
 
     const consumo = salidas + entregas - devoluciones;
     if (consumo > 0) {
@@ -243,21 +303,15 @@ function openReporteMovimientos() {
         <tbody>
           ${movimientos.map(m => {
             const p = getStore().productos.find(x => x.id === m.producto_id);
-            const tipoLabel = {
-              entrada: '⬆️ Entrada',
-              salida: '⬇️ Salida',
-              entrega: '👤 Entrega',
-              devolucion: '↩️ Devolución',
-              ajuste: '🔧 Ajuste'
-            }[m.tipo_movimiento] || m.tipo_movimiento;
+            const tipoLabel = labelTipo(m, true);
             return `
               <tr>
-                <td><small>${fmtDate(m.fecha)}</small></td>
+                <td><small>${fmtDate(fechaMov(m).slice(0, 10))}</small></td>
                 <td><small>${tipoLabel}</small></td>
                 <td><small>${p ? esc(p.nombre) : '?'}</small></td>
                 <td style="text-align:center">${m.cantidad}</td>
                 <td style="text-align:right">$${m.costo_unitario?.toFixed(2) || '—'}</td>
-                <td style="text-align:right">$${(m.cantidad * (m.costo_unitario || 0)).toLocaleString('es-MX', {minimumFractionDigits:0})}</td>
+                <td style="text-align:right">$${importeMov(m).toLocaleString('es-MX', {minimumFractionDigits:0})}</td>
                 <td style="text-align:center">${m.stock_despues}</td>
               </tr>
             `;
@@ -301,14 +355,8 @@ function exportMovimientosExcel(movimientos) {
   let csv = 'Fecha,Tipo,Producto,Cantidad,Costo Unitario,Importe,Stock Después\n';
   movimientos.forEach(m => {
     const p = getStore().productos.find(x => x.id === m.producto_id);
-    const tipoLabel = {
-      entrada: 'Entrada',
-      salida: 'Salida',
-      entrega: 'Entrega',
-      devolucion: 'Devolución',
-      ajuste: 'Ajuste'
-    }[m.tipo_movimiento] || m.tipo_movimiento;
-    csv += `${m.fecha},"${tipoLabel}","${p ? p.nombre : '?'}",${m.cantidad},$${m.costo_unitario?.toFixed(2) || 0},$${(m.cantidad * (m.costo_unitario || 0)).toFixed(2)},${m.stock_despues}\n`;
+    const tipoLabel = labelTipo(m);
+    csv += `${fechaMov(m)},"${tipoLabel}","${p ? p.nombre : '?'}",${m.cantidad},$${m.costo_unitario?.toFixed(2) || 0},$${importeMov(m).toFixed(2)},${m.stock_despues}\n`;
   });
   downloadCSV(csv, 'reporte_movimientos.csv');
 }
