@@ -266,9 +266,10 @@ function delArea(nombre){
 // ── Init ─────────────────────────────────────────────────────────────────────
 export function init(){
   document.getElementById('btnNewArea')?.addEventListener('click',openNewArea);
-  document.getElementById('mainContent')?.addEventListener('click',function(e){
+  const main=document.getElementById('mainContent');
+  if(main)main.onclick=function(e){
     const ed=e.target.closest('.edit-area');const dl=e.target.closest('.del-area');
     if(ed)openEditArea(ed.dataset.n);
     if(dl)delArea(dl.dataset.n);
-  });
+  };
 }
