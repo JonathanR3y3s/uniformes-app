@@ -172,6 +172,9 @@ export function getProductos(filtros = {}) {
   if (filtros.soloEntregables) {
     result = result.filter(p => p.es_entregable);
   }
+  if (filtros.tipo) {
+    result = result.filter(p => (p.tipo || 'personal') === filtros.tipo);
+  }
 
   return result;
 }
@@ -181,7 +184,7 @@ export function getProductoById(id) {
   return store.productos.find(p => p.id === id);
 }
 
-export function createProducto({ nombre, categoria_id, descripcion, unidad, foto, es_entregable, es_por_variante, stock_minimo, proveedor_frecuente }) {
+export function createProducto({ nombre, categoria_id, descripcion, unidad, foto, tipo, es_entregable, es_por_variante, stock_minimo, proveedor_frecuente }) {
   const store = getStore();
   const user = getUser();
 
@@ -200,6 +203,7 @@ export function createProducto({ nombre, categoria_id, descripcion, unidad, foto
     stock_minimo: stock_minimo || 5,
     costo_promedio: 0,
     ultimo_costo: 0,
+    tipo: tipo === 'consumible' ? 'consumible' : 'personal',
     es_entregable: es_entregable || false,
     es_por_variante: es_por_variante || false,
     variantes: [],
