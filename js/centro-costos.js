@@ -10,6 +10,62 @@ function getGastos(){
 }
 function byYear(g,y){return y==='todos'?g:g.filter(x=>(x.fecha||'').startsWith(y));}
 function years(g){const s=new Set(g.map(x=>(x.fecha||'').slice(0,4)).filter(Boolean));return[...s].sort().reverse();}
+function getPrecioProveedor(prenda,talla){
+  const prov=getStore().proveedores.find(p=>p.prenda===prenda&&p.talla===talla);
+  return prov?(parseFloat(prov.precioUnitario)||0):0;
+}
+function calcCostosPorEmpleado(){
+  const costos={};
+  getStore().employees.forEach(emp=>{
+    let total=0;
+    Object.entries(emp.tallas||{}).forEach(([prenda,talla])=>{total+=getPrecioProveedor(prenda,talla);});
+    costos[emp.id]={empleadoId:emp.id,nombre:emp.nombre,area:emp.area,totalPrendas:Object.keys(emp.tallas||{}).length,costoPrendas:total,estado:'calculado'};
+  });
+  return costos;
+}
+function calcCostoAcumulado(){
+  return Object.values(calcCostosPorEmpleado()).reduce((sum,item)=>sum+item.costoPrendas,0);
+}
+function calcGastoTotal(){
+  return getStore().proveedores.reduce((sum,prov)=>{
+    const cantidad=parseInt(prov.cantidad,10)||0;
+    const precio=parseFloat(prov.precioUnitario)||0;
+    return sum+(cantidad*precio);
+  },0);
+}
+function generateCostosReport(){
+  const porEmpleado=calcCostosPorEmpleado();
+  const costoAcumulado=calcCostoAcumulado();
+  const gastoTotal=calcGastoTotal();
+  const empleados=Object.keys(porEmpleado).length;
+  const prendasTotales=Object.values(porEmpleado).reduce((sum,e)=>sum+e.totalPrendas,0);
+  return{timestamp:new Date().toISOString(),porEmpleado,costoAcumulado,gastoTotal,diferencia:gastoTotal-costoAcumulado,resumen:{empleados,prendasTotales,costoPromedioPorEmpleado:empleados?costoAcumulado/empleados:0}};
+}
+function buildCostosBaseSection(report){
+  const rows=Object.values(report.porEmpleado).sort((a,b)=>b.costoPrendas-a.costoPrendas).slice(0,8);
+  return '<div class="card mb-4"><div class="card-head"><h3><i class="fas fa-calculator mr-2" style="color:#059669"></i>Base de Calculo de Costos</h3><button class="btn btn-ghost btn-sm" id="ccExportCostos"><i class="fas fa-file-csv"></i> Exportar CSV</button></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;padding:0 16px 12px">'
+    +'<div class="kpi"><div class="kpi-label">Costo acumulado prendas</div><div class="kpi-value" style="font-size:18px;color:#059669">'+fmtMoney(report.costoAcumulado)+'</div></div>'
+    +'<div class="kpi"><div class="kpi-label">Gasto proveedores</div><div class="kpi-value" style="font-size:18px;color:#004B87">'+fmtMoney(report.gastoTotal)+'</div></div>'
+    +'<div class="kpi"><div class="kpi-label">Diferencia</div><div class="kpi-value" style="font-size:18px;color:'+(report.diferencia>=0?'#d97706':'#059669')+'">'+fmtMoney(report.diferencia)+'</div></div>'
+    +'<div class="kpi"><div class="kpi-label">Promedio empleado</div><div class="kpi-value" style="font-size:18px;color:#7c3aed">'+fmtMoney(report.resumen.costoPromedioPorEmpleado)+'</div></div>'
+    +'</div><div class="table-wrap"><table class="dt"><thead><tr><th>Empleado</th><th>Area</th><th style="text-align:center">Prendas</th><th style="text-align:right">Costo</th></tr></thead><tbody>'
+    +(rows.length?rows.map(r=>'<tr><td class="font-bold">'+esc(r.nombre||r.empleadoId)+'</td><td>'+esc(r.area||'—')+'</td><td style="text-align:center">'+fmt(r.totalPrendas)+'</td><td style="text-align:right;font-weight:700;color:var(--success)">'+fmtMoney(r.costoPrendas)+'</td></tr>').join(''):'<tr><td colspan="4" class="empty-state"><i class="fas fa-calculator"></i><p>Sin costos calculados</p></td></tr>')
+    +'</tbody></table></div></div>';
+}
+function exportCostosCSV(){
+  const report=generateCostosReport();
+  const rows=[['REPORTE DE COSTOS'],['Fecha',report.timestamp],[],['POR EMPLEADO'],['Empleado ID','Nombre','Area','Prendas','Costo Prendas']];
+  Object.values(report.porEmpleado).forEach(item=>rows.push([item.empleadoId,item.nombre,item.area,item.totalPrendas,item.costoPrendas.toFixed(2)]));
+  rows.push([],['RESUMEN'],['Concepto','Valor'],['Total Empleados',report.resumen.empleados],['Total Prendas',report.resumen.prendasTotales],['Costo Acumulado Prendas',report.costoAcumulado.toFixed(2)],['Gasto Total Proveedores',report.gastoTotal.toFixed(2)],['Diferencia',report.diferencia.toFixed(2)],['Costo Promedio Empleado',report.resumen.costoPromedioPorEmpleado.toFixed(2)]);
+  const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='reporte-costos.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 // ── Render ───────────────────────────────────────────────────────────────────
 export function render(){
@@ -46,6 +102,8 @@ export function render(){
   h+='<div class="kpi" style="border-top:3px solid #475569"><div class="kpi-label"><i class="fas fa-hand-holding mr-1" style="color:#475569"></i>Piezas Entregadas</div><div class="kpi-value" style="color:#475569">'+fmt(pzasEntregadas)+'</div><div class="kpi-sub">'+(s.entregas||[]).filter(e=>currentYear==='todos'||(e.fecha||'').startsWith(currentYear)).length+' entregas realizadas</div></div>';
   if(topProv)h+='<div class="kpi" style="border-top:3px solid #dc2626"><div class="kpi-label"><i class="fas fa-star mr-1" style="color:#dc2626"></i>Proveedor Principal</div><div class="kpi-value" style="font-size:12px;line-height:1.3;font-weight:700">'+esc(topProv[0])+'</div><div class="kpi-sub">'+fmtMoney(topProv[1])+'</div></div>';
   h+='</div>';
+
+  h+=buildCostosBaseSection(generateCostosReport());
 
   // ── Comparativo Anual ─────────────────────────────────────────────────────
   if(yrs.length>=2){
@@ -202,4 +260,5 @@ export function init(){
     const filtered=byYear(all,this.value);
     renderRows(filtered);buildCharts(filtered,all,yrs);
   });
+  document.getElementById('ccExportCostos')?.addEventListener('click',exportCostosCSV);
 }
