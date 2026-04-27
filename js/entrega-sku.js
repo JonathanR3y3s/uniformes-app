@@ -277,9 +277,10 @@ export function init(){
   document.getElementById('esFArea')?.addEventListener('change',renderTabla);
   document.getElementById('esFDesde')?.addEventListener('change',renderTabla);
   document.getElementById('esFHasta')?.addEventListener('change',renderTabla);
-  document.getElementById('mainContent')?.addEventListener('click',e=>{
+  const main=document.getElementById('mainContent');
+  if(main)main.onclick=e=>{
     const det=e.target.closest('.es-det');if(det){openDetalleEntrega(det.dataset.id);}
     const prnt=e.target.closest('.es-print');if(prnt){imprimirRecibo(prnt.dataset.id);}
-  });
+  };
   renderTabla();
 }
