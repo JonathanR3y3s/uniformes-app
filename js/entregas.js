@@ -11,6 +11,13 @@ import { getEntregasNuevas, registrarEntregaNueva, getProductos } from './almace
 
 let _entregasWizardHandler = null;
 
+function detachEntregasWizardHandler() {
+  if (_entregasWizardHandler) {
+    document.removeEventListener('click', _entregasWizardHandler, true);
+    _entregasWizardHandler = null;
+  }
+}
+
 export function render() {
   const entregasNuevas = getEntregasNuevas();
   const mesActual = new Date().toISOString().slice(0, 7);
@@ -322,11 +329,12 @@ function openNuevaEntrega() {
     return footer;
   }
 
-  window.modalClose = () => modal.close();
+  window.modalClose = () => {
+    modal.close();
+    detachEntregasWizardHandler();
+  };
 
-  if (_entregasWizardHandler) {
-    document.removeEventListener('click', _entregasWizardHandler, true);
-  }
+  detachEntregasWizardHandler();
   _entregasWizardHandler = (e) => {
     if (e.target.id === 'btnAnt') {
       if (paso > 1) paso--;
@@ -364,6 +372,7 @@ function openNuevaEntrega() {
 
       notify('Entrega registrada', 'success');
       modal.close();
+      detachEntregasWizardHandler();
       renderEntregas();
     }
   };
