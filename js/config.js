@@ -32,6 +32,7 @@ export const NAV=[
 {id:'salidas-almacen',icon:'fa-sign-out-alt',label:'Salidas de Almacén'},
 {section:'Finanzas'},
 {id:'reportes',icon:'fa-chart-bar',label:'Reportes'},
+{id:'export-auditoria',icon:'fa-file-pdf',label:'Exportar Auditoría'},
 {id:'centro-costos',icon:'fa-building',label:'Centro de Costos'},
 {id:'proveedores',icon:'fa-truck',label:'Proveedores'},
 {id:'advanced-reports',icon:'fa-chart-line',label:'Reportes Avanzados'},
