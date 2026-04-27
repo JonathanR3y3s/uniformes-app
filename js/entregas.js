@@ -81,10 +81,10 @@ function renderEntregas() {
   const area = document.getElementById('filterArea')?.value || '';
 
   let entregasNuevas = getEntregasNuevas();
-  if (empleado) entregasNuevas = entregasNuevas.filter(e => (e.empleado_nombre || '').toLowerCase().includes(empleado.toLowerCase()));
+  if (empleado) entregasNuevas = entregasNuevas.filter(e => ((e.quien_recibe || e.empleado_nombre || '').toLowerCase().includes(empleado.toLowerCase())));
   if (area) entregasNuevas = entregasNuevas.filter(e => e.area === area);
 
-  let html = `<table class="data-table"><thead><tr><th>Número</th><th>Empleado</th><th>Área</th><th>Motivo</th><th>Artículos</th><th>Piezas</th><th>Fecha</th><th>Firma</th><th>Acciones</th></tr></thead><tbody>`;
+  let html = `<table class="data-table"><thead><tr><th>Número</th><th>Recibe</th><th>Área</th><th>Motivo</th><th>Artículos</th><th>Piezas</th><th>Fecha</th><th>Firma</th><th>Acciones</th></tr></thead><tbody>`;
 
   if (entregasNuevas.length === 0) {
     html += `<tr><td colspan="9" style="text-align:center;padding:20px;color:#999">Sin entregas registradas</td></tr>`;
@@ -92,12 +92,13 @@ function renderEntregas() {
     entregasNuevas.forEach(e => {
       const lineas = getStore().lineasEntrega.filter(l => l.entrega_id === e.id);
       const piezas = lineas.reduce((s, l) => s + l.cantidad, 0);
-      const firmaIcon = e.firma ? '<i class="fas fa-check" style="color:#4ade80"></i>' : '—';
+      const firmaIcon = (e.firma_recibe || e.firma) ? '<i class="fas fa-check" style="color:#4ade80"></i>' : '—';
+      const recibe = e.quien_recibe || e.empleado_nombre || '—';
 
       html += `
         <tr>
           <td><strong>${esc(e.numero)}</strong></td>
-          <td>${esc(e.empleado_nombre)}</td>
+          <td>${esc(recibe)}</td>
           <td>${esc(e.area)}</td>
           <td><small>${esc(e.motivo)}</small></td>
           <td style="text-align:center">${lineas.length}</td>
@@ -142,9 +143,11 @@ function openNuevaEntrega() {
 
   let paso = 1;
   let datos = {
+    tipo_entrega: 'personal',
     empleado_id: '',
     empleado_nombre: '',
     area: '',
+    quien_recibe: '',
     motivo: '',
     autorizado_por: '',
     lineas: [],
@@ -158,12 +161,22 @@ function openNuevaEntrega() {
 
     if (paso === 1) {
       body = `
-        <label>Empleado *</label>
-        <select id="emp" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
-          <option value="">Seleccionar...</option>
-          ${empleados.filter(e => e.estado === 'activo').map(e => `<option value="${e.id}">${esc(e.nombre)}</option>`).join('')}
+        <label>Tipo de entrega</label>
+        <select id="tipoEntrega" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:12px">
+          <option value="personal" ${datos.tipo_entrega === 'personal' ? 'selected' : ''}>Personal</option>
+          <option value="consumible" ${datos.tipo_entrega === 'consumible' ? 'selected' : ''}>Consumible</option>
         </select>
-        <div style="margin-top:12px;padding:8px;background:#111;border-radius:4px;font-size:12px;color:#999">
+        <div id="personalEntregaBox" style="${datos.tipo_entrega === 'consumible' ? 'display:none;' : ''}">
+          <label>Empleado *</label>
+          <select id="emp" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+            <option value="">Seleccionar...</option>
+            ${empleados.filter(e => e.estado === 'activo').map(e => `<option value="${e.id}" ${datos.empleado_id === e.id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}
+          </select>
+        </div>
+        <div id="consumibleEntregaBox" style="${datos.tipo_entrega === 'consumible' ? '' : 'display:none;'}padding:10px;background:#111;border-radius:4px;font-size:13px;color:#ddd">
+          Recibe: <strong>Supervisora de Limpieza</strong>
+        </div>
+        <div id="tallasBox" style="margin-top:12px;padding:8px;background:#111;border-radius:4px;font-size:12px;color:#999;${datos.tipo_entrega === 'consumible' ? 'display:none;' : ''}">
           <p>Tallas capturadas: <span id="tallasInfo">—</span></p>
           <p>Última entrega: <span id="ultEntregaInfo">—</span></p>
         </div>
@@ -187,7 +200,7 @@ function openNuevaEntrega() {
         <input type="text" id="autoriza" placeholder="Autorizado por..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-top:8px;display:none">
       `;
     } else if (paso === 3) {
-      const productos = getProductos({ soloEntregables: true });
+      const productos = getProductos({ soloEntregables: true, tipo: datos.tipo_entrega });
       body = `
         <input type="text" id="searchProd" placeholder="Buscar producto..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
         <div id="prodList" style="max-height:150px;overflow-y:auto;margin-bottom:12px"></div>
@@ -196,8 +209,9 @@ function openNuevaEntrega() {
         <div id="lineasList" style="margin-top:12px;max-height:200px;overflow-y:auto"></div>
       `;
     } else if (paso === 4) {
+      const receptorFirma = datos.tipo_entrega === 'consumible' ? 'supervisora de limpieza' : 'empleado';
       body = `
-        <p style="margin-bottom:12px">Firma digital del empleado</p>
+        <p style="margin-bottom:12px">Firma digital de ${receptorFirma}</p>
         <canvas id="signaturePad" style="border:1px solid #444;border-radius:4px;background:#0f0f0f;width:100%;height:150px;cursor:crosshair"></canvas>
         <button class="btn btn-secondary" id="btnLimpiarFirma" style="margin-top:8px">Limpiar Firma</button>
         <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
@@ -209,11 +223,30 @@ function openNuevaEntrega() {
     modal.open(`Paso ${paso}/4`, body, getPasoFooter(), 'md');
 
     if (paso === 1) {
+      const tipoEntrega = document.getElementById('tipoEntrega');
+      tipoEntrega?.addEventListener('change', (e) => {
+        datos.tipo_entrega = e.target.value;
+        datos.lineas = [];
+        if (datos.tipo_entrega === 'consumible') {
+          datos.empleado_id = null;
+          datos.empleado_nombre = 'Supervisora de Limpieza';
+          datos.quien_recibe = 'Supervisora de Limpieza';
+          datos.area = 'Limpieza';
+        } else {
+          datos.empleado_id = '';
+          datos.empleado_nombre = '';
+          datos.quien_recibe = '';
+          datos.area = '';
+        }
+        showPaso();
+      });
+
       document.getElementById('emp')?.addEventListener('change', (e) => {
         const emp = empleados.find(x => x.id === e.target.value);
         if (emp) {
           datos.empleado_id = emp.id;
           datos.empleado_nombre = emp.nombre;
+          datos.quien_recibe = emp.nombre;
           datos.area = emp.area || '';
           document.getElementById('tallasInfo').textContent = emp.tallas ? Object.keys(emp.tallas).join(', ') : 'Ninguna';
           // TODO: mostrar última entrega
@@ -228,7 +261,7 @@ function openNuevaEntrega() {
         document.getElementById('autoriza').style.display = e.target.checked ? 'block' : 'none';
       });
     } else if (paso === 3) {
-      const productos = getProductos({ soloEntregables: true });
+      const productos = getProductos({ soloEntregables: true, tipo: datos.tipo_entrega });
       let selectedProd = null;
 
       document.getElementById('searchProd')?.addEventListener('keyup', (e) => {
@@ -237,7 +270,8 @@ function openNuevaEntrega() {
         let html = '';
         filtered.forEach(p => {
           const stock = p.es_por_variante ? (p.variantes || []).reduce((s, v) => s + (v.stock_actual || 0), 0) : (p.stock_actual || 0);
-          html += `<div class="prod-item" style="cursor:pointer;padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;font-size:13px" data-prod-id="${p.id}"><strong>${esc(p.nombre)}</strong> (${stock} disponibles)</div>`;
+          const tipoLabel = (p.tipo || 'personal') === 'consumible' ? 'Consumible' : 'Personal';
+          html += `<div class="prod-item" style="cursor:pointer;padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;font-size:13px" data-prod-id="${p.id}"><strong>${esc(p.nombre)}</strong> <small style="color:#999">${tipoLabel}</small> (${stock} disponibles)</div>`;
         });
         document.getElementById('prodList').innerHTML = html;
 
@@ -345,6 +379,16 @@ function openNuevaEntrega() {
         notify('Agrega al menos un producto', 'warning');
         return;
       }
+      if (paso === 1 && datos.tipo_entrega === 'personal' && !datos.empleado_id) {
+        notify('Selecciona un empleado', 'warning');
+        return;
+      }
+      if (paso === 1 && datos.tipo_entrega === 'consumible') {
+        datos.empleado_id = null;
+        datos.empleado_nombre = 'Supervisora de Limpieza';
+        datos.quien_recibe = 'Supervisora de Limpieza';
+        datos.area = 'Limpieza';
+      }
       if (paso < 4) paso++;
       showPaso();
     }
@@ -362,6 +406,10 @@ function openNuevaEntrega() {
         motivo: datos.motivo,
         autorizado_por: datos.autorizado_por,
         firma: datos.firma || null,
+        firma_empleado: datos.tipo_entrega === 'personal' ? datos.firma || null : null,
+        firma_recibe: datos.firma || null,
+        quien_recibe: datos.quien_recibe || datos.empleado_nombre,
+        tipo_entrega: datos.tipo_entrega,
         lineas: datos.lineas,
       });
 
@@ -388,7 +436,8 @@ function openDetalleEntrega(id) {
 
   let body = `
     <p><strong>Número:</strong> ${esc(entrega.numero)}</p>
-    <p><strong>Empleado:</strong> ${esc(entrega.empleado_nombre)}</p>
+    <p><strong>Recibe:</strong> ${esc(entrega.quien_recibe || entrega.empleado_nombre)}</p>
+    <p><strong>Tipo:</strong> ${esc(entrega.tipo_entrega || 'personal')}</p>
     <p><strong>Área:</strong> ${esc(entrega.area)}</p>
     <p><strong>Motivo:</strong> ${esc(entrega.motivo)}</p>
     <p><strong>Fecha:</strong> ${fmtDate(entrega.fecha_hora)}</p>
@@ -437,7 +486,8 @@ function imprimirRecibo(id) {
 
       <table>
         <tr><td><strong>Número:</strong></td><td>${esc(entrega.numero)}</td></tr>
-        <tr><td><strong>Empleado:</strong></td><td>${esc(entrega.empleado_nombre)}</td></tr>
+        <tr><td><strong>Recibe:</strong></td><td>${esc(entrega.quien_recibe || entrega.empleado_nombre)}</td></tr>
+        <tr><td><strong>Tipo:</strong></td><td>${esc(entrega.tipo_entrega || 'personal')}</td></tr>
         <tr><td><strong>Área:</strong></td><td>${esc(entrega.area)}</td></tr>
         <tr><td><strong>Motivo:</strong></td><td>${esc(entrega.motivo)}</td></tr>
         <tr><td><strong>Fecha:</strong></td><td>${fmtDate(entrega.fecha_hora)}</td></tr>
@@ -455,7 +505,7 @@ function imprimirRecibo(id) {
 
       <div class="firma">
         <div style="display: flex; justify-content: space-between; font-size: 10px;">
-          <span>Empleado: __________</span>
+          <span>Recibe: __________</span>
           <span>Entregó: __________</span>
         </div>
       </div>
