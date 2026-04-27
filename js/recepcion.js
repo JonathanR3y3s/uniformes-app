@@ -10,6 +10,7 @@ import { getUserRole, getUser } from './user-roles.js';
 import { getEntradas, registrarEntrada, completarFactura, getProductos, getCategorias } from './almacen-api.js';
 
 let currentStep = 1;
+let _recepcionWizardHandler = null;
 let wizardData = {
   proveedor: '',
   fecha_hora: new Date().toISOString(),
