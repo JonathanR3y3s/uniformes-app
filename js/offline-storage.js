@@ -368,8 +368,13 @@ function saveDeliveryToLocalStorage(delivery) {
 
 export function getDeliveryFromLocalStorage(id) {
   const key = `_delivery_${id}`;
-  const stored = localStorage.getItem(key);
-  return stored ? JSON.parse(stored) : null;
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : null;
+  } catch (e) {
+    console.warn('[OFFLINE] Entrega local corrupta:', id, e);
+    return null;
+  }
 }
 
 // ============================================================================
