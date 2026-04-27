@@ -11,6 +11,8 @@ import { getEntradas, registrarEntrada, completarFactura, getProductos, getCateg
 
 let currentStep = 1;
 let _recepcionWizardHandler = null;
+const FACTURA_MAX_BYTES = 500 * 1024;
+const FACTURA_MAX_SIDE = 800;
 let wizardData = {
   proveedor: '',
   fecha_hora: new Date().toISOString(),
@@ -18,6 +20,65 @@ let wizardData = {
   factura: { folio: '', fecha: '', subtotal: 0, iva: 0, total: 0, foto: null },
   lineas: [],
 };
+
+function getBase64Bytes(base64) {
+  const padding = (base64.match(/=+$/) || [''])[0].length;
+  return Math.ceil((base64.length * 3) / 4) - padding;
+}
+
+function loadImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('No se pudo leer la imagen'));
+    img.src = dataUrl;
+  });
+}
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = ev => resolve(ev.target.result);
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function resizeFacturaFile(file) {
+  const dataUrl = await readFileAsDataURL(file);
+  const img = await loadImage(dataUrl);
+  const ratio = Math.min(1, FACTURA_MAX_SIDE / Math.max(img.width, img.height));
+  let width = Math.max(1, Math.round(img.width * ratio));
+  let height = Math.max(1, Math.round(img.height * ratio));
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  let quality = 0.82;
+
+  for (let i = 0; i < 6; i++) {
+    canvas.width = width;
+    canvas.height = height;
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+    const base64 = canvas.toDataURL('image/jpeg', quality).split(',')[1];
+    const bytes = getBase64Bytes(base64);
+    if (bytes <= FACTURA_MAX_BYTES) return { base64, bytes };
+    quality = Math.max(0.55, quality - 0.08);
+    width = Math.max(1, Math.round(width * 0.9));
+    height = Math.max(1, Math.round(height * 0.9));
+  }
+
+  const base64 = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+  return { base64, bytes: getBase64Bytes(base64) };
+}
+
+function renderFacturaPreview() {
+  const preview = document.getElementById('fotoFactPreview');
+  if (!preview) return;
+  const foto = wizardData.factura.foto;
+  preview.innerHTML = foto
+    ? `<div style="display:flex;align-items:center;gap:10px"><img src="data:image/jpeg;base64,${foto}" style="max-width:120px;max-height:120px;border-radius:4px;object-fit:cover"><small style="color:#999">Foto guardada (${Math.round(getBase64Bytes(foto) / 1024)}KB)</small></div>`
+    : '';
+}
 
 export function render() {
   const entradas = getEntradas();
@@ -230,7 +291,7 @@ function showWizardStep() {
         <div style="margin-top:12px">
           <label>Foto Factura</label>
           <input type="file" id="fotoFact" accept="image/*" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
-          <div id="fotoFactPreview" style="margin-top:8px"></div>
+          <div id="fotoFactPreview" style="margin-top:8px">${wizardData.factura.foto ? `<div style="display:flex;align-items:center;gap:10px"><img src="data:image/jpeg;base64,${wizardData.factura.foto}" style="max-width:120px;max-height:120px;border-radius:4px;object-fit:cover"><small style="color:#999">Foto guardada (${Math.round(getBase64Bytes(wizardData.factura.foto) / 1024)}KB)</small></div>` : ''}</div>
         </div>
       </div>
     `;
@@ -315,6 +376,28 @@ function showWizardStep() {
   } else if (currentStep === 2) {
     document.getElementById('sinFactura').addEventListener('change', (e) => {
       document.getElementById('facturaSection').style.display = e.target.checked ? 'none' : 'block';
+    });
+    document.getElementById('fotoFact')?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const result = await resizeFacturaFile(file);
+        if (result.bytes > FACTURA_MAX_BYTES) {
+          wizardData.factura.foto = null;
+          e.target.value = '';
+          renderFacturaPreview();
+          notify('La foto de factura supera 500KB incluso comprimida', 'error');
+          return;
+        }
+        wizardData.factura.foto = result.base64;
+        renderFacturaPreview();
+        notify('Foto de factura cargada', 'success');
+      } catch (err) {
+        wizardData.factura.foto = null;
+        e.target.value = '';
+        renderFacturaPreview();
+        notify(err.message || 'No se pudo cargar la foto', 'error');
+      }
     });
   } else if (currentStep === 3) {
     const searchInput = document.getElementById('searchProd');
@@ -441,7 +524,7 @@ function _attachRecepcionWizardListener() {
             subtotal: parseFloat(document.getElementById('subtotal')?.value || 0),
             iva: parseFloat(document.getElementById('iva')?.value || 0),
             total: parseFloat(document.getElementById('total')?.value || 0),
-            foto: null, // TODO: capturar foto — ver AUDITORIA_BUGS.md item H
+            foto: wizardData.factura.foto || null,
           };
         }
       }
