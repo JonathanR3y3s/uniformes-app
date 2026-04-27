@@ -11,6 +11,13 @@ import { getDevolucionesNuevas, registrarDevolucionNueva, getProductos } from '.
 
 let _devolucionesWizardHandler = null;
 
+function detachDevolucionesWizardHandler() {
+  if (_devolucionesWizardHandler) {
+    document.removeEventListener('click', _devolucionesWizardHandler, true);
+    _devolucionesWizardHandler = null;
+  }
+}
+
 export function render() {
   const devolucionesNuevas = getDevolucionesNuevas();
   const mesActual = new Date().toISOString().slice(0, 7);
@@ -302,11 +309,12 @@ function openNuevaDevolucion() {
     return footer;
   }
 
-  window.modalClose = () => modal.close();
+  window.modalClose = () => {
+    modal.close();
+    detachDevolucionesWizardHandler();
+  };
 
-  if (_devolucionesWizardHandler) {
-    document.removeEventListener('click', _devolucionesWizardHandler, true);
-  }
+  detachDevolucionesWizardHandler();
   _devolucionesWizardHandler = (e) => {
     if (e.target.id === 'btnAnt') {
       if (paso > 1) paso--;
@@ -345,6 +353,7 @@ function openNuevaDevolucion() {
 
       notify('Devolución registrada', 'success');
       modal.close();
+      detachDevolucionesWizardHandler();
       renderDevoluciones();
     }
   };
