@@ -203,10 +203,11 @@ function delUser(id){
 // ── Init ─────────────────────────────────────────────────────────────────────
 export function init(){
   document.getElementById('btnNewUser')?.addEventListener('click',openNewUser);
-  document.getElementById('mainContent')?.addEventListener('click',function(e){
+  const main=document.getElementById('mainContent');
+  if(main)main.onclick=function(e){
     const ed=e.target.closest('.edit-user');const pw=e.target.closest('.pwd-user');const dl=e.target.closest('.del-user');
     if(ed)openEditUser(ed.dataset.id);
     if(pw)openPwdUser(pw.dataset.id);
     if(dl)delUser(dl.dataset.id);
-  });
+  };
 }
