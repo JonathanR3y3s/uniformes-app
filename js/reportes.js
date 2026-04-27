@@ -69,6 +69,7 @@ function labelTipo(m, withIcon = false) {
 }
 
 export function render() {
+  const admin = getUserRole() === 'admin';
   const mesActual = new Date().toISOString().slice(0, 7);
   const movimientosMes = getMovimientos().filter(m => fechaMov(m).startsWith(mesActual));
 
@@ -89,21 +90,21 @@ export function render() {
       <div class="page-head">
         <div class="page-title">Reportes de Almacén</div>
         <div class="page-actions">
-          <button class="btn btn-primary" id="btnReporteGastos"><i class="fas fa-chart-bar"></i> Reporte Gastos</button>
-          <button class="btn btn-primary" id="btnReporteConsumo"><i class="fas fa-chart-line"></i> Reporte Consumo</button>
+          ${admin ? '<button class="btn btn-primary" id="btnReporteGastos"><i class="fas fa-chart-bar"></i> Reporte Gastos</button>' : ''}
+          ${admin ? '<button class="btn btn-primary" id="btnReporteConsumo"><i class="fas fa-chart-line"></i> Reporte Consumo</button>' : ''}
           <button class="btn btn-primary" id="btnReporteMovimientos"><i class="fas fa-exchange-alt"></i> Movimientos</button>
         </div>
       </div>
 
       <div class="kpi-grid">
-        <div class="kpi-card">
+        ${admin ? `<div class="kpi-card">
           <div class="kpi-value">$${gastoTotal.toLocaleString('es-MX', {minimumFractionDigits:0})}</div>
           <div class="kpi-label">Gasto Este Mes</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-value">$${stockValorizado.toLocaleString('es-MX', {minimumFractionDigits:0})}</div>
           <div class="kpi-label">Stock Valorizado</div>
-        </div>
+        </div>` : ''}
         <div class="kpi-card">
           <div class="kpi-value">${productos.length}</div>
           <div class="kpi-label">Productos en Stock</div>
@@ -284,6 +285,7 @@ function openReporteMovimientos() {
     return;
   }
 
+  const admin = rol === 'admin';
   const movimientos = getMovimientos().slice(-200).reverse();
 
   let body = `
@@ -295,8 +297,7 @@ function openReporteMovimientos() {
             <th>Tipo</th>
             <th>Producto</th>
             <th style="text-align:center">Cantidad</th>
-            <th style="text-align:right">Costo Unit.</th>
-            <th style="text-align:right">Importe</th>
+            ${admin ? '<th style="text-align:right">Costo Unit.</th><th style="text-align:right">Importe</th>' : ''}
             <th>Stock Después</th>
           </tr>
         </thead>
@@ -310,8 +311,7 @@ function openReporteMovimientos() {
                 <td><small>${tipoLabel}</small></td>
                 <td><small>${p ? esc(p.nombre) : '?'}</small></td>
                 <td style="text-align:center">${m.cantidad}</td>
-                <td style="text-align:right">$${m.costo_unitario?.toFixed(2) || '—'}</td>
-                <td style="text-align:right">$${importeMov(m).toLocaleString('es-MX', {minimumFractionDigits:0})}</td>
+                ${admin ? `<td style="text-align:right">$${m.costo_unitario?.toFixed(2) || '—'}</td><td style="text-align:right">$${importeMov(m).toLocaleString('es-MX', {minimumFractionDigits:0})}</td>` : ''}
                 <td style="text-align:center">${m.stock_despues}</td>
               </tr>
             `;
@@ -329,7 +329,7 @@ function openReporteMovimientos() {
   modal.open('Últimos Movimientos', body, footer, 'lg');
 
   window.modalClose = () => modal.close();
-  window.exportarMovimientosExcel = () => exportMovimientosExcel(movimientos);
+  window.exportarMovimientosExcel = () => exportMovimientosExcel(movimientos, admin);
 }
 
 // Exportar a CSV (Excel simple)
@@ -351,12 +351,18 @@ function exportConsumoExcel(datos) {
   downloadCSV(csv, 'reporte_consumo.csv');
 }
 
-function exportMovimientosExcel(movimientos) {
-  let csv = 'Fecha,Tipo,Producto,Cantidad,Costo Unitario,Importe,Stock Después\n';
+function exportMovimientosExcel(movimientos, admin = getUserRole() === 'admin') {
+  let csv = admin
+    ? 'Fecha,Tipo,Producto,Cantidad,Costo Unitario,Importe,Stock Después\n'
+    : 'Fecha,Tipo,Producto,Cantidad,Stock Después\n';
   movimientos.forEach(m => {
     const p = getStore().productos.find(x => x.id === m.producto_id);
     const tipoLabel = labelTipo(m);
-    csv += `${fechaMov(m)},"${tipoLabel}","${p ? p.nombre : '?'}",${m.cantidad},$${m.costo_unitario?.toFixed(2) || 0},$${importeMov(m).toFixed(2)},${m.stock_despues}\n`;
+    if (admin) {
+      csv += `${fechaMov(m)},"${tipoLabel}","${p ? p.nombre : '?'}",${m.cantidad},$${m.costo_unitario?.toFixed(2) || 0},$${importeMov(m).toFixed(2)},${m.stock_despues}\n`;
+    } else {
+      csv += `${fechaMov(m)},"${tipoLabel}","${p ? p.nombre : '?'}",${m.cantidad},${m.stock_despues}\n`;
+    }
   });
   downloadCSV(csv, 'reporte_movimientos.csv');
 }

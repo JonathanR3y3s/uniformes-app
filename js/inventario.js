@@ -26,6 +26,7 @@ let currentView = 'grid'; // 'grid' o 'tabla'
 
 export function render() {
   const role = getUserRole();
+  const isAdmin = role === 'admin';
   const bajos = getProductosBajoStock();
   const productos = getProductos();
   const categorias = getCategorias();
@@ -76,10 +77,10 @@ export function render() {
           <div class="kpi-value" style="${bajosCount > 0 ? 'color:#dc2626' : ''}">${bajosCount}</div>
           <div class="kpi-label">Bajo Mínimo</div>
         </div>
-        <div class="kpi-card">
+        ${isAdmin ? `<div class="kpi-card">
           <div class="kpi-value">${fmtMoney(valorTotal)}</div>
           <div class="kpi-label">Valor Total</div>
-        </div>
+        </div>` : ''}
       </div>
 
       <!-- Filtros -->
@@ -147,6 +148,7 @@ function renderProductos() {
   const categorias = getCategorias();
   const catMap = Object.fromEntries(categorias.map(c => [c.id, c]));
   const role = getUserRole();
+  const isAdmin = role === 'admin';
 
   let html = '';
 
@@ -188,7 +190,7 @@ function renderProductos() {
             <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">
               <span style="display:inline-block;padding:2px 8px;background:${bgColor}33;border:1px solid ${bgColor};border-radius:4px;font-size:11px;color:${bgColor}">${esc(cat?.nombre || 'Sin categoría')}</span>
             </div>
-            <div style="font-size:12px;color:#999;margin-top:4px">${fmtMoney((p.costo_promedio || 0) * stockNum)}</div>
+            ${isAdmin ? `<div style="font-size:12px;color:#999;margin-top:4px">${fmtMoney((p.costo_promedio || 0) * stockNum)}</div>` : ''}
           </div>
         </div>
       `;
@@ -203,8 +205,7 @@ function renderProductos() {
           <th>Producto</th>
           <th>Categoría</th>
           <th>Stock</th>
-          <th>Costo</th>
-          <th>Valor</th>
+          ${isAdmin ? '<th>Costo</th><th>Valor</th>' : ''}
           <th>Estado</th>
           <th>Acciones</th>
         </tr>
@@ -230,8 +231,7 @@ function renderProductos() {
               <td>${esc(p.nombre)} (${esc(v.nombre)})</td>
               <td>${esc(cat?.nombre || '—')}</td>
               <td style="text-align:center;font-weight:bold">${v.stock_actual || 0}</td>
-              <td style="text-align:right">${fmtMoney(v.ultimo_costo || 0)}</td>
-              <td style="text-align:right">${fmtMoney(valor)}</td>
+              ${isAdmin ? `<td style="text-align:right">${fmtMoney(v.ultimo_costo || 0)}</td><td style="text-align:right">${fmtMoney(valor)}</td>` : ''}
               <td>${estado}</td>
               <td style="text-align:center">
                 ${role === 'admin' ? `<button class="btn-icon btn-ajuste" data-product-id="${p.id}" data-variante-id="${v.id}" title="Ajustar"><i class="fas fa-balance-scale"></i></button>` : ''}
@@ -254,8 +254,7 @@ function renderProductos() {
             <td>${esc(p.nombre)}</td>
             <td>${esc(cat?.nombre || '—')}</td>
             <td style="text-align:center;font-weight:bold">${p.stock_actual || 0}</td>
-            <td style="text-align:right">${fmtMoney(p.costo_promedio || 0)}</td>
-            <td style="text-align:right">${fmtMoney(valor)}</td>
+            ${isAdmin ? `<td style="text-align:right">${fmtMoney(p.costo_promedio || 0)}</td><td style="text-align:right">${fmtMoney(valor)}</td>` : ''}
             <td>${estado}</td>
             <td style="text-align:center">
               ${role === 'admin' ? `<button class="btn-icon btn-ajuste" data-product-id="${p.id}" title="Ajustar"><i class="fas fa-balance-scale"></i></button>` : ''}
@@ -501,6 +500,7 @@ function openDetalleProducto(id) {
   const catMap = Object.fromEntries(categorias.map(c => [c.id, c]));
   const cat = catMap[prod.categoria_id];
   const role = getUserRole();
+  const isAdmin = role === 'admin';
 
   let movimientos = getMovimientos({ producto_id: id });
   movimientos = movimientos.slice(0, 10);
@@ -513,7 +513,7 @@ function openDetalleProducto(id) {
       <h4 style="margin-top:12px">Variantes:</h4>
       <table class="data-table">
         <thead>
-          <tr><th>Talla</th><th>Modelo</th><th>Color</th><th>SKU</th><th>Stock</th><th>Costo</th></tr>
+          <tr><th>Talla</th><th>Modelo</th><th>Color</th><th>SKU</th><th>Stock</th>${isAdmin ? '<th>Costo</th>' : ''}</tr>
         </thead>
         <tbody>
           ${prod.variantes
@@ -525,7 +525,7 @@ function openDetalleProducto(id) {
               <td>${esc(v.color || '—')}</td>
               <td>${esc(v.sku_variante)}</td>
               <td>${v.stock_actual || 0}</td>
-              <td>${fmtMoney(v.ultimo_costo || 0)}</td>
+              ${isAdmin ? `<td>${fmtMoney(v.ultimo_costo || 0)}</td>` : ''}
             </tr>
           `
             )
@@ -551,14 +551,14 @@ function openDetalleProducto(id) {
           <div style="font-size:24px;font-weight:bold;color:#4ade80">${prod.stock_actual || 0}</div>
           <div style="font-size:12px;color:#666">Mínimo: ${prod.stock_minimo}</div>
         </div>
-        <div style="margin-top:12px">
+        ${isAdmin ? `<div style="margin-top:12px">
           <div style="color:#999">Costo Promedio:</div>
           <div style="font-size:16px;font-weight:bold">${fmtMoney(prod.costo_promedio || 0)}</div>
         </div>
         <div style="margin-top:12px">
           <div style="color:#999">Valor Total en Inventario:</div>
           <div style="font-size:16px;font-weight:bold">${fmtMoney((prod.stock_actual || 0) * (prod.costo_promedio || 0))}</div>
-        </div>
+        </div>` : ''}
         ${prod.descripcion ? `<div style="margin-top:12px;padding:8px;background:#111;border-radius:4px;font-size:13px">${esc(prod.descripcion)}</div>` : ''}
       </div>
     </div>
