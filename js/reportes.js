@@ -68,6 +68,94 @@ function labelTipo(m, withIcon = false) {
   return withIcon ? pair[1] : pair[0];
 }
 
+function productoTipo(p) {
+  return p?.tipo || 'personal';
+}
+
+function entregaTipo(e, productos, lineas) {
+  if (e.tipo_entrega) return e.tipo_entrega;
+  const ls = lineas.filter(l => l.entrega_id === e.id);
+  return ls.some(l => productoTipo(productos.get(l.producto_id)) === 'consumible') ? 'consumible' : 'personal';
+}
+
+function costoLinea(linea, producto) {
+  const cantidad = Number(linea.cantidad) || 0;
+  const costo = Number(producto?.costo_promedio || producto?.ultimo_costo || 0);
+  return cantidad * costo;
+}
+
+function addMetric(map, key, data) {
+  const item = map.get(key) || { label: key, entregas: 0, piezas: 0, gasto: 0 };
+  item.entregas += data.entregas || 0;
+  item.piezas += data.piezas || 0;
+  item.gasto += data.gasto || 0;
+  map.set(key, item);
+}
+
+function metricasPorTipo() {
+  const store = getStore();
+  const productos = new Map((store.productos || []).map(p => [p.id, p]));
+  const lineas = store.lineasEntrega || [];
+  const entregas = store.entregasNuevas || [];
+  const personalEmpleado = new Map();
+  const personalArea = new Map();
+  const consumibleProducto = new Map();
+  const consumiblePeriodo = new Map();
+
+  entregas.forEach(e => {
+    const tipo = entregaTipo(e, productos, lineas);
+    const ls = lineas.filter(l => l.entrega_id === e.id);
+    const piezas = ls.reduce((s, l) => s + (Number(l.cantidad) || 0), 0);
+    const gasto = ls.reduce((s, l) => s + costoLinea(l, productos.get(l.producto_id)), 0);
+
+    if (tipo === 'consumible') {
+      ls.forEach(l => {
+        const p = productos.get(l.producto_id);
+        addMetric(consumibleProducto, p?.nombre || 'Producto', { entregas: 1, piezas: Number(l.cantidad) || 0, gasto: costoLinea(l, p) });
+      });
+      addMetric(consumiblePeriodo, mesMov(e), { entregas: 1, piezas, gasto });
+    } else {
+      addMetric(personalEmpleado, e.quien_recibe || e.empleado_nombre || 'Sin empleado', { entregas: 1, piezas, gasto });
+      addMetric(personalArea, e.area || 'Sin area', { entregas: 1, piezas, gasto });
+    }
+  });
+
+  const sortPiezas = arr => Array.from(arr.values()).sort((a, b) => b.piezas - a.piezas);
+  const consumibles = sortPiezas(consumibleProducto);
+  return {
+    personalEmpleado: sortPiezas(personalEmpleado),
+    personalArea: sortPiezas(personalArea),
+    topEmpleado: sortPiezas(personalEmpleado)[0] || null,
+    consumibleProducto: consumibles,
+    consumiblePeriodo: Array.from(consumiblePeriodo.values()).sort((a, b) => String(b.label).localeCompare(String(a.label))),
+    totalConsumibles: consumibles.reduce((s, x) => s + x.gasto, 0),
+    productoMasConsumido: consumibles[0] || null,
+  };
+}
+
+function tablaMetricas(titulo, filas, admin) {
+  return `
+    <div class="card">
+      <div class="card-head"><h3>${esc(titulo)}</h3></div>
+      <div class="table-wrap">
+        <table class="data-table" style="font-size:12px">
+          <thead><tr><th>Nombre</th><th style="text-align:center">Entregas</th><th style="text-align:center">Piezas</th>${admin ? '<th style="text-align:right">Gasto</th>' : ''}</tr></thead>
+          <tbody>
+            ${(filas.length ? filas.slice(0, 8).map(f => `
+              <tr>
+                <td>${esc(f.label)}</td>
+                <td style="text-align:center">${f.entregas}</td>
+                <td style="text-align:center">${f.piezas}</td>
+                ${admin ? `<td style="text-align:right">$${f.gasto.toLocaleString('es-MX', { minimumFractionDigits: 0 })}</td>` : ''}
+              </tr>
+            `).join('') : `<tr><td colspan="${admin ? 4 : 3}" style="text-align:center;color:#999">Sin datos</td></tr>`)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 export function render() {
   const admin = getUserRole() === 'admin';
   const mesActual = new Date().toISOString().slice(0, 7);
@@ -78,6 +166,7 @@ export function render() {
     .reduce((sum, m) => sum + importeMov(m), 0);
 
   const productos = getProductos();
+  const metricasTipo = metricasPorTipo();
   const stockValorizado = productos.reduce((sum, p) => {
     const stock = p.es_por_variante
       ? (p.variantes || []).reduce((s, v) => s + (v.stock_actual || 0), 0)
@@ -108,6 +197,34 @@ export function render() {
         <div class="kpi-card">
           <div class="kpi-value">${productos.length}</div>
           <div class="kpi-label">Productos en Stock</div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px">
+        <div class="page-title" style="font-size:18px;margin-bottom:12px">Métricas por Tipo</div>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-value">${metricasTipo.personalEmpleado.reduce((s, x) => s + x.entregas, 0)}</div>
+            <div class="kpi-label">Entregas Personal</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value">${metricasTipo.consumibleProducto.reduce((s, x) => s + x.entregas, 0)}</div>
+            <div class="kpi-label">Entregas Consumible</div>
+          </div>
+          ${admin ? `<div class="kpi-card">
+            <div class="kpi-value">$${metricasTipo.totalConsumibles.toLocaleString('es-MX', { minimumFractionDigits: 0 })}</div>
+            <div class="kpi-label">Gasto Consumibles</div>
+          </div>` : ''}
+          <div class="kpi-card">
+            <div class="kpi-value" style="font-size:18px">${esc(metricasTipo.productoMasConsumido?.label || '—')}</div>
+            <div class="kpi-label">Producto Más Consumido</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:12px">
+          ${tablaMetricas('Personal: entregas por empleado', metricasTipo.personalEmpleado, admin)}
+          ${tablaMetricas('Personal: gasto por área', metricasTipo.personalArea, admin)}
+          ${tablaMetricas('Consumible: entregas por producto', metricasTipo.consumibleProducto, admin)}
+          ${tablaMetricas('Consumible: consumo por período', metricasTipo.consumiblePeriodo, admin)}
         </div>
       </div>
 

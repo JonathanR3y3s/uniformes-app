@@ -3,6 +3,11 @@ import{getProductos,getMovimientos,getEntregasNuevas,getDevolucionesNuevas,getSa
 
 function areaIcon(name){const n=(name||'').toUpperCase();if(n.includes('PLANT'))return{icon:'fa-industry',color:'#2563eb'};if(n.includes('MANTEN')||n.includes('MECANIC')||n.includes('TALLER'))return{icon:'fa-tools',color:'#d97706'};if(n.includes('SUPERV'))return{icon:'fa-user-tie',color:'#7c3aed'};if(n.includes('PUERTA'))return{icon:'fa-door-open',color:'#059669'};if(n.includes('MATERIA'))return{icon:'fa-boxes',color:'#0891b2'};if(n.includes('TULT'))return{icon:'fa-building',color:'#dc2626'};if(n.includes('BRUK'))return{icon:'fa-hard-hat',color:'#ea580c'};if(n.includes('ADMIN')||n.includes('OFIC'))return{icon:'fa-briefcase',color:'#475569'};if(n.includes('ALMAC'))return{icon:'fa-warehouse',color:'#854d0e'};if(n.includes('SEGUR'))return{icon:'fa-shield-alt',color:'#1d4ed8'};return{icon:'fa-layer-group',color:'#64748b'};}
 
+function productoTipo(p){return(p&&p.tipo)||'personal';}
+function entregaTipo(e,productos,lineas){if(e.tipo_entrega)return e.tipo_entrega;const ls=lineas.filter(l=>l.entrega_id===e.id);return ls.some(l=>productoTipo(productos.get(l.producto_id))==='consumible')?'consumible':'personal';}
+function entregaPiezas(e,lineas){return lineas.filter(l=>l.entrega_id===e.id).reduce((s,l)=>s+(Number(l.cantidad)||0),0);}
+function sumarPor(map,key,piezas){const item=map.get(key)||{label:key,piezas:0,entregas:0};item.piezas+=piezas;item.entregas+=1;map.set(key,item);}
+
 // Calcula últimos N meses
 function lastMonths(n){const months=[];const now=new Date();for(let i=n-1;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({label:d.toLocaleDateString('es-MX',{month:'short',year:'2-digit'}),key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')});}return months;}
 
@@ -81,6 +86,16 @@ export function render(){
     const lineas=getStore().lineasEntrega.filter(l=>l.entrega_id===e.id);
     return sum+lineas.reduce((s,l)=>s+l.cantidad,0);
   },0);
+  const productosMap=new Map(getStore().productos.map(p=>[p.id,p]));
+  const lineasEntrega=getStore().lineasEntrega||[];
+  const entregasPersonalMes=entregasMes.filter(e=>entregaTipo(e,productosMap,lineasEntrega)==='personal');
+  const entregasConsumibleMes=entregasMes.filter(e=>entregaTipo(e,productosMap,lineasEntrega)==='consumible');
+  const personalPorEmpleado=new Map();
+  const consumiblePorProducto=new Map();
+  entregasPersonalMes.forEach(e=>sumarPor(personalPorEmpleado,e.quien_recibe||e.empleado_nombre||'Sin empleado',entregaPiezas(e,lineasEntrega)));
+  entregasConsumibleMes.forEach(e=>{
+    lineasEntrega.filter(l=>l.entrega_id===e.id).forEach(l=>sumarPor(consumiblePorProducto,productosMap.get(l.producto_id)?.nombre||'Producto',Number(l.cantidad)||0));
+  });
 
   const pzasDevueltas=devolucionesMes.reduce((sum,d)=>{
     const lineas=getStore().lineasDevolucion.filter(l=>l.devolucion_id===d.id);
@@ -108,9 +123,19 @@ export function render(){
   h+='<div class="kpi" style="border-top:2px solid #7c3aed"><div class="kpi-label">Productos</div><div class="kpi-value">'+productos.length+'</div><div class="kpi-sub">'+prodConStock+' con stock</div></div>';
   h+='<div class="kpi" style="border-top:2px solid #2563eb"><div class="kpi-label">Piezas en Stock</div><div class="kpi-value">'+totalPzasStock+'</div><div class="kpi-sub">unidades físicas</div></div>';
   h+='<div class="kpi" style="border-top:2px solid #059669"><div class="kpi-label">Entregas — '+now.toLocaleDateString('es-MX',{month:'short'})+'</div><div class="kpi-value">'+entregasMes.length+'</div><div class="kpi-sub">'+pzasEntregadas+' piezas</div></div>';
+  h+='<div class="kpi" style="border-top:2px solid #22c55e"><div class="kpi-label">Entregas Personal</div><div class="kpi-value">'+entregasPersonalMes.length+'</div><div class="kpi-sub">'+entregasPersonalMes.reduce((sum,e)=>sum+entregaPiezas(e,lineasEntrega),0)+' piezas</div></div>';
+  h+='<div class="kpi" style="border-top:2px solid #2563eb"><div class="kpi-label">Entregas Consumible</div><div class="kpi-value">'+entregasConsumibleMes.length+'</div><div class="kpi-sub">'+entregasConsumibleMes.reduce((sum,e)=>sum+entregaPiezas(e,lineasEntrega),0)+' piezas</div></div>';
   h+='<div class="kpi" style="border-top:2px solid #0891b2"><div class="kpi-label">Devoluciones — '+now.toLocaleDateString('es-MX',{month:'short'})+'</div><div class="kpi-value">'+devolucionesMes.length+'</div><div class="kpi-sub">'+pzasDevueltas+' piezas</div></div>';
   if(prodBajoMinimo>0)h+='<div class="kpi" style="border-top:2px solid #dc2626"><div class="kpi-label"><i class="fas fa-exclamation-triangle mr-1" style="color:#dc2626"></i>Bajo Mínimo</div><div class="kpi-value" style="color:#dc2626">'+prodBajoMinimo+'</div><div class="kpi-sub">requieren reposición</div></div>';
   h+='</div>';
+
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:12px 0 20px">';
+  h+='<div class="card"><div class="card-head"><h3>Personal por empleado</h3><span class="text-xs text-muted">'+now.toLocaleDateString('es-MX',{month:'short'})+'</span></div><div style="padding:0 16px 16px">';
+  h+=(Array.from(personalPorEmpleado.values()).sort((a,b)=>b.piezas-a.piezas).slice(0,5).map(x=>'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span>'+esc(x.label)+'</span><strong>'+x.piezas+'</strong></div>').join('')||'<p class="text-muted" style="padding:12px 0">Sin entregas personal</p>');
+  h+='</div></div>';
+  h+='<div class="card"><div class="card-head"><h3>Consumible por producto</h3><span class="text-xs text-muted">'+now.toLocaleDateString('es-MX',{month:'short'})+'</span></div><div style="padding:0 16px 16px">';
+  h+=(Array.from(consumiblePorProducto.values()).sort((a,b)=>b.piezas-a.piezas).slice(0,5).map(x=>'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span>'+esc(x.label)+'</span><strong>'+x.piezas+'</strong></div>').join('')||'<p class="text-muted" style="padding:12px 0">Sin entregas consumible</p>');
+  h+='</div></div></div>';
 
   // Productos bajo mínimo
   const bajoMinimo=productos.filter(p=>{const st=p.es_por_variante?(p.variantes||[]).reduce((s,v)=>s+(v.stock_actual||0),0):(p.stock_actual||0);return st>0&&st<=p.stock_minimo;}).slice(0,8);
