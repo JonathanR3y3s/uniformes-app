@@ -8,6 +8,78 @@ import { getStore, saveProductos, saveCategorias, saveEntradas, saveLineasEntrad
 import { genId } from './utils.js';
 import { getUser } from './user-roles.js';
 
+function _cloneAlmacenState(store) {
+  return JSON.parse(JSON.stringify({
+    productos: store.productos || [],
+    entradas: store.entradas || [],
+    lineasEntrada: store.lineasEntrada || [],
+    entregasNuevas: store.entregasNuevas || [],
+    lineasEntrega: store.lineasEntrega || [],
+    salidasNuevas: store.salidasNuevas || [],
+    lineasSalida: store.lineasSalida || [],
+    devolucionesNuevas: store.devolucionesNuevas || [],
+    lineasDevolucion: store.lineasDevolucion || [],
+    movimientos: store.movimientos || [],
+  }));
+}
+
+function _restoreAlmacenState(store, snap) {
+  store.productos = snap.productos;
+  store.entradas = snap.entradas;
+  store.lineasEntrada = snap.lineasEntrada;
+  store.entregasNuevas = snap.entregasNuevas;
+  store.lineasEntrega = snap.lineasEntrega;
+  store.salidasNuevas = snap.salidasNuevas;
+  store.lineasSalida = snap.lineasSalida;
+  store.devolucionesNuevas = snap.devolucionesNuevas;
+  store.lineasDevolucion = snap.lineasDevolucion;
+  store.movimientos = snap.movimientos;
+  saveProductos();
+  saveEntradas();
+  saveLineasEntrada();
+  saveEntregasNuevas();
+  saveLineasEntrega();
+  saveSalidasNuevas();
+  saveLineasSalida();
+  saveDevolucionesNuevas();
+  saveLineasDevolucion();
+  saveMovimientos();
+}
+
+function _getStockTarget(producto, variante_id) {
+  if (!producto) return { ok: false, error: 'Producto no encontrado' };
+  if (!variante_id) return { ok: true, target: producto };
+  const variante = (producto.variantes || []).find(v => v.id === variante_id);
+  if (!variante) return { ok: false, error: 'Variante no encontrada' };
+  return { ok: true, target: variante };
+}
+
+function _aplicarStock(producto, delta, variante_id = null, costo_unitario = 0) {
+  const targetResult = _getStockTarget(producto, variante_id);
+  if (!targetResult.ok) return targetResult;
+
+  const target = targetResult.target;
+  const cantidad = Number(delta) || 0;
+  const stock_antes = Number(target.stock_actual) || 0;
+  const stock_despues = stock_antes + cantidad;
+  if (stock_despues < 0) return { ok: false, error: 'Stock insuficiente' };
+
+  target.stock_actual = stock_despues;
+
+  const costo = Number(costo_unitario) || 0;
+  if (cantidad > 0 && costo > 0) {
+    target.ultimo_costo = costo;
+    if (!variante_id) {
+      const costoAnterior = Number(producto.costo_promedio) || 0;
+      producto.costo_promedio = stock_despues > 0
+        ? ((costoAnterior * stock_antes) + (costo * cantidad)) / stock_despues
+        : costo;
+    }
+  }
+
+  return { ok: true, stock_antes, stock_despues };
+}
+
 /**
  * ─────────────────────────────────────────────────────────────
  * CATEGORÍAS
@@ -244,8 +316,12 @@ export function registrarEntrada({ proveedor, factura_data, lineas = [], observa
 
     const prod = store.productos.find(p => p.id === linea.producto_id);
     if (!prod) return { ok: false, error: 'Producto no encontrado: ' + linea.producto_id };
+    if (linea.variante_id && !(prod.variantes || []).some(v => v.id === linea.variante_id)) {
+      return { ok: false, error: 'Variante no encontrada' };
+    }
   }
 
+  const snap = _cloneAlmacenState(store);
   const id = 'ent-' + Date.now();
   const numero = nextNumeroEntrada();
   const entrada = {
@@ -269,58 +345,41 @@ export function registrarEntrada({ proveedor, factura_data, lineas = [], observa
 
   store.entradas.push(entrada);
 
-  // Procesar líneas: actualizar stock y crear movimientos
-  for (const linea of lineas) {
-    const linea_id = 'line-' + Date.now() + Math.random();
-    const linea_obj = {
-      id: linea_id,
-      entrada_id: id,
-      producto_id: linea.producto_id,
-      variante_id: linea.variante_id || null,
-      cantidad: linea.cantidad,
-      costo_unitario: linea.costo_unitario,
-      costo_total: linea.cantidad * linea.costo_unitario,
-      foto_producto: linea.foto_producto || null,
-      observaciones: linea.observaciones || '',
-    };
+  try {
+    for (const linea of lineas) {
+      const cantidad = Number(linea.cantidad) || 0;
+      const costo = Number(linea.costo_unitario) || 0;
+      const linea_id = 'line-' + Date.now() + Math.random();
+      const linea_obj = {
+        id: linea_id,
+        entrada_id: id,
+        producto_id: linea.producto_id,
+        variante_id: linea.variante_id || null,
+        cantidad,
+        costo_unitario: costo,
+        costo_total: cantidad * costo,
+        foto_producto: linea.foto_producto || null,
+        observaciones: linea.observaciones || '',
+      };
 
-    store.lineasEntrada.push(linea_obj);
+      store.lineasEntrada.push(linea_obj);
 
-    // Actualizar stock y costo del producto
-    const prod = store.productos.find(p => p.id === linea.producto_id);
-    if (prod) {
-      if (linea.variante_id) {
-        const var_obj = prod.variantes.find(v => v.id === linea.variante_id);
-        if (var_obj) {
-          var_obj.stock_actual = (var_obj.stock_actual || 0) + linea.cantidad;
-          var_obj.ultimo_costo = linea.costo_unitario;
-        }
-      } else {
-        prod.stock_actual = (prod.stock_actual || 0) + linea.cantidad;
-        prod.ultimo_costo = linea.costo_unitario;
-        // Actualizar costo promedio
-        const stockAnterior = prod.stock_actual - linea.cantidad;
-        if (stockAnterior >= 0) {
-          prod.costo_promedio = (prod.costo_promedio * stockAnterior + linea.costo_unitario * linea.cantidad) / prod.stock_actual;
-        } else {
-          prod.costo_promedio = linea.costo_unitario;
-        }
-      }
+      const mov_resultado = registrarMovimiento({
+        tipo: 'entrada_compra',
+        producto_id: linea.producto_id,
+        variante_id: linea.variante_id || null,
+        cantidad,
+        documento_id: id,
+        documento_tipo: 'entrada',
+        costo_unitario: costo,
+        observaciones: `Entrada ${numero} - ${proveedor}`,
+      });
+
+      if (!mov_resultado.ok) throw new Error(mov_resultado.error || 'No se pudo registrar movimiento');
     }
-
-    // Registrar movimiento de entrada
-    const mov_resultado = registrarMovimiento({
-      tipo: 'entrada_compra',
-      producto_id: linea.producto_id,
-      variante_id: linea.variante_id || null,
-      cantidad: linea.cantidad,
-      documento_id: id,
-      documento_tipo: 'entrada',
-      costo_unitario: linea.costo_unitario,
-      observaciones: `Entrada ${numero} - ${proveedor}`,
-    });
-
-    if (!mov_resultado.ok) return mov_resultado;
+  } catch (e) {
+    _restoreAlmacenState(store, snap);
+    return { ok: false, error: e.message };
   }
 
   saveProductos();
@@ -390,7 +449,7 @@ export function registrarEntregaNueva({ empleado_id, empleado_nombre, area, moti
 
     let stock_disponible = 0;
     if (linea.variante_id) {
-      const var_obj = prod.variantes.find(v => v.id === linea.variante_id);
+      const var_obj = (prod.variantes || []).find(v => v.id === linea.variante_id);
       if (!var_obj) return { ok: false, error: 'Variante no encontrada' };
       stock_disponible = var_obj.stock_actual || 0;
     } else {
@@ -422,45 +481,38 @@ export function registrarEntregaNueva({ empleado_id, empleado_nombre, area, moti
     fecha_creacion: new Date().toISOString(),
   };
 
+  const snap = _cloneAlmacenState(store);
   store.entregasNuevas.push(entrega);
+  try {
+    for (const linea of lineas) {
+      const cantidad = Number(linea.cantidad) || 0;
+      const linea_id = 'line-' + Date.now() + Math.random();
+      const linea_obj = {
+        id: linea_id,
+        entrega_id: id,
+        producto_id: linea.producto_id,
+        variante_id: linea.variante_id || null,
+        cantidad,
+        observaciones: linea.observaciones || '',
+      };
 
-  // Procesar líneas
-  for (const linea of lineas) {
-    const linea_id = 'line-' + Date.now() + Math.random();
-    const linea_obj = {
-      id: linea_id,
-      entrega_id: id,
-      producto_id: linea.producto_id,
-      variante_id: linea.variante_id || null,
-      cantidad: linea.cantidad,
-      observaciones: linea.observaciones || '',
-    };
+      store.lineasEntrega.push(linea_obj);
 
-    store.lineasEntrega.push(linea_obj);
+      const mov_resultado = registrarMovimiento({
+        tipo: 'salida_entrega',
+        producto_id: linea.producto_id,
+        variante_id: linea.variante_id || null,
+        cantidad: -cantidad,
+        documento_id: id,
+        documento_tipo: 'entrega',
+        observaciones: `Entrega ${numero} a ${empleado_nombre}`,
+      });
 
-    // Restar stock
-    const prod = store.productos.find(p => p.id === linea.producto_id);
-    if (prod) {
-      if (linea.variante_id) {
-        const var_obj = prod.variantes.find(v => v.id === linea.variante_id);
-        if (var_obj) {
-          var_obj.stock_actual = Math.max(0, (var_obj.stock_actual || 0) - linea.cantidad);
-        }
-      } else {
-        prod.stock_actual = Math.max(0, (prod.stock_actual || 0) - linea.cantidad);
-      }
+      if (!mov_resultado.ok) throw new Error(mov_resultado.error || 'No se pudo registrar movimiento');
     }
-
-    // Registrar movimiento
-    registrarMovimiento({
-      tipo: 'salida_entrega',
-      producto_id: linea.producto_id,
-      variante_id: linea.variante_id || null,
-      cantidad: -linea.cantidad,
-      documento_id: id,
-      documento_tipo: 'entrega',
-      observaciones: `Entrega ${numero} a ${empleado_nombre}`,
-    });
+  } catch (e) {
+    _restoreAlmacenState(store, snap);
+    return { ok: false, error: e.message };
   }
 
   saveProductos();
@@ -507,7 +559,7 @@ export function registrarSalida({ tipo, autorizado_por, motivo, lineas = [], obs
 
     let stock_disponible = 0;
     if (linea.variante_id) {
-      const var_obj = prod.variantes.find(v => v.id === linea.variante_id);
+      const var_obj = (prod.variantes || []).find(v => v.id === linea.variante_id);
       if (!var_obj) return { ok: false, error: 'Variante no encontrada' };
       stock_disponible = var_obj.stock_actual || 0;
     } else {
@@ -536,8 +588,6 @@ export function registrarSalida({ tipo, autorizado_por, motivo, lineas = [], obs
     fecha_creacion: new Date().toISOString(),
   };
 
-  store.salidasNuevas.push(salida);
-
   // Tipo de movimiento correspondiente
   const tipoMovimientoMap = {
     colocacion: 'salida_colocacion',
@@ -547,42 +597,38 @@ export function registrarSalida({ tipo, autorizado_por, motivo, lineas = [], obs
     uso_interno: 'salida_uso_interno',
   };
 
-  for (const linea of lineas) {
-    const linea_id = 'line-' + Date.now() + Math.random();
-    const linea_obj = {
-      id: linea_id,
-      salida_id: id,
-      producto_id: linea.producto_id,
-      variante_id: linea.variante_id || null,
-      cantidad: linea.cantidad,
-      observaciones: linea.observaciones || '',
-    };
+  const snap = _cloneAlmacenState(store);
+  store.salidasNuevas.push(salida);
+  try {
+    for (const linea of lineas) {
+      const cantidad = Number(linea.cantidad) || 0;
+      const linea_id = 'line-' + Date.now() + Math.random();
+      const linea_obj = {
+        id: linea_id,
+        salida_id: id,
+        producto_id: linea.producto_id,
+        variante_id: linea.variante_id || null,
+        cantidad,
+        observaciones: linea.observaciones || '',
+      };
 
-    store.lineasSalida.push(linea_obj);
+      store.lineasSalida.push(linea_obj);
 
-    // Restar stock
-    const prod = store.productos.find(p => p.id === linea.producto_id);
-    if (prod) {
-      if (linea.variante_id) {
-        const var_obj = prod.variantes.find(v => v.id === linea.variante_id);
-        if (var_obj) {
-          var_obj.stock_actual = Math.max(0, (var_obj.stock_actual || 0) - linea.cantidad);
-        }
-      } else {
-        prod.stock_actual = Math.max(0, (prod.stock_actual || 0) - linea.cantidad);
-      }
+      const mov_resultado = registrarMovimiento({
+        tipo: tipoMovimientoMap[tipo] || 'salida_ajuste',
+        producto_id: linea.producto_id,
+        variante_id: linea.variante_id || null,
+        cantidad: -cantidad,
+        documento_id: id,
+        documento_tipo: 'salida',
+        observaciones: motivo || '',
+      });
+
+      if (!mov_resultado.ok) throw new Error(mov_resultado.error || 'No se pudo registrar movimiento');
     }
-
-    // Registrar movimiento
-    registrarMovimiento({
-      tipo: tipoMovimientoMap[tipo] || 'salida_ajuste',
-      producto_id: linea.producto_id,
-      variante_id: linea.variante_id || null,
-      cantidad: -linea.cantidad,
-      documento_id: id,
-      documento_tipo: 'salida',
-      observaciones: motivo || '',
-    });
+  } catch (e) {
+    _restoreAlmacenState(store, snap);
+    return { ok: false, error: e.message };
   }
 
   saveProductos();
@@ -623,6 +669,11 @@ export function registrarDevolucionNueva({ entrega_original_id, empleado_id, emp
     if (!linea.producto_id || !linea.cantidad || linea.cantidad <= 0) {
       return { ok: false, error: 'Línea inválida' };
     }
+    const prod = store.productos.find(p => p.id === linea.producto_id);
+    if (!prod) return { ok: false, error: 'Producto no encontrado' };
+    if (linea.variante_id && !(prod.variantes || []).some(v => v.id === linea.variante_id)) {
+      return { ok: false, error: 'Variante no encontrada' };
+    }
   }
 
   const id = 'dev-nueva-' + Date.now();
@@ -643,45 +694,38 @@ export function registrarDevolucionNueva({ entrega_original_id, empleado_id, emp
     fecha_creacion: new Date().toISOString(),
   };
 
+  const snap = _cloneAlmacenState(store);
   store.devolucionesNuevas.push(devolucion);
+  try {
+    for (const linea of lineas) {
+      const cantidad = Number(linea.cantidad) || 0;
+      const linea_id = 'line-' + Date.now() + Math.random();
+      const linea_obj = {
+        id: linea_id,
+        devolucion_id: id,
+        producto_id: linea.producto_id,
+        variante_id: linea.variante_id || null,
+        cantidad,
+        observaciones: linea.observaciones || '',
+      };
 
-  // Procesar líneas: SUMA stock
-  for (const linea of lineas) {
-    const linea_id = 'line-' + Date.now() + Math.random();
-    const linea_obj = {
-      id: linea_id,
-      devolucion_id: id,
-      producto_id: linea.producto_id,
-      variante_id: linea.variante_id || null,
-      cantidad: linea.cantidad,
-      observaciones: linea.observaciones || '',
-    };
+      store.lineasDevolucion.push(linea_obj);
 
-    store.lineasDevolucion.push(linea_obj);
+      const mov_resultado = registrarMovimiento({
+        tipo: 'entrada_devolucion',
+        producto_id: linea.producto_id,
+        variante_id: linea.variante_id || null,
+        cantidad,
+        documento_id: id,
+        documento_tipo: 'devolucion',
+        observaciones: `Devolución ${numero} de ${empleado_nombre}`,
+      });
 
-    // Suma stock
-    const prod = store.productos.find(p => p.id === linea.producto_id);
-    if (prod) {
-      if (linea.variante_id) {
-        const var_obj = prod.variantes.find(v => v.id === linea.variante_id);
-        if (var_obj) {
-          var_obj.stock_actual = (var_obj.stock_actual || 0) + linea.cantidad;
-        }
-      } else {
-        prod.stock_actual = (prod.stock_actual || 0) + linea.cantidad;
-      }
+      if (!mov_resultado.ok) throw new Error(mov_resultado.error || 'No se pudo registrar movimiento');
     }
-
-    // Registrar movimiento entrada
-    registrarMovimiento({
-      tipo: 'entrada_devolucion',
-      producto_id: linea.producto_id,
-      variante_id: linea.variante_id || null,
-      cantidad: linea.cantidad,
-      documento_id: id,
-      documento_tipo: 'devolucion',
-      observaciones: `Devolución ${numero} de ${empleado_nombre}`,
-    });
+  } catch (e) {
+    _restoreAlmacenState(store, snap);
+    return { ok: false, error: e.message };
   }
 
   saveProductos();
@@ -722,20 +766,17 @@ export function getMovimientos(filtros = {}) {
 export function registrarMovimiento({ tipo, producto_id, variante_id, cantidad, documento_id, documento_tipo, costo_unitario, observaciones }) {
   const store = getStore();
   const user = getUser();
+  const delta = Number(cantidad) || 0;
 
   // Obtener stock antes
   const prod = store.productos.find(p => p.id === producto_id);
   if (!prod) return { ok: false, error: 'Producto no encontrado' };
 
-  let stock_antes = 0;
-  if (variante_id) {
-    const var_obj = prod.variantes.find(v => v.id === variante_id);
-    stock_antes = var_obj ? (var_obj.stock_actual || 0) : 0;
-  } else {
-    stock_antes = prod.stock_actual || 0;
-  }
+  const targetResult = _getStockTarget(prod, variante_id);
+  if (!targetResult.ok) return targetResult;
 
-  const stock_despues = stock_antes + cantidad;
+  const stock_antes = Number(targetResult.target.stock_actual) || 0;
+  const stock_despues = stock_antes + delta;
 
   // VALIDACIÓN CARDINAL: no permitir stock negativo
   if (stock_despues < 0) {
@@ -750,7 +791,7 @@ export function registrarMovimiento({ tipo, producto_id, variante_id, cantidad, 
     tipo,
     producto_id,
     variante_id: variante_id || null,
-    cantidad,
+    cantidad: delta,
     stock_antes,
     stock_despues,
     documento_id: documento_id || null,
@@ -762,6 +803,13 @@ export function registrarMovimiento({ tipo, producto_id, variante_id, cantidad, 
   };
 
   store.movimientos.push(movimiento);
+  const aplicado = _aplicarStock(prod, delta, variante_id || null, costo_unitario);
+  if (!aplicado.ok) {
+    store.movimientos = store.movimientos.filter(m => m.id !== id);
+    return aplicado;
+  }
+
+  saveProductos();
   saveMovimientos();
 
   return { ok: true, movimiento };
