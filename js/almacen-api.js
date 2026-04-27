@@ -434,7 +434,7 @@ export function getEntregasNuevas(filtros = {}) {
   return result.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
 }
 
-export function registrarEntregaNueva({ empleado_id, empleado_nombre, area, motivo, autorizado_por, firma, lineas = [], observaciones }) {
+export function registrarEntregaNueva({ empleado_id, empleado_nombre, area, motivo, autorizado_por, firma, firma_recibe, quien_entrego, quien_recibe, lineas = [], observaciones }) {
   const store = getStore();
   const user = getUser();
 
@@ -474,6 +474,9 @@ export function registrarEntregaNueva({ empleado_id, empleado_nombre, area, moti
     motivo: motivo || '',
     autorizado_por: autorizado_por || '',
     firma: firma || null,
+    firma_recibe: firma_recibe || firma || null,
+    quien_entrego: quien_entrego || user?.name || 'Sistema',
+    quien_recibe: quien_recibe || empleado_nombre || '',
     observaciones: observaciones || '',
     entregado_por: user?.name || 'Sistema',
     entregado_por_id: user?.id || 'system',
