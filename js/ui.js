@@ -9,15 +9,26 @@ export function buildNav(currentView){
   const nav=document.getElementById('sidebarNav');
   const role=getUserRole();
   const user=getUser();
+  const store=getStore();
   // Clear context action buttons on view change
   const ta=document.getElementById('topbarActions');if(ta)ta.innerHTML='';
   const hiddenForOperador=['config','importar','usuarios','bitacora'];
   const hiddenForConsulta=['importar','usuarios','config','bitacora'];
+  const isVisibleNavItem=n=>{
+    if(n.section)return false;
+    if(typeof n.condition==='function'&&!n.condition(store))return false;
+    if(role==='operador'&&hiddenForOperador.includes(n.id))return false;
+    if(role==='consulta'&&hiddenForConsulta.includes(n.id))return false;
+    return true;
+  };
+  const sectionHasVisibleItems=i=>{
+    for(let j=i+1;j<NAV.length;j++){if(NAV[j].section)return false;if(isVisibleNavItem(NAV[j]))return true;}
+    return false;
+  };
   let html='';let activeLabel='Dashboard';
-  NAV.forEach(n=>{
-    if(n.section){html+='<div class="nav-section">'+n.section+'</div>';return;}
-    if(role==='operador'&&hiddenForOperador.includes(n.id))return;
-    if(role==='consulta'&&hiddenForConsulta.includes(n.id))return;
+  NAV.forEach((n,i)=>{
+    if(n.section){if(sectionHasVisibleItems(i))html+='<div class="nav-section">'+n.section+'</div>';return;}
+    if(!isVisibleNavItem(n))return;
     const active=currentView===n.id?' active':'';
     if(active)activeLabel=n.label;
     let badge='';

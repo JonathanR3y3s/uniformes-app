@@ -30,6 +30,8 @@ export const NAV=[
 {id:'empleados',icon:'fa-users',label:'Empleados'},
 {id:'categorias',icon:'fa-tags',label:'Categorías'},
 {id:'proveedores',icon:'fa-truck',label:'Proveedores'},
+{section:'Dotación'},
+{id:'dotacion',icon:'fa-box-open',label:'Dotación',condition:(store)=>{const dotaciones=store.dotaciones||[];return dotaciones.some(d=>d.estado==='activa');}},
 {section:'REPORTES'},
 {id:'reportes',icon:'fa-chart-bar',label:'Reportes'},
 {id:'export-auditoria',icon:'fa-file-pdf',label:'Exportar Auditoría'},
