@@ -150,6 +150,10 @@ export function getProductos(filtros = {}) {
   const store = getStore();
   let result = [...store.productos];
 
+  if (filtros.nivel_control) {
+    const nivel = Number(filtros.nivel_control);
+    result = result.filter(p => Number(p.nivel_control || 3) === nivel);
+  }
   if (filtros.categoria_id) {
     result = result.filter(p => p.categoria_id === filtros.categoria_id);
   }
@@ -184,7 +188,7 @@ export function getProductoById(id) {
   return store.productos.find(p => p.id === id);
 }
 
-export function createProducto({ nombre, categoria_id, descripcion, unidad, foto, tipo, es_entregable, es_por_variante, stock_minimo, proveedor_frecuente }) {
+export function createProducto({ nombre, categoria_id, descripcion, unidad, foto, tipo, es_entregable, es_por_variante, stock_minimo, proveedor_frecuente, nivel_control }) {
   const store = getStore();
   const user = getUser();
 
@@ -200,7 +204,8 @@ export function createProducto({ nombre, categoria_id, descripcion, unidad, foto
     foto: foto || null,
     sku,
     stock_actual: es_por_variante ? 0 : 0,
-    stock_minimo: stock_minimo || 5,
+    stock_minimo: Number.isFinite(Number(stock_minimo)) ? Number(stock_minimo) : 5,
+    nivel_control: Number(nivel_control) || 3,
     costo_promedio: 0,
     ultimo_costo: 0,
     tipo: tipo === 'consumible' ? 'consumible' : 'personal',

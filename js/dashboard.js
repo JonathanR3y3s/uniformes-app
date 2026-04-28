@@ -14,6 +14,7 @@ function valorInventarioProducto(p){if(p.es_por_variante)return(p.variantes||[])
 function costoLineaEntrega(linea,productos){const p=productos.get(linea.producto_id);return(Number(linea.cantidad)||0)*costoProducto(p||{});}
 function areaFinanciera(area){const a=(area||'').toUpperCase();if(a.includes('VENT'))return'Ventas';if(a.includes('ADMIN')||a.includes('OFIC')||a.includes('RH'))return'Admin';if(a.includes('LOG')||a.includes('ALMAC'))return'Logística';return'Operaciones';}
 function categoriaFinanciera(p,categorias){const c=(categorias.get(p.categoria_id)?.nombre||p.categoria_nombre||p.nombre||'').toUpperCase();if(productoTipo(p)==='consumible'||c.includes('CONSUM'))return'Consumibles';if(c.includes('CALZ')||c.includes('BOTA')||c.includes('ZAPATO')||c.includes('TENIS'))return'Calzado';if(c.includes('EPP')||c.includes('SEGUR')||c.includes('GUANTE')||c.includes('CASCO')||c.includes('LENTE'))return'EPP';return'Uniformes';}
+function esAlertaNivel1(p){const min=Number(p.stock_minimo);return Number(p.nivel_control||3)===1&&Number.isFinite(min)&&stockProducto(p)<=min;}
 function pctCambio(actual,previo){if(!previo)return actual>0?100:0;return Math.round(((actual-previo)/previo)*100);}
 
 let financialChartData=null;
@@ -32,7 +33,7 @@ function buildFinancialDashboardData(){
   const topProductos=Array.from(topMap.values()).sort((a,b)=>b.cantidad-a.cantidad).slice(0,10);
   const now=new Date();const mesActual=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');const prev=new Date(now.getFullYear(),now.getMonth()-1,1);const mesPrev=prev.getFullYear()+'-'+String(prev.getMonth()+1).padStart(2,'0');
   const gastoActual=(mensual.personal[mesActual]||0)+(mensual.consumible[mesActual]||0);const gastoPrevio=(mensual.personal[mesPrev]||0)+(mensual.consumible[mesPrev]||0);
-  const valorTotal=productos.reduce((s,p)=>s+valorInventarioProducto(p),0);const stockBajo=productos.filter(p=>stockProducto(p)<=Number(p.stock_minimo||0)).length;
+  const valorTotal=productos.reduce((s,p)=>s+valorInventarioProducto(p),0);const stockBajo=productos.filter(esAlertaNivel1).length;
   return{meses,personalMensual:meses.map(m=>mensual.personal[m.key]||0),consumibleMensual:meses.map(m=>mensual.consumible[m.key]||0),inventarioCat,topProductos,gastoArea,valorTotal,gastoActual,gastoPrevio,cambio:pctCambio(gastoActual,gastoPrevio),gastoPersonalMes:mensual.personal[mesActual]||0,gastoConsumibleMes:mensual.consumible[mesActual]||0,stockBajo};
 }
 
@@ -174,7 +175,7 @@ export function render(){
   const productos=getProductos();
   const totalPzasStock=productos.reduce((sum,p)=>{const st=p.es_por_variante?(p.variantes||[]).reduce((s,v)=>s+(v.stock_actual||0),0):(p.stock_actual||0);return sum+st;},0);
   const prodConStock=productos.filter(p=>{const st=p.es_por_variante?(p.variantes||[]).reduce((s,v)=>s+(v.stock_actual||0),0):(p.stock_actual||0);return st>0;}).length;
-  const prodBajoMinimo=productos.filter(p=>{const st=p.es_por_variante?(p.variantes||[]).reduce((s,v)=>s+(v.stock_actual||0),0):(p.stock_actual||0);return st>0&&st<=p.stock_minimo;}).length;
+  const prodBajoMinimo=productos.filter(esAlertaNivel1).length;
   financialChartData=isAdmin?buildFinancialDashboardData():null;
 
   h+='<div class="kpi" style="border-top:2px solid #7c3aed"><div class="kpi-label">Productos</div><div class="kpi-value">'+productos.length+'</div><div class="kpi-sub">'+prodConStock+' con stock</div></div>';
@@ -197,13 +198,13 @@ export function render(){
   if(isAdmin)h+=renderFinancialSection(financialChartData);
 
   // Productos bajo mínimo
-  const bajoMinimo=productos.filter(p=>{const st=p.es_por_variante?(p.variantes||[]).reduce((s,v)=>s+(v.stock_actual||0),0):(p.stock_actual||0);return st>0&&st<=p.stock_minimo;}).slice(0,8);
+  const bajoMinimo=productos.filter(esAlertaNivel1).slice(0,8);
   if(bajoMinimo.length){
     h+='<div class="card mt-3"><div class="card-head"><h3><i class="fas fa-exclamation-triangle mr-2" style="color:#dc2626"></i>Productos que requieren atención</h3><span class="text-xs text-muted">'+bajoMinimo.length+' en alerta</span></div>';
     h+='<div class="table-wrap"><table class="dt" style="font-size:13px"><thead><tr><th>Producto</th><th>SKU</th><th style="text-align:right">Stock</th><th style="text-align:right">Mínimo</th><th style="text-align:center">Estado</th></tr></thead><tbody>';
     h+=bajoMinimo.map(p=>{
       const st=p.es_por_variante?(p.variantes||[]).reduce((s,v)=>s+(v.stock_actual||0),0):(p.stock_actual||0);
-      return'<tr><td class="text-sm font-bold">'+esc(p.nombre)+'</td><td><code style="font-weight:800;font-size:11px;color:var(--primary)">'+esc(p.sku)+'</code></td><td style="text-align:right;font-size:16px;font-weight:900;color:#dc2626">'+st+'</td><td style="text-align:right;font-size:13px;color:var(--text-muted)">'+p.stock_minimo+'</td><td style="text-align:center"><span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700"><i class="fas fa-exclamation-triangle mr-1"></i>Bajo</span></td></tr>';
+      return'<tr><td class="text-sm font-bold">'+esc(p.nombre)+'</td><td><code style="font-weight:800;font-size:11px;color:var(--primary)">'+esc(p.sku)+'</code></td><td style="text-align:right;font-size:16px;font-weight:900;color:#dc2626">'+st+'</td><td style="text-align:right;font-size:13px;color:var(--text-muted)">'+p.stock_minimo+'</td><td style="text-align:center"><span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700"><i class="fas fa-exclamation-triangle mr-1"></i>'+esc(p.nombre)+': '+st+' (mínimo '+p.stock_minimo+')</span></td></tr>';
     }).join('');
     h+='</tbody></table></div></div>';
   }

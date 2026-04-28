@@ -38,6 +38,10 @@ function productoCosto(producto, varianteId) {
   return Number(producto.costo_promedio || producto.ultimo_costo || 0);
 }
 
+function nivelControl(producto) {
+  return Number(producto?.nivel_control || 3);
+}
+
 function getMaps() {
   const store = getStore();
   const productos = new Map((store.productos || []).map(p => [p.id, p]));
@@ -107,6 +111,7 @@ function obtenerFiltros() {
     empleado: document.getElementById('audEmpleado')?.value || '',
     area: document.getElementById('audArea')?.value || '',
     producto: document.getElementById('audProducto')?.value || '',
+    nivelControl: document.getElementById('audNivelControl')?.value || '',
   };
 }
 
@@ -120,6 +125,7 @@ function filtrarEntregas(filtros) {
       if (filtros.empleado && e.empleado_id !== filtros.empleado) return false;
       if (filtros.area && e.area !== filtros.area) return false;
       if (filtros.producto && !e.lineas.some(l => l.producto_id === filtros.producto)) return false;
+      if (filtros.nivelControl && !e.lineas.some(l => nivelControl(l.producto) === Number(filtros.nivelControl))) return false;
       return true;
     });
 }
@@ -194,6 +200,7 @@ function filtrosTexto(filtros) {
     filtros.empleado ? `Empleado ${filtros.empleado}` : '',
     filtros.area ? `Area ${filtros.area}` : '',
     filtros.producto ? `Producto ${filtros.producto}` : '',
+    filtros.nivelControl ? `Nivel ${filtros.nivelControl}` : 'Nivel todos',
   ].filter(Boolean).join(' | ');
 }
 
@@ -348,6 +355,13 @@ export function render() {
           <option value="">Todos los productos</option>
           ${productos.map(p => `<option value="${esc(p.id)}">${esc(p.nombre || p.sku || p.id)}</option>`).join('')}
         </select>
+        <select id="audNivelControl" style="padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          <option value="">Todos</option>
+          <option value="1">Nivel 1</option>
+          <option value="2">Nivel 2</option>
+          <option value="3">Nivel 3</option>
+          <option value="4">Nivel 4</option>
+        </select>
       </div>
 
       <div style="display:flex;gap:10px;margin:16px 0">
@@ -370,7 +384,7 @@ export function init() {
     `;
   };
 
-  ['audFechaInicio', 'audFechaFin', 'audTipo', 'audEmpleado', 'audArea', 'audProducto'].forEach(id => {
+  ['audFechaInicio', 'audFechaFin', 'audTipo', 'audEmpleado', 'audArea', 'audProducto', 'audNivelControl'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', actualizar);
   });
 

@@ -24,6 +24,20 @@ import {
 let currentPage = 1;
 let currentView = 'grid'; // 'grid' o 'tabla'
 
+function nivelControl(p) {
+  return Number(p?.nivel_control || 3);
+}
+
+function nivelControlBadge(nivel) {
+  const cfg = {
+    1: { color: '#dc2626', text: 'Nivel 1 - Control total' },
+    2: { color: '#2563eb', text: 'Nivel 2 - Dotación' },
+    3: { color: '#f59e0b', text: 'Nivel 3 - Bajo' },
+    4: { color: '#6b7280', text: 'Nivel 4 - Mínimo' },
+  }[Number(nivel) || 3];
+  return `<span style="display:inline-block;padding:2px 8px;background:${cfg.color}22;border:1px solid ${cfg.color};border-radius:4px;font-size:11px;color:${cfg.color}">${cfg.text}</span>`;
+}
+
 export function render() {
   const role = getUserRole();
   const isAdmin = role === 'admin';
@@ -89,6 +103,13 @@ export function render() {
           <option value="">Todas las Categorías</option>
           ${categorias.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('')}
         </select>
+        <select id="filterNivelControl" style="padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          <option value="">Todos los niveles</option>
+          <option value="1">Nivel 1</option>
+          <option value="2">Nivel 2</option>
+          <option value="3">Nivel 3</option>
+          <option value="4">Nivel 4</option>
+        </select>
         <input type="text" id="filterBusqueda" placeholder="Buscar por nombre o SKU..." style="padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;flex:1">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
           <input type="checkbox" id="filterBajoStock"> Solo bajo stock
@@ -118,12 +139,14 @@ export function init() {
 
   document.getElementById('btnLimpiarFiltros')?.addEventListener('click', () => {
     document.getElementById('filterCategoria').value = '';
+    document.getElementById('filterNivelControl').value = '';
     document.getElementById('filterBusqueda').value = '';
     document.getElementById('filterBajoStock').checked = false;
     renderProductos();
   });
 
   document.getElementById('filterCategoria')?.addEventListener('change', renderProductos);
+  document.getElementById('filterNivelControl')?.addEventListener('change', renderProductos);
   document.getElementById('filterBusqueda')?.addEventListener('keyup', () => setTimeout(renderProductos, 300));
   document.getElementById('filterBajoStock')?.addEventListener('change', renderProductos);
 
@@ -132,11 +155,13 @@ export function init() {
 
 function getFilterros() {
   const categoria = document.getElementById('filterCategoria')?.value || '';
+  const nivel = document.getElementById('filterNivelControl')?.value || '';
   const q = document.getElementById('filterBusqueda')?.value || '';
   const bajoStock = document.getElementById('filterBajoStock')?.checked || false;
 
   return {
     categoria_id: categoria || undefined,
+    nivel_control: nivel || undefined,
     q,
     bajoStock,
   };
@@ -170,6 +195,7 @@ function renderProductos() {
       const foto = p.foto ? `data:image/png;base64,${p.foto}` : null;
       const bgColor = cat?.color || '#666';
       const tipo = p.tipo || 'personal';
+      const nivel = nivelControl(p);
 
       let stockHtml = '';
       let stockNum = 0;
@@ -198,6 +224,7 @@ function renderProductos() {
             <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">
               <span style="display:inline-block;padding:2px 8px;background:${bgColor}33;border:1px solid ${bgColor};border-radius:4px;font-size:11px;color:${bgColor}">${esc(cat?.nombre || 'Sin categoría')}</span>
               ${tipoProductoBadge(tipo)}
+              ${nivelControlBadge(nivel)}
             </div>
             ${isAdmin ? `<div style="font-size:12px;color:#999;margin-top:4px">${fmtMoney((p.costo_promedio || 0) * stockNum)}</div>` : ''}
           </div>
@@ -214,6 +241,7 @@ function renderProductos() {
           <th>Producto</th>
           <th>Categoría</th>
           <th>Tipo</th>
+          <th>Nivel</th>
           <th>Stock</th>
           ${isAdmin ? '<th>Costo</th><th>Valor</th>' : ''}
           <th>Estado</th>
@@ -226,6 +254,7 @@ function renderProductos() {
     productos.forEach(p => {
       const cat = catMap[p.categoria_id];
       const tipo = p.tipo || 'personal';
+      const nivel = nivelControl(p);
       if (p.es_por_variante) {
         (p.variantes || []).forEach(v => {
           const valor = (v.stock_actual || 0) * (v.ultimo_costo || 0);
@@ -242,6 +271,7 @@ function renderProductos() {
               <td>${esc(p.nombre)} (${esc(v.nombre)})</td>
               <td>${esc(cat?.nombre || '—')}</td>
               <td>${tipoProductoBadge(tipo)}</td>
+              <td>${nivelControlBadge(nivel)}</td>
               <td style="text-align:center;font-weight:bold">${v.stock_actual || 0}</td>
               ${isAdmin ? `<td style="text-align:right">${fmtMoney(v.ultimo_costo || 0)}</td><td style="text-align:right">${fmtMoney(valor)}</td>` : ''}
               <td>${estado}</td>
@@ -266,6 +296,7 @@ function renderProductos() {
             <td>${esc(p.nombre)}</td>
             <td>${esc(cat?.nombre || '—')}</td>
             <td>${tipoProductoBadge(tipo)}</td>
+            <td>${nivelControlBadge(nivel)}</td>
             <td style="text-align:center;font-weight:bold">${p.stock_actual || 0}</td>
             ${isAdmin ? `<td style="text-align:right">${fmtMoney(p.costo_promedio || 0)}</td><td style="text-align:right">${fmtMoney(valor)}</td>` : ''}
             <td>${estado}</td>
@@ -361,6 +392,15 @@ function openNuevoProducto() {
 
       <div class="form-row c2">
         <div>
+          <label>Nivel de control</label>
+          <select id="formNivelControl" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+            <option value="1">1 - Control total</option>
+            <option value="2">2 - Dotación</option>
+            <option value="3" selected>3 - Bajo</option>
+            <option value="4">4 - Mínimo</option>
+          </select>
+        </div>
+        <div id="stockMinWrap" style="display:none">
           <label>Stock Mínimo</label>
           <input type="number" id="formStockMin" value="5" min="0" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
         </div>
@@ -420,9 +460,12 @@ function openNuevoProducto() {
   const entregableLabel = document.getElementById('formEntregableLabel');
   const varianteCheckbox = document.getElementById('formVariante');
   const varianteWrap = document.getElementById('formVarianteWrap');
+  const nivelControlSelect = document.getElementById('formNivelControl');
+  const stockMinWrap = document.getElementById('stockMinWrap');
   const fotoInput = document.getElementById('formFoto');
 
   nombre.addEventListener('keyup', () => updateSKUPreview());
+  nivelControlSelect.addEventListener('change', updateStockMinVisibility);
 
   tipoSelect.addEventListener('change', () => {
     const esConsumible = tipoSelect.value === 'consumible';
@@ -474,7 +517,8 @@ function openNuevoProducto() {
     const categoriaVal = document.getElementById('formCategoria').value;
     const unidadVal = document.getElementById('formUnidad').value;
     const tipoVal = document.getElementById('formTipo').value;
-    const stockMinVal = parseInt(document.getElementById('formStockMin').value || 5, 10);
+    const nivelControlVal = parseInt(document.getElementById('formNivelControl').value || 3, 10);
+    const stockMinVal = nivelControlVal === 1 ? parseInt(document.getElementById('formStockMin').value || 0, 10) : 0;
     const entregableVal = document.getElementById('formEntregable').checked;
     const varianteVal = tipoVal === 'personal' && document.getElementById('formVariante').checked;
     const proveedorVal = document.getElementById('formProveedor').value.trim();
@@ -483,6 +527,10 @@ function openNuevoProducto() {
 
     if (!nombreVal || !categoriaVal) {
       notify('Nombre y categoría son obligatorios', 'error');
+      return;
+    }
+    if (nivelControlVal === 1 && !document.getElementById('formStockMin').value.trim()) {
+      notify('Stock mínimo es obligatorio para Nivel 1', 'warning');
       return;
     }
 
@@ -497,6 +545,7 @@ function openNuevoProducto() {
       es_entregable: entregableVal,
       es_por_variante: varianteVal,
       stock_minimo: stockMinVal,
+      nivel_control: nivelControlVal,
       proveedor_frecuente: proveedorVal,
     });
 
@@ -530,7 +579,14 @@ function openNuevoProducto() {
     document.getElementById('skuPreview').textContent = sku;
   }
 
+  function updateStockMinVisibility() {
+    const isNivel1 = nivelControlSelect.value === '1';
+    stockMinWrap.style.display = isNivel1 ? 'block' : 'none';
+    if (!isNivel1) document.getElementById('formStockMin').value = '';
+  }
+
   updateSKUPreview();
+  updateStockMinVisibility();
 }
 
 function openDetalleProducto(id) {
@@ -543,6 +599,7 @@ function openDetalleProducto(id) {
   const role = getUserRole();
   const isAdmin = role === 'admin';
   const tipo = prod.tipo || 'personal';
+  const nivel = nivelControl(prod);
 
   let movimientos = getMovimientos({ producto_id: id });
   movimientos = movimientos.slice(0, 10);
@@ -588,7 +645,7 @@ function openDetalleProducto(id) {
         <div style="margin-top:8px">
           <strong>${esc(cat?.nombre || 'Sin categoría')}</strong> | ${esc(prod.unidad)}
         </div>
-        <div style="margin-top:8px">${tipoProductoBadge(tipo)}</div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${tipoProductoBadge(tipo)}${nivelControlBadge(nivel)}</div>
         <div style="margin-top:16px">
           <div style="color:#999">Stock Actual:</div>
           <div style="font-size:24px;font-weight:bold;color:#4ade80">${prod.stock_actual || 0}</div>
@@ -643,7 +700,7 @@ function openDetalleProducto(id) {
 
   if (role === 'admin') {
     document.getElementById('btnEditar')?.addEventListener('click', () => {
-      notify('Edición aún no implementada', 'info');
+      openEditarNivelControl(id);
     });
 
     document.getElementById('btnAjuste')?.addEventListener('click', () => {
@@ -651,6 +708,52 @@ function openDetalleProducto(id) {
       openAjusteStock(id, null);
     });
   }
+}
+
+function openEditarNivelControl(id) {
+  const prod = getProductoById(id);
+  if (!prod) return;
+  const nivel = nivelControl(prod);
+  const body = `
+    <div class="form-row c2">
+      <div>
+        <label>Nivel de control</label>
+        <select id="editNivelControl" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          <option value="1" ${nivel === 1 ? 'selected' : ''}>1 - Control total</option>
+          <option value="2" ${nivel === 2 ? 'selected' : ''}>2 - Dotación</option>
+          <option value="3" ${nivel === 3 ? 'selected' : ''}>3 - Bajo</option>
+          <option value="4" ${nivel === 4 ? 'selected' : ''}>4 - Mínimo</option>
+        </select>
+      </div>
+      <div id="editStockMinWrap">
+        <label>Stock Mínimo</label>
+        <input type="number" id="editStockMin" value="${Number(prod.stock_minimo || 0)}" min="0" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+      </div>
+    </div>
+  `;
+  modal.open('Editar nivel de control', body, '<button class="btn btn-secondary" onclick="window.modalClose()">Cancelar</button><button class="btn btn-primary" id="editNivelSave">Guardar</button>', 'md');
+  window.modalClose = () => modal.close();
+  const nivelSelect = document.getElementById('editNivelControl');
+  const stockWrap = document.getElementById('editStockMinWrap');
+  function syncStockMin() {
+    const isNivel1 = nivelSelect.value === '1';
+    stockWrap.style.display = isNivel1 ? 'block' : 'none';
+    if (!isNivel1) document.getElementById('editStockMin').value = '';
+  }
+  nivelSelect.addEventListener('change', syncStockMin);
+  syncStockMin();
+  document.getElementById('editNivelSave')?.addEventListener('click', () => {
+    const nivelVal = parseInt(nivelSelect.value || 3, 10);
+    if (nivelVal === 1 && !document.getElementById('editStockMin').value.trim()) {
+      notify('Stock mínimo es obligatorio para Nivel 1', 'warning');
+      return;
+    }
+    const stockMinVal = nivelVal === 1 ? parseInt(document.getElementById('editStockMin').value || 0, 10) : 0;
+    updateProducto(id, { nivel_control: nivelVal, stock_minimo: stockMinVal });
+    notify('Nivel de control actualizado', 'success');
+    modal.close();
+    renderProductos();
+  });
 }
 
 function openAjusteStock(id, variante_id) {

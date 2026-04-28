@@ -72,6 +72,24 @@ function productoTipo(p) {
   return p?.tipo || 'personal';
 }
 
+function nivelControl(p) {
+  return Number(p?.nivel_control || 3);
+}
+
+function filtroNivelControl() {
+  return document.getElementById('reportNivelControl')?.value || '';
+}
+
+function productoCumpleNivel(p, nivel) {
+  return !nivel || nivelControl(p) === Number(nivel);
+}
+
+function movimientoCumpleNivel(m, nivel) {
+  if (!nivel) return true;
+  const p = getStore().productos.find(x => x.id === m.producto_id);
+  return productoCumpleNivel(p, nivel);
+}
+
 function entregaTipo(e, productos, lineas) {
   if (e.tipo_entrega) return e.tipo_entrega;
   const ls = lineas.filter(l => l.entrega_id === e.id);
@@ -229,6 +247,15 @@ export function render() {
       </div>
 
       <div id="reporteContainer" style="margin-top:20px"></div>
+      <div class="filters-section" style="margin-top:12px">
+        <select id="reportNivelControl" style="padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          <option value="">Todos los niveles</option>
+          <option value="1">Nivel 1</option>
+          <option value="2">Nivel 2</option>
+          <option value="3">Nivel 3</option>
+          <option value="4">Nivel 4</option>
+        </select>
+      </div>
     </div>
   `;
 
@@ -248,7 +275,8 @@ function openReporteGastos() {
     return;
   }
 
-  const movimientos = getMovimientos().filter(m => TIPOS_COMPRA.has(tipoMov(m)));
+  const nivel = filtroNivelControl();
+  const movimientos = getMovimientos().filter(m => TIPOS_COMPRA.has(tipoMov(m)) && movimientoCumpleNivel(m, nivel));
 
   // Agrupar por mes
   const porMes = {};
@@ -296,7 +324,7 @@ function openReporteGastos() {
       </table>
     </div>
     <div style="margin-top:12px;font-size:12px;color:#999">
-      <p>Período: ${meses[0] || '—'} a ${meses[meses.length-1] || '—'}</p>
+      <p>Período: ${meses[0] || '—'} a ${meses[meses.length-1] || '—'} · Nivel: ${nivel || 'Todos'}</p>
     </div>
   `;
 
@@ -320,8 +348,9 @@ function openReporteConsumo() {
     return;
   }
 
+  const nivel = filtroNivelControl();
   const movimientos = getMovimientos();
-  const productos = getProductos();
+  const productos = getProductos({ nivel_control: nivel || undefined });
 
   // Consumo por producto (salidas - entregas)
   const consumoPorProducto = {};
@@ -403,7 +432,8 @@ function openReporteMovimientos() {
   }
 
   const admin = rol === 'admin';
-  const movimientos = getMovimientos().slice(-200).reverse();
+  const nivel = filtroNivelControl();
+  const movimientos = getMovimientos().filter(m => movimientoCumpleNivel(m, nivel)).slice(-200).reverse();
 
   let body = `
     <div style="overflow-x:auto">
