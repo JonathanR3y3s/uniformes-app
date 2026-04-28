@@ -290,7 +290,7 @@ function showWizardStep() {
 
         <div style="margin-top:12px">
           <label>Foto Factura</label>
-          <input type="file" id="fotoFact" accept="image/*" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          <input type="file" id="fotoFact" accept="image/*" capture="environment" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
           <div id="fotoFactPreview" style="margin-top:8px">${wizardData.factura.foto ? `<div style="display:flex;align-items:center;gap:10px"><img src="data:image/jpeg;base64,${wizardData.factura.foto}" style="max-width:120px;max-height:120px;border-radius:4px;object-fit:cover"><small style="color:#999">Foto guardada (${Math.round(getBase64Bytes(wizardData.factura.foto) / 1024)}KB)</small></div>` : ''}</div>
         </div>
       </div>
@@ -324,7 +324,7 @@ function showWizardStep() {
 
       <div style="margin-bottom:12px">
         <label>Foto Producto (opcional)</label>
-        <input type="file" id="fotoProd" accept="image/*" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+        <input type="file" id="fotoProd" accept="image/*" capture="environment" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
       </div>
 
       <h4 style="margin:12px 0 8px 0">Líneas agregadas:</h4>
