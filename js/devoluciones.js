@@ -157,7 +157,16 @@ function openNuevaDevolucion() {
     motivo_devolucion: '',
     observaciones: '',
     lineas: [],
+    firma: null,
   };
+
+  function canvasTieneFirma(canvas) {
+    if (!canvas) return false;
+    const emptyCanvas = document.createElement('canvas');
+    emptyCanvas.width = canvas.width;
+    emptyCanvas.height = canvas.height;
+    return canvas.toDataURL('image/png') !== emptyCanvas.toDataURL('image/png');
+  }
 
   showPaso();
 
@@ -219,6 +228,11 @@ function openNuevaDevolucion() {
             }).join('')}
           </tbody>
         </table>
+        <div style="margin-top:14px">
+          <p style="margin-bottom:12px">Firma digital del empleado</p>
+          <canvas id="signaturePad" style="border:1px solid #444;border-radius:4px;background:#0f0f0f;width:100%;height:150px;cursor:crosshair"></canvas>
+          <button class="btn btn-secondary" id="btnLimpiarFirma" style="margin-top:8px">Limpiar Firma</button>
+        </div>
       `;
     }
 
@@ -298,6 +312,30 @@ function openNuevaDevolucion() {
       };
 
       renderLineas();
+    } else if (paso === 4) {
+      const canvas = document.getElementById('signaturePad');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+
+        canvas.addEventListener('mousedown', () => isDrawing = true);
+        canvas.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mousemove', (e) => {
+          if (!isDrawing) return;
+          const rect = canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        document.getElementById('btnLimpiarFirma')?.addEventListener('click', () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          datos.firma = null;
+        });
+      }
     }
   }
 
@@ -337,12 +375,19 @@ function openNuevaDevolucion() {
       showPaso();
     }
     if (e.target.id === 'btnGuardar') {
+      const signCanvas = document.getElementById('signaturePad');
+      if (!signCanvas || !canvasTieneFirma(signCanvas)) {
+        notify('La firma es obligatoria para confirmar la entrega.', 'error');
+        return;
+      }
+      datos.firma = signCanvas.toDataURL('image/png');
       const resultado = registrarDevolucionNueva({
         empleado_id: datos.empleado_id,
         empleado_nombre: datos.empleado_nombre,
         area: datos.area,
         motivo: datos.motivo_devolucion,
         observaciones: datos.observaciones,
+        firma: datos.firma,
         lineas: datos.lineas,
       });
 

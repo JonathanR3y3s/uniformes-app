@@ -669,7 +669,7 @@ export function getDevolucionesNuevas(filtros = {}) {
   return result.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
 }
 
-export function registrarDevolucionNueva({ entrega_original_id, empleado_id, empleado_nombre, area, motivo, lineas = [], observaciones }) {
+export function registrarDevolucionNueva({ entrega_original_id, empleado_id, empleado_nombre, area, motivo, lineas = [], observaciones, firma }) {
   const store = getStore();
   const user = getUser();
 
@@ -697,6 +697,7 @@ export function registrarDevolucionNueva({ entrega_original_id, empleado_id, emp
     area: area || '',
     motivo: motivo || '',
     observaciones: observaciones || '',
+    firma: firma || null,
     recibido_por: user?.name || 'Sistema',
     recibido_por_id: user?.id || 'system',
     creado_por: user?.name || 'Sistema',

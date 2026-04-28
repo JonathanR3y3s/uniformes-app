@@ -201,10 +201,10 @@ function openNuevaEntrega() {
 
   function canvasTieneFirma(canvas) {
     if (!canvas) return false;
-    const ctx = canvas.getContext('2d');
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    for (let i = 3; i < data.length; i += 4) if (data[i] > 0) return true;
-    return false;
+    const emptyCanvas = document.createElement('canvas');
+    emptyCanvas.width = canvas.width;
+    emptyCanvas.height = canvas.height;
+    return canvas.toDataURL('image/png') !== emptyCanvas.toDataURL('image/png');
   }
 
   showPaso();
@@ -292,7 +292,7 @@ function openNuevaEntrega() {
         <canvas id="signaturePad" style="border:1px solid #444;border-radius:4px;background:#0f0f0f;width:100%;height:150px;cursor:crosshair"></canvas>
         <button class="btn btn-secondary" id="btnLimpiarFirma" style="margin-top:8px">Limpiar Firma</button>
         <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
-          <input type="checkbox" id="sinFirma"> Continuar sin firma
+          <input type="checkbox" id="sinFirma" disabled> Continuar sin firma
         </label>
       `;
     }
@@ -648,16 +648,13 @@ function openNuevaEntrega() {
       showPaso();
     }
     if (e.target.id === 'btnGuardar') {
-      // Capturar firma del canvas si existe y no se marcó "sin firma"
-      const sinFirma = document.getElementById('sinFirma')?.checked;
+      // Capturar firma obligatoria antes de registrar
       const signCanvas = document.getElementById('signaturePad');
-      const tieneFirma = signCanvas && !sinFirma && canvasTieneFirma(signCanvas);
-      if (tieneFirma) {
-        datos.firma = signCanvas.toDataURL('image/png');
-      } else {
-        datos.firma = null;
-        notify('ENTREGA SIN FIRMA', 'warning');
+      if (!signCanvas || !canvasTieneFirma(signCanvas)) {
+        notify('La firma es obligatoria para confirmar la entrega.', 'error');
+        return;
       }
+      datos.firma = signCanvas.toDataURL('image/png');
       if (datos.lineas.length === 0) {
         notify('Agrega al menos un artículo', 'warning');
         return;
