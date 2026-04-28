@@ -101,7 +101,7 @@ function renderDotaciones(){
   const list=dotaciones().slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0));
   let h='<div class="flex justify-between items-center gap-3 mb-4"><div><h2 style="font-size:18px;margin:0">Dotaciones</h2><p class="text-sm text-muted">Control anual de dotaciones</p></div><button class="btn btn-primary" id="btnNuevaDotacion"><i class="fas fa-plus"></i> Nueva Dotación</button></div>';
   if(!list.length){
-    h+='<div class="empty-state"><i class="fas fa-box-open"></i><p>No hay dotaciones registradas</p></div>';
+    h+='<div class="empty-state"><i class="fas fa-box-open"></i><p>No hay dotaciones configuradas aún</p><p style="font-size:13px;color:#666;margin-top:8px">Crea una nueva dotación para comenzar</p></div>';
     return h;
   }
   h+='<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">';

@@ -32,7 +32,7 @@ function renderPage(){
   h+=row('Clave storage',`<span class="font-mono text-xs">${STORAGE_KEY}</span>`);
   h+=storageBar();
   h+='</div></div>';
-  // Backup & Restore
+  // Placeholder para que grid-2 tenga 2 items
   h+='<div class="card"><div class="card-head"><h3><i class="fas fa-shield-alt mr-2" style="color:#059669"></i>Respaldo y Restauración</h3></div><div class="card-body">';
   h+='<p class="text-sm text-sec mb-4">Exporta un respaldo antes de cualquier cambio importante. El archivo JSON incluye todos los datos del sistema.</p>';
   h+='<button class="btn btn-success mb-3" style="width:100%" id="cfgBackup"><i class="fas fa-download mr-2"></i>Exportar Respaldo Completo</button>';
@@ -40,6 +40,16 @@ function renderPage(){
   h+='<div id="restoreInfo" style="margin-top:12px"></div>';
   h+='</div></div>';
   h+='</div>';
+  // Control de módulos
+  h+='<div class="card mb-4"><div class="card-head"><h3><i class="fas fa-sliders-h mr-2" style="color:#7c3aed"></i>Control de Módulos</h3></div><div class="card-body">';
+  h+='<p class="text-sm text-sec mb-4">Controla qué módulos son visibles para los operadores:</p>';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">';
+  h+='<div><span class="font-bold text-sm">Módulo Dotación</span><p class="text-xs text-muted" style="margin:4px 0 0">Mostrar módulo de gestión de dotaciones a operadores</p></div>';
+  h+='<div style="display:flex;align-items:center;gap:8px">';
+  h+='<input type="checkbox" id="toggleDotacionVisible" style="cursor:pointer;width:20px;height:20px">';
+  h+='</div></div>';
+  h+='<p class="text-xs text-muted" style="margin-top:12px"><i class="fas fa-info-circle mr-1" style="color:#0891b2"></i><strong>Nota:</strong> Los administradores siempre ven este módulo. Este toggle solo afecta a operadores.</p>';
+  h+='</div></div>';
   // Supabase / Nube
   h+='<div class="card mb-4"><div class="card-head"><h3><i class="fas fa-cloud mr-2" style="color:#7c3aed"></i>Sincronización Cloud (Supabase)</h3></div><div class="card-body">';
   h+='<div id="supabaseStatus" style="margin-bottom:14px"><p class="text-sm text-muted">Verificando conexión…</p></div>';
@@ -169,6 +179,25 @@ export function init(){
   if(!mc)return;
   mc.removeEventListener('click',handleConfigClick);
   mc.addEventListener('click',handleConfigClick);
+  // Manejo del toggle de Dotación
+  const toggleDotacion=document.getElementById('toggleDotacionVisible');
+  if(toggleDotacion){
+    try{
+      const cfg=JSON.parse(localStorage.getItem('uniformes_assa_abloy_2026_v4_config')||'{}');
+      toggleDotacion.checked=cfg.dotacionVisible!==false;
+    }catch(e){}
+    toggleDotacion.addEventListener('change',()=>{
+      try{
+        const cfg=JSON.parse(localStorage.getItem('uniformes_assa_abloy_2026_v4_config')||'{}');
+        cfg.dotacionVisible=toggleDotacion.checked;
+        localStorage.setItem('uniformes_assa_abloy_2026_v4_config',JSON.stringify(cfg));
+        notify(toggleDotacion.checked?'Dotación ahora visible para operadores':'Dotación ocultada para operadores','success');
+        import('./ui.js').then(ui=>{if(ui.buildNav)ui.buildNav('config');});
+      }catch(e){
+        notify('Error al guardar configuración','error');
+      }
+    });
+  }
   initSupabaseSection();
   // File input for restore
   const fi=document.getElementById('fileRestore');

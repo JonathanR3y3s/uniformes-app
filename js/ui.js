@@ -16,7 +16,7 @@ export function buildNav(currentView){
   const hiddenForConsulta=['importar','usuarios','config','bitacora'];
   const isVisibleNavItem=n=>{
     if(n.section)return false;
-    if(typeof n.condition==='function'&&!n.condition(store))return false;
+    if(typeof n.condition==='function'&&!n.condition(store,role,user))return false;
     if(role==='operador'&&hiddenForOperador.includes(n.id))return false;
     if(role==='consulta'&&hiddenForConsulta.includes(n.id))return false;
     return true;
