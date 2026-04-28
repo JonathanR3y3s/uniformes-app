@@ -3,7 +3,7 @@
  * Módulo para gestión de entregas de productos a personal
  */
 
-import { getStore } from './storage.js';
+import { getStore, saveEntregasNuevas } from './storage.js';
 import { esc, fmtDate } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
@@ -84,10 +84,10 @@ function renderEntregas() {
   if (empleado) entregasNuevas = entregasNuevas.filter(e => ((e.quien_recibe || e.empleado_nombre || '').toLowerCase().includes(empleado.toLowerCase())));
   if (area) entregasNuevas = entregasNuevas.filter(e => e.area === area);
 
-  let html = `<table class="data-table"><thead><tr><th>Número</th><th>Recibe</th><th>Área</th><th>Motivo</th><th>Artículos</th><th>Piezas</th><th>Fecha</th><th>Firma</th><th>Acciones</th></tr></thead><tbody>`;
+  let html = `<table class="data-table"><thead><tr><th>Número</th><th>Recibe</th><th>Tipo</th><th>Área</th><th>Motivo</th><th>Artículos</th><th>Piezas</th><th>Fecha</th><th>Firma</th><th>Acciones</th></tr></thead><tbody>`;
 
   if (entregasNuevas.length === 0) {
-    html += `<tr><td colspan="9" style="text-align:center;padding:20px;color:#999">Sin entregas registradas</td></tr>`;
+    html += `<tr><td colspan="10" style="text-align:center;padding:20px;color:#999">Sin entregas registradas</td></tr>`;
   } else {
     entregasNuevas.forEach(e => {
       const lineas = getStore().lineasEntrega.filter(l => l.entrega_id === e.id);
@@ -99,8 +99,9 @@ function renderEntregas() {
         <tr>
           <td><strong>${esc(e.numero)}</strong></td>
           <td>${esc(recibe)}</td>
+          <td><small>${esc(e.tipo_entrega || 'dotacion')}</small></td>
           <td>${esc(e.area)}</td>
-          <td><small>${esc(e.motivo)}</small></td>
+          <td><small>${esc(e.motivo || e.observaciones || '')}</small></td>
           <td style="text-align:center">${lineas.length}</td>
           <td style="text-align:center;font-weight:bold">${piezas}</td>
           <td><small>${fmtDate(e.fecha_hora)}</small></td>
@@ -143,12 +144,15 @@ function openNuevaEntrega() {
 
   let paso = 1;
   let datos = {
-    tipo_entrega: 'personal',
+    tipo_receptor: 'empleado',
+    receptor_ocasional: null,
+    tipo_entrega: 'dotacion',
     empleado_id: '',
     empleado_nombre: '',
     area: '',
     quien_recibe: '',
     motivo: '',
+    observaciones: '',
     autorizado_por: '',
     lineas: [],
     firma: null,
@@ -161,46 +165,55 @@ function openNuevaEntrega() {
 
     if (paso === 1) {
       body = `
+        <label>Tipo receptor</label>
+        <select id="tipoReceptor" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:12px">
+          <option value="empleado" ${datos.tipo_receptor === 'empleado' ? 'selected' : ''}>Empleado</option>
+          <option value="ocasional" ${datos.tipo_receptor === 'ocasional' ? 'selected' : ''}>Ocasional</option>
+        </select>
         <label>Tipo de entrega</label>
         <select id="tipoEntrega" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:12px">
-          <option value="personal" ${datos.tipo_entrega === 'personal' ? 'selected' : ''}>Personal</option>
+          <option value="dotacion" ${datos.tipo_entrega === 'dotacion' ? 'selected' : ''}>Dotación</option>
+          <option value="reemplazo" ${datos.tipo_entrega === 'reemplazo' ? 'selected' : ''}>Reemplazo</option>
+          <option value="individual" ${datos.tipo_entrega === 'individual' ? 'selected' : ''}>Individual</option>
           <option value="consumible" ${datos.tipo_entrega === 'consumible' ? 'selected' : ''}>Consumible</option>
         </select>
-        <div id="personalEntregaBox" style="${datos.tipo_entrega === 'consumible' ? 'display:none;' : ''}">
+        <div id="personalEntregaBox" style="${datos.tipo_entrega === 'consumible' || datos.tipo_receptor === 'ocasional' ? 'display:none;' : ''}">
           <label>Empleado *</label>
           <select id="emp" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
             <option value="">Seleccionar...</option>
             ${empleados.filter(e => e.estado === 'activo').map(e => `<option value="${e.id}" ${datos.empleado_id === e.id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}
           </select>
         </div>
+        <div id="ocasionalEntregaBox" style="${datos.tipo_receptor === 'ocasional' ? '' : 'display:none;'}">
+          <label>Nombre receptor ocasional *</label>
+          <input type="text" id="receptorOcasionalNombre" value="${esc(datos.receptor_ocasional?.nombre || '')}" placeholder="Nombre completo" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
+          <label>Relación</label>
+          <select id="receptorOcasionalRelacion" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
+            ${['visitante','contratista','proveedor','otro'].map(r => `<option value="${r}" ${datos.receptor_ocasional?.relacion === r ? 'selected' : ''}>${r.charAt(0).toUpperCase() + r.slice(1)}</option>`).join('')}
+          </select>
+        </div>
         <div id="consumibleEntregaBox" style="${datos.tipo_entrega === 'consumible' ? '' : 'display:none;'}padding:10px;background:#111;border-radius:4px;font-size:13px;color:#ddd">
           Recibe: <strong>Supervisora de Limpieza</strong>
         </div>
-        <div id="tallasBox" style="margin-top:12px;padding:8px;background:#111;border-radius:4px;font-size:12px;color:#999;${datos.tipo_entrega === 'consumible' ? 'display:none;' : ''}">
+        <div id="tallasBox" style="margin-top:12px;padding:8px;background:#111;border-radius:4px;font-size:12px;color:#999;${datos.tipo_entrega === 'consumible' || datos.tipo_receptor === 'ocasional' ? 'display:none;' : ''}">
           <p>Tallas capturadas: <span id="tallasInfo">—</span></p>
           <p>Última entrega: <span id="ultEntregaInfo">—</span></p>
         </div>
       `;
     } else if (paso === 2) {
       body = `
-        <select id="motivo" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:12px">
-          <option value="">Seleccionar motivo...</option>
-          <option value="dotacion_anual">Dotación Anual</option>
-          <option value="nuevo_ingreso">Nuevo Ingreso</option>
-          <option value="reposicion">Reposición</option>
-          <option value="premio">Premio / Concurso</option>
-          <option value="kit_bienvenida">Kit de Bienvenida</option>
-          <option value="souvenir_temporada">Souvenir de Temporada</option>
-          <option value="extraordinario">Extraordinario</option>
-          <option value="otro">Otro</option>
-        </select>
+        <label>Motivo</label>
+        <input type="text" id="motivo" value="${esc(datos.motivo || '')}" placeholder="Motivo opcional de la entrega" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:12px">
+        <label>Observaciones</label>
+        <textarea id="observaciones" placeholder="Observaciones opcionales" style="width:100%;min-height:90px;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:12px">${esc(datos.observaciones || '')}</textarea>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
           <input type="checkbox" id="requiereAutoriza"> Requiere autorización
         </label>
         <input type="text" id="autoriza" placeholder="Autorizado por..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-top:8px;display:none">
       `;
     } else if (paso === 3) {
-      const productos = getProductos({ soloEntregables: true, tipo: datos.tipo_entrega });
+      const productoTipo = datos.tipo_entrega === 'consumible' ? 'consumible' : 'personal';
+      const productos = getProductos({ soloEntregables: true, tipo: productoTipo });
       body = `
         <input type="text" id="searchProd" placeholder="Buscar producto..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
         <div id="prodList" style="max-height:150px;overflow-y:auto;margin-bottom:12px"></div>
@@ -209,7 +222,7 @@ function openNuevaEntrega() {
         <div id="lineasList" style="margin-top:12px;max-height:200px;overflow-y:auto"></div>
       `;
     } else if (paso === 4) {
-      const receptorFirma = datos.tipo_entrega === 'consumible' ? 'supervisora de limpieza' : 'empleado';
+      const receptorFirma = datos.tipo_entrega === 'consumible' ? 'supervisora de limpieza' : (datos.tipo_receptor === 'ocasional' ? 'receptor ocasional' : 'empleado');
       body = `
         <p style="margin-bottom:12px">Firma digital de ${receptorFirma}</p>
         <canvas id="signaturePad" style="border:1px solid #444;border-radius:4px;background:#0f0f0f;width:100%;height:150px;cursor:crosshair"></canvas>
@@ -223,11 +236,30 @@ function openNuevaEntrega() {
     modal.open(`Paso ${paso}/4`, body, getPasoFooter(), 'md');
 
     if (paso === 1) {
+      const tipoReceptor = document.getElementById('tipoReceptor');
       const tipoEntrega = document.getElementById('tipoEntrega');
+      tipoReceptor?.addEventListener('change', (e) => {
+        datos.tipo_receptor = e.target.value;
+        if (datos.tipo_receptor === 'ocasional') {
+          datos.empleado_id = null;
+          datos.empleado_nombre = '';
+          datos.quien_recibe = datos.receptor_ocasional?.nombre || '';
+          datos.area = '';
+        } else if (datos.tipo_entrega !== 'consumible') {
+          datos.receptor_ocasional = null;
+          datos.empleado_id = '';
+          datos.empleado_nombre = '';
+          datos.quien_recibe = '';
+          datos.area = '';
+        }
+        showPaso();
+      });
       tipoEntrega?.addEventListener('change', (e) => {
         datos.tipo_entrega = e.target.value;
         datos.lineas = [];
         if (datos.tipo_entrega === 'consumible') {
+          datos.tipo_receptor = 'empleado';
+          datos.receptor_ocasional = null;
           datos.empleado_id = null;
           datos.empleado_nombre = 'Supervisora de Limpieza';
           datos.quien_recibe = 'Supervisora de Limpieza';
@@ -239,6 +271,21 @@ function openNuevaEntrega() {
           datos.area = '';
         }
         showPaso();
+      });
+
+      document.getElementById('receptorOcasionalNombre')?.addEventListener('input', (e) => {
+        datos.receptor_ocasional = {
+          nombre: e.target.value.trim(),
+          relacion: document.getElementById('receptorOcasionalRelacion')?.value || 'visitante',
+        };
+        datos.quien_recibe = datos.receptor_ocasional.nombre;
+      });
+
+      document.getElementById('receptorOcasionalRelacion')?.addEventListener('change', (e) => {
+        datos.receptor_ocasional = {
+          nombre: (document.getElementById('receptorOcasionalNombre')?.value || '').trim(),
+          relacion: e.target.value,
+        };
       });
 
       document.getElementById('emp')?.addEventListener('change', (e) => {
@@ -253,15 +300,19 @@ function openNuevaEntrega() {
         }
       });
     } else if (paso === 2) {
-      document.getElementById('motivo')?.addEventListener('change', (e) => {
+      document.getElementById('motivo')?.addEventListener('input', (e) => {
         datos.motivo = e.target.value;
         document.getElementById('autoriza').style.display = document.getElementById('requiereAutoriza')?.checked ? 'block' : 'none';
+      });
+      document.getElementById('observaciones')?.addEventListener('input', (e) => {
+        datos.observaciones = e.target.value;
       });
       document.getElementById('requiereAutoriza')?.addEventListener('change', (e) => {
         document.getElementById('autoriza').style.display = e.target.checked ? 'block' : 'none';
       });
     } else if (paso === 3) {
-      const productos = getProductos({ soloEntregables: true, tipo: datos.tipo_entrega });
+      const productoTipo = datos.tipo_entrega === 'consumible' ? 'consumible' : 'personal';
+      const productos = getProductos({ soloEntregables: true, tipo: productoTipo });
       let selectedProd = null;
 
       document.getElementById('searchProd')?.addEventListener('keyup', (e) => {
@@ -383,7 +434,27 @@ function openNuevaEntrega() {
         notify('Selecciona un empleado', 'warning');
         return;
       }
+      if (paso === 1 && datos.tipo_receptor === 'empleado' && datos.tipo_entrega !== 'consumible' && !datos.empleado_id) {
+        notify('Selecciona un empleado', 'warning');
+        return;
+      }
+      if (paso === 1 && datos.tipo_receptor === 'ocasional') {
+        const nombreOcasional = (document.getElementById('receptorOcasionalNombre')?.value || datos.receptor_ocasional?.nombre || '').trim();
+        if (!nombreOcasional) {
+          notify('Escribe el nombre del receptor ocasional', 'warning');
+          return;
+        }
+        datos.receptor_ocasional = {
+          nombre: nombreOcasional,
+          relacion: document.getElementById('receptorOcasionalRelacion')?.value || datos.receptor_ocasional?.relacion || 'visitante',
+        };
+        datos.empleado_id = null;
+        datos.empleado_nombre = nombreOcasional;
+        datos.quien_recibe = nombreOcasional;
+      }
       if (paso === 1 && datos.tipo_entrega === 'consumible') {
+        datos.tipo_receptor = 'empleado';
+        datos.receptor_ocasional = null;
         datos.empleado_id = null;
         datos.empleado_nombre = 'Supervisora de Limpieza';
         datos.quien_recibe = 'Supervisora de Limpieza';
@@ -406,17 +477,27 @@ function openNuevaEntrega() {
         motivo: datos.motivo,
         autorizado_por: datos.autorizado_por,
         firma: datos.firma || null,
-        firma_empleado: datos.tipo_entrega === 'personal' ? datos.firma || null : null,
+        firma_empleado: datos.tipo_receptor === 'empleado' && datos.tipo_entrega !== 'consumible' ? datos.firma || null : null,
         firma_recibe: datos.firma || null,
         quien_recibe: datos.quien_recibe || datos.empleado_nombre,
         tipo_entrega: datos.tipo_entrega,
         lineas: datos.lineas,
+        observaciones: datos.observaciones,
       });
 
       if (!resultado.ok) {
         notify(resultado.error || 'Error', 'error');
         return;
       }
+
+      Object.assign(resultado.entrega, {
+        tipo_receptor: datos.tipo_receptor,
+        receptor_ocasional: datos.tipo_receptor === 'ocasional' ? datos.receptor_ocasional : null,
+        tipo_entrega: datos.tipo_entrega,
+        motivo: datos.motivo || '',
+        observaciones: datos.observaciones || '',
+      });
+      saveEntregasNuevas();
 
       notify('Entrega registrada', 'success');
       modal.close();
@@ -437,9 +518,12 @@ function openDetalleEntrega(id) {
   let body = `
     <p><strong>Número:</strong> ${esc(entrega.numero)}</p>
     <p><strong>Recibe:</strong> ${esc(entrega.quien_recibe || entrega.empleado_nombre)}</p>
-    <p><strong>Tipo:</strong> ${esc(entrega.tipo_entrega || 'personal')}</p>
+    <p><strong>Tipo receptor:</strong> ${esc(entrega.tipo_receptor || 'empleado')}</p>
+    ${entrega.receptor_ocasional ? `<p><strong>Relación:</strong> ${esc(entrega.receptor_ocasional.relacion || '—')}</p>` : ''}
+    <p><strong>Tipo entrega:</strong> ${esc(entrega.tipo_entrega || 'dotacion')}</p>
     <p><strong>Área:</strong> ${esc(entrega.area)}</p>
     <p><strong>Motivo:</strong> ${esc(entrega.motivo)}</p>
+    <p><strong>Observaciones:</strong> ${esc(entrega.observaciones || '—')}</p>
     <p><strong>Fecha:</strong> ${fmtDate(entrega.fecha_hora)}</p>
     <p><strong>Entregado por:</strong> ${esc(entrega.entregado_por)}</p>
 
@@ -487,9 +571,12 @@ function imprimirRecibo(id) {
       <table>
         <tr><td><strong>Número:</strong></td><td>${esc(entrega.numero)}</td></tr>
         <tr><td><strong>Recibe:</strong></td><td>${esc(entrega.quien_recibe || entrega.empleado_nombre)}</td></tr>
-        <tr><td><strong>Tipo:</strong></td><td>${esc(entrega.tipo_entrega || 'personal')}</td></tr>
+        <tr><td><strong>Tipo receptor:</strong></td><td>${esc(entrega.tipo_receptor || 'empleado')}</td></tr>
+        <tr><td><strong>Tipo entrega:</strong></td><td>${esc(entrega.tipo_entrega || 'dotacion')}</td></tr>
+        ${entrega.receptor_ocasional ? `<tr><td><strong>Relación:</strong></td><td>${esc(entrega.receptor_ocasional.relacion || '—')}</td></tr>` : ''}
         <tr><td><strong>Área:</strong></td><td>${esc(entrega.area)}</td></tr>
         <tr><td><strong>Motivo:</strong></td><td>${esc(entrega.motivo)}</td></tr>
+        <tr><td><strong>Obs.:</strong></td><td>${esc(entrega.observaciones || '—')}</td></tr>
         <tr><td><strong>Fecha:</strong></td><td>${fmtDate(entrega.fecha_hora)}</td></tr>
       </table>
 
