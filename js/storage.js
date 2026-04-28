@@ -28,6 +28,8 @@ export function getStorageUsageKB(){try{let t=0;for(const k of Object.keys(local
 export function init(REGLAS){
   store.employees=load('',[]);
   store.employees.forEach(emp=>{if(!emp||!emp.tallas)return;const fixed={};Object.entries(emp.tallas).forEach(([k,v])=>{const tt=normTalla(v);if(tt)fixed[k]=tt;});emp.tallas=fixed;});
+  // Migración Fase 1.3C: tipo_dotacion e historial (no sobrescribe datos existentes)
+  store.employees.forEach(emp=>{if(!emp)return;if(emp.tipo_dotacion===undefined)emp.tipo_dotacion='';if(!Array.isArray(emp.tipo_historial))emp.tipo_historial=[];});
   store.proveedores=load('_proveedores',[]);
   store.inventario=load('_inventario',[]);
   store.entregas=load('_entregas',[]);

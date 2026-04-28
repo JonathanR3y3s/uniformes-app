@@ -1,5 +1,5 @@
 import{REGLAS,PERFILES}from'./config.js';import{getAreaNames}from'./areas-config.js';
-import{getStore,saveEmployees,log}from'./storage.js';
+import{getStore,saveEmployees,log,getDotacionTipos}from'./storage.js';
 import{getReglas,verificarCaptura}from'./rules.js';
 import{esc,genId,getTallasOpts,normTalla,fmtDate,fmt}from'./utils.js';
 import{buildAreaBadge,buildStatusBadge,notify,modal,confirm}from'./ui.js';
@@ -84,9 +84,14 @@ function filterEmp(){
 
 export function openNewEmp(){
   const areas=getAreaNames();
+  const tipos=getDotacionTipos();
+  const tipoSelectHtml=tipos.length
+    ?'<div class="form-group"><label class="form-label">Tipo de dotación</label><select class="form-select" id="neTipo"><option value="">Sin asignar</option>'+tipos.map(t=>'<option value="'+esc(t.id)+'">'+esc(t.nombre)+'</option>').join('')+'</select></div>'
+    :'<div class="form-group"><label class="form-label">Tipo de dotación</label><select class="form-select" id="neTipo" disabled><option value="">Sin asignar</option></select><p class="text-xs text-muted mt-1">No hay tipos configurados. Créalos en Dotación → Kits.</p></div>';
   const body='<div class="form-row c2">'
     +'<div class="form-group"><label class="form-label">ID (opcional)</label><input class="form-input" id="neId" placeholder="Se genera automáticamente"></div>'
     +'<div class="form-group"><label class="form-label">Área *</label><select class="form-select" id="neArea">'+areas.map(a=>'<option>'+a+'</option>').join('')+'</select></div>'
+    +tipoSelectHtml
     +'<div class="form-group"><label class="form-label">Nombre(s) *</label><input class="form-input" id="neNom" placeholder="Nombre(s)"></div>'
     +'<div class="form-group"><label class="form-label">Apellido Paterno</label><input class="form-input" id="nePat"></div>'
     +'<div class="form-group"><label class="form-label">Apellido Materno</label><input class="form-input" id="neMat"></div>'
@@ -103,7 +108,13 @@ function saveNewEmp(){
   if(!nom){notify('El nombre es obligatorio','warning');return;}
   const id=(document.getElementById('neId')?.value||'').trim()||genId();
   if(getStore().employees.some(e=>e.id===id)){notify('Ese ID ya existe','error');return;}
-  getStore().employees.push({id,nombre:nom,paterno:(document.getElementById('nePat')?.value||'').trim(),materno:(document.getElementById('neMat')?.value||'').trim(),area:document.getElementById('neArea')?.value||'PLANTA',estado:document.getElementById('neEst')?.value||'activo',tallas:{},perfilDotacion:'AUTO',foto:null});
+  const tipoId=(document.getElementById('neTipo')?.value||'').trim();
+  const tipoHist=[];
+  if(tipoId){
+    const t=getDotacionTipos().find(x=>x.id===tipoId);
+    tipoHist.push({tipo_id:tipoId,tipo_nombre:t?t.nombre:tipoId,fecha:new Date().toISOString().slice(0,10),motivo:'Cambio manual'});
+  }
+  getStore().employees.push({id,nombre:nom,paterno:(document.getElementById('nePat')?.value||'').trim(),materno:(document.getElementById('neMat')?.value||'').trim(),area:document.getElementById('neArea')?.value||'PLANTA',estado:document.getElementById('neEst')?.value||'activo',tallas:{},perfilDotacion:'AUTO',foto:null,tipo_dotacion:tipoId,tipo_historial:tipoHist});
   saveEmployees();
   log('ALTA',nom+' (#'+id+')');
   modal.close();
@@ -150,6 +161,18 @@ export function openEditEmp(id){
   h+='<option value="AUTO"'+((emp.perfilDotacion||'AUTO')==='AUTO'?' selected':'')+'>AUTO (por área)</option>';
   h+='<option value="PLANTA_SINDICALIZADO"'+(emp.perfilDotacion==='PLANTA_SINDICALIZADO'?' selected':'')+'>Planta Sindicalizado</option>';
   h+='</select></div></div>';
+  // Tipo de dotación (Fase 1.3C)
+  const _tiposEdit=getDotacionTipos();
+  const _tipoActual=emp.tipo_dotacion||'';
+  h+='<div class="form-row c2 mb-4">';
+  if(_tiposEdit.length){
+    h+='<div class="form-group"><label class="form-label">Tipo de dotación</label><select class="form-select" id="eeTipo"><option value=""'+(_tipoActual===''?' selected':'')+'>Sin asignar</option>';
+    _tiposEdit.forEach(t=>{h+='<option value="'+esc(t.id)+'"'+(_tipoActual===t.id?' selected':'')+'>'+esc(t.nombre)+'</option>';});
+    h+='</select></div>';
+  } else {
+    h+='<div class="form-group"><label class="form-label">Tipo de dotación</label><select class="form-select" id="eeTipo" disabled><option value="">Sin asignar</option></select><p class="text-xs text-muted mt-1">No hay tipos configurados. Créalos en Dotación → Kits.</p></div>';
+  }
+  h+='</div>';
   h+='<div class="divider-label">Tallas requeridas</div>';
 
   if(r.esFlexible){
@@ -265,6 +288,44 @@ function openFichaEmp(id){
   h+='<div class="flex gap-2 flex-wrap" style="margin-top:12px"><button class="btn btn-primary" id="mQuickEntrega" data-id="'+esc(emp.id)+'"><i class="fas fa-handshake"></i> HACER ENTREGA</button></div>';
   h+='</div></div>';
 
+  // ── Dotación ── (Fase 1.3C)
+  h+='<div class="divider-label mt-4">Dotación</div>';
+  const _tiposFicha=getDotacionTipos();
+  const _tipoIdActual=emp.tipo_dotacion||'';
+  let _tipoNombreMostrado='Sin asignar';
+  let _tipoColor='var(--text-muted)';
+  if(_tipoIdActual){
+    const _tFound=_tiposFicha.find(x=>x.id===_tipoIdActual);
+    if(_tFound){_tipoNombreMostrado=_tFound.nombre;_tipoColor='var(--text)';}
+    else{_tipoNombreMostrado='Tipo eliminado';_tipoColor='var(--danger)';}
+  }
+  h+='<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-top:8px">';
+  h+='<div class="text-xs text-muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Tipo actual</div>';
+  h+='<div style="font-size:16px;font-weight:700;color:'+_tipoColor+'">'+esc(_tipoNombreMostrado)+'</div>';
+  h+='</div>';
+  // Historial
+  const _hist=Array.isArray(emp.tipo_historial)?emp.tipo_historial.slice():[];
+  _hist.sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||'')));
+  h+='<div style="margin-top:10px">';
+  h+='<div class="text-xs text-muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Historial</div>';
+  if(!_hist.length){
+    h+='<p class="text-xs text-muted" style="font-style:italic">Sin historial de cambios</p>';
+  } else {
+    h+='<div style="display:flex;flex-direction:column;gap:6px">';
+    _hist.forEach(it=>{
+      const _nom=it&&it.tipo_nombre?it.tipo_nombre:(it&&it.tipo_id?'Tipo eliminado':'Sin asignar');
+      const _fec=it&&it.fecha?it.fecha:'—';
+      const _mot=it&&it.motivo?it.motivo:'—';
+      h+='<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:12px">'
+        +'<span style="font-family:monospace;color:var(--text-muted)">'+esc(_fec)+'</span>'
+        +' — <strong>'+esc(_nom)+'</strong>'
+        +' — <span style="color:var(--text-muted)">'+esc(_mot)+'</span>'
+        +'</div>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+
   const tallas=Object.entries(emp.tallas||{}).filter(([,v])=>v);
   if(tallas.length){
     h+='<div class="divider-label">Tallas capturadas</div>';
@@ -321,6 +382,18 @@ function saveEditEmp(id,_foto,getFoto){
   emp.estado=document.getElementById('eeEst')?.value||emp.estado;
   emp.perfilDotacion=document.getElementById('eePer')?.value||'AUTO';
   emp.foto=getFoto();
+  // Tipo de dotación + historial (Fase 1.3C)
+  const eeTipoEl=document.getElementById('eeTipo');
+  if(eeTipoEl){
+    const nuevoTipo=(eeTipoEl.value||'').trim();
+    const tipoAnterior=emp.tipo_dotacion||'';
+    if(nuevoTipo!==tipoAnterior){
+      if(!Array.isArray(emp.tipo_historial))emp.tipo_historial=[];
+      const t=getDotacionTipos().find(x=>x.id===nuevoTipo);
+      emp.tipo_historial.push({tipo_id:nuevoTipo,tipo_nombre:nuevoTipo?(t?t.nombre:nuevoTipo):'Sin asignar',fecha:new Date().toISOString().slice(0,10),motivo:'Cambio manual'});
+      emp.tipo_dotacion=nuevoTipo;
+    }
+  }
   const r=getReglas(emp);
   if(r.esFlexible){
     const tallas={};
