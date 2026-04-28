@@ -19,7 +19,7 @@ function _pushKV(key,value){
       import('./supabase-client.js').then(c=>c.upsertKV(key,value)).catch(()=>{});
   }).catch(()=>{});
 }
-const store={employees:[],proveedores:[],inventario:[],entregas:[],salidas:[],areas:[],stockExtra:{},auditLog:[],comprasAlmacen:[],campanias:[],stockUniformes:[],encuestas:[],articulos:[],skus:[],movimientosInventario:[],documentosEntrega:[],documentosDevolucion:[],productos:[],categorias:[],entradas:[],lineasEntrada:[],entregasNuevas:[],lineasEntrega:[],salidasNuevas:[],lineasSalida:[],devolucionesNuevas:[],lineasDevolucion:[],movimientos:[],dotaciones:[],dotacionTipos:[],dotacionKits:[],config:{dotacionVisible:true}};
+const store={employees:[],proveedores:[],inventario:[],entregas:[],salidas:[],areas:[],stockExtra:{},auditLog:[],comprasAlmacen:[],campanias:[],stockUniformes:[],encuestas:[],articulos:[],skus:[],movimientosInventario:[],documentosEntrega:[],documentosDevolucion:[],productos:[],categorias:[],entradas:[],lineasEntrada:[],entregasNuevas:[],lineasEntrega:[],salidasNuevas:[],lineasSalida:[],devolucionesNuevas:[],lineasDevolucion:[],movimientos:[],dotaciones:[],dotacionTipos:[],dotacionKits:[],dotacionTallas:[],config:{dotacionVisible:true}};
 function key(s){return STORAGE_KEY+(s||'');}
 function load(s,d){try{const r=localStorage.getItem(key(s));return r?JSON.parse(r):d;}catch(e){return d;}}
 function save(s,v){try{localStorage.setItem(key(s),JSON.stringify(v));return true;}catch(e){console.error('[STORAGE] No se pudo guardar',s,e);notify_storage_warn();return false;}}
@@ -60,6 +60,8 @@ export function init(REGLAS){
   store.dotaciones=load('_dotaciones',[]);
   store.dotacionTipos=load('_dotacion_tipos',[]);
   store.dotacionKits=load('_dotacion_kits',[]);
+  store.dotacionTallas=load('_dotacion_tallas',[]);
+  if(!Array.isArray(store.dotacionTallas))store.dotacionTallas=[];
   store.config=load('_config',{dotacionVisible:true});
   // Crear categorías iniciales si no existen
   if(!store.categorias.length){store.categorias=[{id:'cat-1',nombre:'Uniformes',icono:'👕',color:'#1d4ed8',orden:1,activa:true,fecha_creacion:new Date().toISOString()},{id:'cat-2',nombre:'Calzado',icono:'👟',color:'#7c3aed',orden:2,activa:true,fecha_creacion:new Date().toISOString()},{id:'cat-3',nombre:'Souvenirs',icono:'🎁',color:'#d97706',orden:3,activa:true,fecha_creacion:new Date().toISOString()},{id:'cat-4',nombre:'Despensa',icono:'🍪',color:'#b45309',orden:4,activa:true,fecha_creacion:new Date().toISOString()},{id:'cat-5',nombre:'Bebidas',icono:'☕',color:'#0891b2',orden:5,activa:true,fecha_creacion:new Date().toISOString()},{id:'cat-6',nombre:'Limpieza',icono:'🧹',color:'#059669',orden:6,activa:true,fecha_creacion:new Date().toISOString()},{id:'cat-7',nombre:'Papelería',icono:'📄',color:'#2563eb',orden:7,activa:true,fecha_creacion:new Date().toISOString()},{id:'cat-8',nombre:'Comedor',icono:'🍽️',color:'#dc2626',orden:8,activa:true,fecha_creacion:new Date().toISOString()},{id:'cat-9',nombre:'Mobiliario',icono:'🪑',color:'#475569',orden:9,activa:true,fecha_creacion:new Date().toISOString()},{id:'cat-10',nombre:'Herramientas',icono:'🔧',color:'#78716c',orden:10,activa:true,fecha_creacion:new Date().toISOString()},{id:'cat-11',nombre:'Otros',icono:'📦',color:'#64748b',orden:11,activa:true,fecha_creacion:new Date().toISOString()}];saveCategorias();}
@@ -102,6 +104,8 @@ export function saveDotacionTipos(){save('_dotacion_tipos',store.dotacionTipos);
 export function getDotacionTipos(){return store.dotacionTipos||[];}
 export function saveDotacionKits(){save('_dotacion_kits',store.dotacionKits);_push('dotacionKits',store.dotacionKits);}
 export function getDotacionKits(){return store.dotacionKits||[];}
+export function saveDotacionTallas(){save('_dotacion_tallas',store.dotacionTallas);_push('dotacionTallas',store.dotacionTallas);}
+export function getDotacionTallas(){return store.dotacionTallas||[];}
 export function getConfig(){return store.config||{dotacionVisible:true};}
 export function saveConfig(){save('_config',store.config);}
 export function setConfigDotacionVisible(visible){store.config=store.config||{};store.config.dotacionVisible=Boolean(visible);saveConfig();}

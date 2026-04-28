@@ -1,7 +1,8 @@
-import{esc,fmtMoney}from'./utils.js';
-import{getDotaciones,saveDotaciones,getDotacionTipos,saveDotacionTipos,getDotacionKits,saveDotacionKits,getStore}from'./storage.js';
+import{esc,fmtMoney,genId}from'./utils.js';
+import{getDotaciones,saveDotaciones,getDotacionTipos,saveDotacionTipos,getDotacionKits,saveDotacionKits,getDotacionTallas,saveDotacionTallas,getStore,saveEmployees,log}from'./storage.js';
 import{notify,modal,confirm as confirmDialog,buildNav}from'./ui.js';
 import{getProductos}from'./almacen-api.js';
+import{getAreaNames}from'./areas-config.js';
 
 function today(){return new Date().toISOString().slice(0,10);}
 function timestamp(){return Date.now();}
@@ -89,6 +90,11 @@ function renderTab(tab){
   if(tab==='kits'){
     wrap.innerHTML=renderKits();
     bindKits();
+    return;
+  }
+  if(tab==='captura'){
+    wrap.innerHTML=renderCaptura();
+    bindCaptura();
     return;
   }
   wrap.innerHTML='<div class="empty-state"><i class="fas fa-clock"></i><p>Próximamente</p></div>';
@@ -531,4 +537,590 @@ function doDuplicarKits(destino){
   modal.close();
   renderTab('kits');
   notify('Kits duplicados ('+origenKits.length+')','success');
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TAB CAPTURA DE TALLAS — Fase 2.1
+// Captura tallas dinámicas (key=producto_id) con firma digital JPEG
+// ════════════════════════════════════════════════════════════════════════
+
+// ── Estado del tab captura ──────────────────────────────────────────────
+let _capturaState={
+  dotacionId:null,           // dotación seleccionada
+  empleadoActual:null,       // empleado en captura
+  signatureCanvas:null,      // referencia al canvas
+  signatureCtx:null,
+  signatureDrawing:false,
+  signatureLastX:0,
+  signatureLastY:0,
+  signatureHasInk:false,     // bandera: se dibujó algo
+  tallasSeleccionadas:{}     // {producto_id: talla} - durante captura
+};
+
+// ── Inferencia de tallas según el nombre del producto ───────────────────
+function inferTallasParaProducto(producto){
+  const nombre=((producto?.nombre)||'').toLowerCase();
+  // Talla única: gorra, paraguas, toallas
+  if(/\b(gorra|paraguas|toalla)/i.test(nombre))return['unica'];
+  // Termo / vaso
+  if(/\b(termo|vaso)/i.test(nombre))return['termo','vaso'];
+  // Zapato tipo (bota o choclo) — debe ir antes que "zapato" genérico
+  if(/zapato.*\b(tipo|modelo)\b|\btipo\b.*zapato/i.test(nombre))return['bota','choclo'];
+  // Calzado: tenis, zapato, bota (talla numérica calzado)
+  if(/\b(tenis|zapato|bota|calzado)\b/i.test(nombre)&&!/tipo|modelo/i.test(nombre)){
+    return['24','25','26','27','28','29','30','31','32'];
+  }
+  // Pantalón → numérica de cintura
+  if(/pantal[oó]n/i.test(nombre)){
+    return['28','30','32','34','36','38','40'];
+  }
+  // Prendas extras (sudadera, chamarra, chaleco) → solo letras
+  if(/sudadera|chamarra|chaleco/i.test(nombre)){
+    return['XS','S','M','L','XL','XXL'];
+  }
+  // Ropa general (playera, polo, redonda, pants, chancla, etc.)
+  if(/playera|polo|redonda|pants|chancla|camisa|blusa|short|falda/i.test(nombre)){
+    return['XS','S','M','L','XL','XXL'];
+  }
+  // Default: opciones completas mixtas
+  return['XS','S','M','L','XL','XXL','28','30','32','34','36','38','40'];
+}
+
+// ── Helpers de progreso ─────────────────────────────────────────────────
+function empleadosActivos(){
+  const list=getStore().employees||[];
+  return list.filter(e=>{
+    const est=(e.estado||'activo').toLowerCase();
+    return!['baja','movimiento','incapacidad','incapacitado'].includes(est);
+  });
+}
+function tallasDeDotacion(dotId){
+  return getDotacionTallas().filter(t=>t.dotacion_id===dotId);
+}
+function progresoCaptura(dotId){
+  const cap=tallasDeDotacion(dotId).length;
+  const total=empleadosActivos().length;
+  return{capturados:cap,total,pendientes:Math.max(0,total-cap),pct:total?Math.round(cap*100/total):0};
+}
+function siguientePendiente(dotId){
+  const yaCap=new Set(tallasDeDotacion(dotId).map(t=>t.empleado_id));
+  return empleadosActivos().find(e=>!yaCap.has(e.id))||null;
+}
+function dotacionSeleccionada(){
+  if(_capturaState.dotacionId){
+    const d=findDotacion(_capturaState.dotacionId);
+    if(d)return d;
+  }
+  // Activa por defecto, si no, la más reciente
+  const lst=dotaciones().slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0));
+  const act=lst.find(d=>d.estado==='activa');
+  const sel=act||lst[0]||null;
+  if(sel)_capturaState.dotacionId=sel.id;
+  return sel;
+}
+
+// ── RENDER ──────────────────────────────────────────────────────────────
+function renderCaptura(){
+  const lstDot=dotaciones();
+  if(!lstDot.length){
+    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Primero crea una dotación</p><p class="text-sm text-muted">Ve al tab "Dotaciones" para crearla.</p></div>';
+  }
+  const dotSel=dotacionSeleccionada();
+  if(!dotSel){
+    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Selecciona una dotación válida</p></div>';
+  }
+  const prog=progresoCaptura(dotSel.id);
+  const sig=siguientePendiente(dotSel.id);
+  let h='';
+  // Header con selector y progreso
+  h+='<div class="flex justify-between items-start gap-3 mb-4" style="flex-wrap:wrap">';
+  h+='<div><h2 style="font-size:18px;margin:0">Captura de Tallas</h2><p class="text-sm text-muted">Registra tallas y firma del empleado</p></div>';
+  h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+  h+='<label class="form-label" style="margin:0">Dotación:</label>';
+  h+='<select class="form-input" id="capDotSel" style="width:auto;min-width:180px">';
+  lstDot.slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0)).forEach(d=>{
+    h+='<option value="'+esc(d.id)+'"'+(d.id===dotSel.id?' selected':'')+'>'+esc(d.nombre||('Dotación '+d.anio))+(d.estado==='activa'?' • ACTIVA':'')+'</option>';
+  });
+  h+='</select></div></div>';
+  // Progreso
+  h+='<div class="card mb-4" style="background:#f8fafc"><div class="card-body" style="padding:12px 16px">';
+  h+='<div class="flex justify-between items-center" style="flex-wrap:wrap;gap:10px">';
+  h+='<div><strong>Progreso:</strong> '+prog.capturados+'/'+prog.total+' capturados ('+prog.pct+'%)';
+  h+=' &nbsp;·&nbsp; <span class="text-muted">Pendientes: '+prog.pendientes+'</span></div>';
+  h+='<div style="display:flex;gap:8px">';
+  h+='<button class="btn btn-ghost btn-sm" id="capVerCap"><i class="fas fa-list"></i> Ver capturados</button>';
+  h+='<button class="btn btn-ghost btn-sm" id="capVerPend"><i class="fas fa-hourglass-half"></i> Ver pendientes</button>';
+  h+='</div></div>';
+  // Barra
+  h+='<div style="margin-top:8px;height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden">';
+  h+='<div style="height:100%;width:'+prog.pct+'%;background:#16a34a;transition:width .3s"></div>';
+  h+='</div></div></div>';
+  // Buscador + área de captura
+  h+='<div class="card"><div class="card-body">';
+  h+='<div class="form-row c2" style="align-items:end">';
+  h+='<div class="form-group"><label class="form-label">Buscar empleado por número *</label>';
+  h+='<input class="form-input" id="capEmpInput" placeholder="Ej. 001" autocomplete="off"></div>';
+  h+='<div style="display:flex;gap:8px"><button class="btn btn-primary" id="capEmpBuscar"><i class="fas fa-search"></i> Buscar</button>';
+  if(sig)h+='<button class="btn btn-ghost" id="capCargarSig" title="Cargar siguiente pendiente"><i class="fas fa-forward"></i> Siguiente pendiente</button>';
+  h+='</div></div>';
+  if(sig){
+    h+='<p class="text-sm text-muted mt-2"><i class="fas fa-lightbulb"></i> Sugerido: <strong>#'+esc(sig.id)+'</strong> '+esc(sig.nombre||'')+' '+esc(sig.paterno||'')+'</p>';
+  }
+  h+='<div id="capFichaWrap" class="mt-4"></div>';
+  h+='</div></div>';
+  return h;
+}
+
+// ── BIND principal ──────────────────────────────────────────────────────
+function bindCaptura(){
+  const sel=document.getElementById('capDotSel');
+  if(sel)sel.addEventListener('change',()=>{
+    _capturaState.dotacionId=sel.value;
+    _capturaState.empleadoActual=null;
+    _capturaState.tallasSeleccionadas={};
+    renderTab('captura');
+  });
+  document.getElementById('capEmpBuscar')?.addEventListener('click',()=>{
+    const v=(document.getElementById('capEmpInput')?.value||'').trim();
+    if(!v){notify('Escribe un número de empleado','warning');return;}
+    buscarEmpleadoCaptura(v);
+  });
+  document.getElementById('capEmpInput')?.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){
+      e.preventDefault();
+      const v=(e.target.value||'').trim();
+      if(v)buscarEmpleadoCaptura(v);
+    }
+  });
+  document.getElementById('capCargarSig')?.addEventListener('click',()=>{
+    const dot=dotacionSeleccionada();
+    if(!dot)return;
+    const sig=siguientePendiente(dot.id);
+    if(!sig){notify('No hay pendientes','info');return;}
+    document.getElementById('capEmpInput').value=sig.id;
+    abrirCapturaParaEmpleado(sig);
+  });
+  document.getElementById('capVerCap')?.addEventListener('click',()=>openListaCapturados());
+  document.getElementById('capVerPend')?.addEventListener('click',()=>openListaPendientes());
+}
+
+// ── Búsqueda ────────────────────────────────────────────────────────────
+function buscarEmpleadoCaptura(numero){
+  const num=String(numero||'').trim();
+  const emp=(getStore().employees||[]).find(e=>String(e.id||'')===num);
+  if(!emp){
+    // Empleado no encontrado → ofrecer crear
+    const wrap=document.getElementById('capFichaWrap');
+    if(wrap){
+      wrap.innerHTML='<div class="card" style="background:#fef3c7;border-color:#f59e0b"><div class="card-body">'
+        +'<p style="margin:0"><i class="fas fa-exclamation-triangle"></i> Empleado <strong>#'+esc(num)+'</strong> no encontrado.</p>'
+        +'<button class="btn btn-primary mt-3" id="capCrearNuevo"><i class="fas fa-user-plus"></i> Crear nuevo empleado</button>'
+        +'</div></div>';
+      document.getElementById('capCrearNuevo')?.addEventListener('click',()=>openCrearEmpleadoNuevo(num));
+    }
+    return;
+  }
+  abrirCapturaParaEmpleado(emp);
+}
+
+function abrirCapturaParaEmpleado(emp){
+  _capturaState.empleadoActual=emp;
+  _capturaState.tallasSeleccionadas={};
+  _capturaState.signatureHasInk=false;
+  // Validar tipo de dotación
+  if(!emp.tipo_dotacion){
+    renderFichaSinTipo(emp);
+    return;
+  }
+  renderFichaCaptura(emp);
+}
+
+// ── Si NO tiene tipo asignado → permite asignar ─────────────────────────
+function renderFichaSinTipo(emp){
+  const wrap=document.getElementById('capFichaWrap');
+  if(!wrap)return;
+  const tipos=getDotacionTipos();
+  let h='<div class="card" style="background:#fff7ed;border-color:#fb923c"><div class="card-body">';
+  h+='<h3 style="margin:0 0 8px;font-size:16px">#'+esc(emp.id)+' '+esc(emp.nombre||'')+' '+esc(emp.paterno||'')+'</h3>';
+  h+='<p style="margin:0 0 12px"><i class="fas fa-exclamation-triangle"></i> Este empleado no tiene <strong>tipo de dotación</strong> asignado.</p>';
+  if(!tipos.length){
+    h+='<p class="text-sm text-muted">No hay tipos configurados. Créalos en el tab <strong>Kits</strong> primero.</p>';
+  }else{
+    h+='<div class="form-row c2" style="align-items:end">';
+    h+='<div class="form-group"><label class="form-label">Asignar tipo *</label><select class="form-select" id="capAsignarTipo">';
+    h+='<option value="">— Selecciona —</option>';
+    tipos.forEach(t=>{h+='<option value="'+esc(t.id)+'">'+esc(t.nombre)+'</option>';});
+    h+='</select></div>';
+    h+='<div><button class="btn btn-primary" id="capAsignarBtn"><i class="fas fa-check"></i> Asignar y continuar</button></div>';
+    h+='</div>';
+  }
+  h+='</div></div>';
+  wrap.innerHTML=h;
+  document.getElementById('capAsignarBtn')?.addEventListener('click',()=>{
+    const tipoId=(document.getElementById('capAsignarTipo')?.value||'').trim();
+    if(!tipoId){notify('Selecciona un tipo','warning');return;}
+    asignarTipoYContinuar(emp,tipoId);
+  });
+}
+
+function asignarTipoYContinuar(emp,tipoId){
+  const t=getDotacionTipos().find(x=>x.id===tipoId);
+  if(!t){notify('Tipo no encontrado','error');return;}
+  emp.tipo_dotacion=tipoId;
+  if(!Array.isArray(emp.tipo_historial))emp.tipo_historial=[];
+  emp.tipo_historial.push({
+    tipo_id:tipoId,
+    tipo_nombre:t.nombre,
+    fecha:today(),
+    motivo:'Asignación en captura de tallas'
+  });
+  saveEmployees();
+  log('TIPO_DOTACION','Empleado #'+emp.id+' → '+t.nombre,'DOTACION');
+  notify('Tipo asignado: '+t.nombre,'success');
+  renderFichaCaptura(emp);
+}
+
+// ── Ficha de captura ────────────────────────────────────────────────────
+function renderFichaCaptura(emp){
+  const wrap=document.getElementById('capFichaWrap');
+  if(!wrap)return;
+  const dot=dotacionSeleccionada();
+  if(!dot){notify('No hay dotación seleccionada','error');return;}
+  const tipo=getDotacionTipos().find(t=>t.id===emp.tipo_dotacion);
+  const kit=findKit(emp.tipo_dotacion,dot.anio);
+  if(!tipo){
+    wrap.innerHTML='<div class="empty-state"><i class="fas fa-times-circle"></i><p>Tipo de dotación no encontrado</p></div>';
+    return;
+  }
+  if(!kit||!Array.isArray(kit.items)||!kit.items.length){
+    wrap.innerHTML='<div class="empty-state"><i class="fas fa-box-open"></i><p>El tipo "'+esc(tipo.nombre)+'" no tiene kit configurado para el año '+dot.anio+'</p><p class="text-sm text-muted">Configúralo en el tab <strong>Kits</strong>.</p></div>';
+    return;
+  }
+  // Cargar tallas previas si existen
+  const tallaId='tal-'+emp.id+'-'+dot.id;
+  const previo=getDotacionTallas().find(t=>t.id===tallaId);
+  _capturaState.tallasSeleccionadas=(previo&&previo.tallas)?{...previo.tallas}:{};
+  // Render
+  let h='<div class="card"><div class="card-body">';
+  // Datos del empleado
+  h+='<div class="flex justify-between items-start gap-3" style="flex-wrap:wrap">';
+  h+='<div><h3 style="margin:0 0 4px;font-size:17px">#'+esc(emp.id)+' '+esc(emp.nombre||'')+' '+esc(emp.paterno||'')+' '+esc(emp.materno||'')+'</h3>';
+  h+='<div class="text-sm text-muted">';
+  h+='Tipo: <strong>'+esc(tipo.nombre)+'</strong> &nbsp;·&nbsp; ';
+  h+='Área: <strong>'+esc(emp.area||'—')+'</strong> &nbsp;·&nbsp; ';
+  h+='Estatus: <strong>'+esc((emp.estado||'activo').toUpperCase())+'</strong>';
+  h+='</div></div>';
+  if(previo)h+='<span class="badge badge-info">Recaptura</span>';
+  h+='</div>';
+  // Tallas dinámicas según kit
+  h+='<div class="divider-label mt-4">Tallas</div>';
+  h+='<div class="form-row c3" id="capTallasGrid">';
+  kit.items.forEach(item=>{
+    const prod=getProductos().find(p=>p.id===item.producto_id);
+    const opciones=inferTallasParaProducto(prod);
+    const valActual=_capturaState.tallasSeleccionadas[item.producto_id]||'';
+    h+='<div class="form-group">';
+    h+='<label class="form-label">'+esc(item.nombre||prod?.nombre||'Producto')+(item.cantidad>1?' (×'+item.cantidad+')':'')+'</label>';
+    h+='<select class="form-select cap-talla-sel" data-prod="'+esc(item.producto_id)+'">';
+    h+='<option value="">— Seleccionar —</option>';
+    opciones.forEach(op=>{h+='<option value="'+esc(op)+'"'+(valActual===op?' selected':'')+'>'+esc(op)+'</option>';});
+    h+='</select></div>';
+  });
+  h+='</div>';
+  // Confirmación + firma
+  h+='<div class="mt-4" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px">';
+  h+='<p style="margin:0 0 8px;font-size:13px"><i class="fas fa-pen-fancy"></i> "Confirmo que estas son mis tallas"</p>';
+  h+='<div id="capSigContainer" style="border:2px dashed #cbd5e1;border-radius:8px;background:#fff"><canvas id="capSigCanvas" style="display:block;width:100%;height:200px;cursor:crosshair;touch-action:none"></canvas></div>';
+  if(previo&&previo.firma){
+    h+='<div class="mt-2 text-xs text-muted"><i class="fas fa-info-circle"></i> Firma anterior registrada el '+esc((previo.fecha_captura||'').slice(0,16).replace('T',' '))+'. Vuelve a firmar para reemplazar.</div>';
+  }
+  h+='<div class="mt-2"><button class="btn btn-ghost btn-sm" id="capSigClear"><i class="fas fa-eraser"></i> Limpiar firma</button></div>';
+  h+='</div>';
+  h+='<div class="mt-4 flex gap-2" style="flex-wrap:wrap">';
+  h+='<button class="btn btn-primary" id="capGuardar"><i class="fas fa-save"></i> Guardar</button>';
+  h+='<button class="btn btn-ghost" id="capCancelar"><i class="fas fa-times"></i> Cancelar</button>';
+  h+='</div>';
+  h+='</div></div>';
+  wrap.innerHTML=h;
+  // Bind tallas
+  wrap.querySelectorAll('.cap-talla-sel').forEach(s=>{
+    s.addEventListener('change',()=>{
+      const pid=s.dataset.prod;
+      const val=(s.value||'').trim();
+      if(val)_capturaState.tallasSeleccionadas[pid]=val;
+      else delete _capturaState.tallasSeleccionadas[pid];
+    });
+  });
+  // Inicializar firma
+  initFirmaCanvas();
+  document.getElementById('capSigClear')?.addEventListener('click',clearFirmaCanvas);
+  document.getElementById('capCancelar')?.addEventListener('click',()=>{
+    _capturaState.empleadoActual=null;
+    _capturaState.tallasSeleccionadas={};
+    document.getElementById('capFichaWrap').innerHTML='';
+    const inp=document.getElementById('capEmpInput');if(inp)inp.value='';
+  });
+  document.getElementById('capGuardar')?.addEventListener('click',guardarTallas);
+}
+
+// ── Firma digital (canvas optimizado, JPEG calidad 0.5) ─────────────────
+function initFirmaCanvas(){
+  const c=document.getElementById('capSigCanvas');
+  if(!c)return;
+  // Tamaño interno: 400x200 según especificación
+  c.width=400;
+  c.height=200;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,c.width,c.height);
+  ctx.strokeStyle='#0f172a';
+  ctx.lineWidth=2;
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+  _capturaState.signatureCanvas=c;
+  _capturaState.signatureCtx=ctx;
+  _capturaState.signatureDrawing=false;
+  _capturaState.signatureHasInk=false;
+  function toCanvas(cx,cy){
+    const r=c.getBoundingClientRect();
+    return{x:(cx-r.left)*(c.width/r.width),y:(cy-r.top)*(c.height/r.height)};
+  }
+  function down(e){
+    _capturaState.signatureDrawing=true;
+    const p=toCanvas(e.clientX,e.clientY);
+    _capturaState.signatureLastX=p.x;_capturaState.signatureLastY=p.y;
+  }
+  function move(e){
+    if(!_capturaState.signatureDrawing)return;
+    const p=toCanvas(e.clientX,e.clientY);
+    ctx.beginPath();
+    ctx.moveTo(_capturaState.signatureLastX,_capturaState.signatureLastY);
+    ctx.lineTo(p.x,p.y);
+    ctx.stroke();
+    _capturaState.signatureLastX=p.x;_capturaState.signatureLastY=p.y;
+    _capturaState.signatureHasInk=true;
+  }
+  function up(){_capturaState.signatureDrawing=false;}
+  c.addEventListener('mousedown',down);
+  c.addEventListener('mousemove',move);
+  c.addEventListener('mouseup',up);
+  c.addEventListener('mouseleave',up);
+  c.addEventListener('touchstart',e=>{e.preventDefault();if(!e.touches[0])return;const t=e.touches[0];down({clientX:t.clientX,clientY:t.clientY});},{passive:false});
+  c.addEventListener('touchmove',e=>{e.preventDefault();if(!e.touches[0])return;const t=e.touches[0];move({clientX:t.clientX,clientY:t.clientY});},{passive:false});
+  c.addEventListener('touchend',e=>{e.preventDefault();up();},{passive:false});
+}
+
+function clearFirmaCanvas(){
+  const c=_capturaState.signatureCanvas;
+  const ctx=_capturaState.signatureCtx;
+  if(!c||!ctx)return;
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,c.width,c.height);
+  _capturaState.signatureHasInk=false;
+}
+
+function getFirmaJPEG(){
+  const c=_capturaState.signatureCanvas;
+  if(!c)return null;
+  // Calidad 0.5 → archivo liviano
+  return c.toDataURL('image/jpeg',0.5);
+}
+
+// ── Guardar tallas ──────────────────────────────────────────────────────
+function guardarTallas(){
+  const emp=_capturaState.empleadoActual;
+  const dot=dotacionSeleccionada();
+  if(!emp||!dot){notify('Faltan datos','error');return;}
+  if(!_capturaState.signatureHasInk){
+    notify('La firma es obligatoria','warning');
+    return;
+  }
+  const firma=getFirmaJPEG();
+  if(!firma){notify('No se pudo capturar la firma','error');return;}
+  const tallas={...(_capturaState.tallasSeleccionadas||{})};
+  if(!Object.keys(tallas).length){
+    if(!confirmDialog('No has seleccionado ninguna talla. ¿Guardar de todos modos?'))return;
+  }
+  const id='tal-'+emp.id+'-'+dot.id;
+  const nombreCompleto=[emp.nombre||'',emp.paterno||'',emp.materno||''].join(' ').replace(/\s+/g,' ').trim();
+  const usuario=(()=>{try{const u=JSON.parse(localStorage.getItem('_user')||'{}');return u.name||u.id||'admin';}catch(e){return'admin';}})();
+  const reg={
+    id,
+    dotacion_id:dot.id,
+    empleado_id:emp.id,
+    empleado_nombre:nombreCompleto,
+    tipo_dotacion:emp.tipo_dotacion||'',
+    tallas,
+    firma,
+    fecha_captura:new Date().toISOString(),
+    capturado_por:usuario
+  };
+  const list=getStore().dotacionTallas;
+  const idx=list.findIndex(t=>t.id===id);
+  let recap=false;
+  if(idx>=0){list[idx]=reg;recap=true;}
+  else list.push(reg);
+  saveDotacionTallas();
+  log('CAPTURA_TALLAS','Empleado #'+emp.id+(recap?' (recaptura)':'')+' — '+Object.keys(tallas).length+' tallas','DOTACION');
+  notify('Tallas guardadas para #'+emp.id+' '+(emp.nombre||''),'success');
+  // Reset y mostrar siguiente sugerido
+  _capturaState.empleadoActual=null;
+  _capturaState.tallasSeleccionadas={};
+  _capturaState.signatureHasInk=false;
+  renderTab('captura');
+}
+
+// ── Crear empleado nuevo desde captura ──────────────────────────────────
+function openCrearEmpleadoNuevo(numeroSugerido){
+  const areas=getAreaNames();
+  const tipos=getDotacionTipos();
+  const body=''
+    +'<div class="form-row c2">'
+    +'<div class="form-group"><label class="form-label">Número *</label><input class="form-input" id="cneId" value="'+esc(numeroSugerido||'')+'"></div>'
+    +'<div class="form-group"><label class="form-label">Área *</label><select class="form-select" id="cneArea">'+areas.map(a=>'<option>'+esc(a)+'</option>').join('')+'</select></div>'
+    +'<div class="form-group"><label class="form-label">Nombre(s) *</label><input class="form-input" id="cneNom"></div>'
+    +'<div class="form-group"><label class="form-label">Apellido paterno</label><input class="form-input" id="cnePat"></div>'
+    +'<div class="form-group"><label class="form-label">Apellido materno</label><input class="form-input" id="cneMat"></div>'
+    +'<div class="form-group"><label class="form-label">Tipo de dotación</label><select class="form-select" id="cneTipo">'
+    +'<option value="">— Sin asignar —</option>'
+    +tipos.map(t=>'<option value="'+esc(t.id)+'">'+esc(t.nombre)+'</option>').join('')
+    +'</select></div>'
+    +'</div>';
+  modal.open('Crear empleado nuevo',body,'<button class="btn btn-ghost" id="cneCancel">Cancelar</button><button class="btn btn-primary" id="cneSave">Guardar y capturar</button>','md');
+  document.getElementById('cneCancel').addEventListener('click',()=>modal.close());
+  document.getElementById('cneSave').addEventListener('click',saveCrearEmpleadoNuevo);
+  setTimeout(()=>document.getElementById('cneNom')?.focus(),100);
+}
+
+function saveCrearEmpleadoNuevo(){
+  const id=(document.getElementById('cneId')?.value||'').trim()||genId();
+  const nom=(document.getElementById('cneNom')?.value||'').trim();
+  if(!nom){notify('El nombre es obligatorio','warning');return;}
+  // VALIDAR DUPLICADO
+  if((getStore().employees||[]).some(e=>String(e.id||'')===String(id))){
+    notify('Ya existe un empleado con este número','error');
+    return;
+  }
+  const tipoId=(document.getElementById('cneTipo')?.value||'').trim();
+  const tipoHist=[];
+  if(tipoId){
+    const t=getDotacionTipos().find(x=>x.id===tipoId);
+    tipoHist.push({tipo_id:tipoId,tipo_nombre:t?t.nombre:tipoId,fecha:today(),motivo:'Alta desde captura tallas'});
+  }
+  const nuevo={
+    id,
+    nombre:nom,
+    paterno:(document.getElementById('cnePat')?.value||'').trim(),
+    materno:(document.getElementById('cneMat')?.value||'').trim(),
+    area:document.getElementById('cneArea')?.value||'PLANTA',
+    estado:'activo',
+    tallas:{},
+    perfilDotacion:'AUTO',
+    foto:null,
+    tipo_dotacion:tipoId,
+    tipo_historial:tipoHist
+  };
+  getStore().employees.push(nuevo);
+  saveEmployees();
+  log('ALTA',nom+' (#'+id+') desde captura tallas','DOTACION');
+  modal.close();
+  notify('Empleado creado','success');
+  // Pre-llenar input y abrir captura
+  const inp=document.getElementById('capEmpInput');if(inp)inp.value=id;
+  abrirCapturaParaEmpleado(nuevo);
+}
+
+// ── Lista de capturados ─────────────────────────────────────────────────
+function openListaCapturados(){
+  const dot=dotacionSeleccionada();
+  if(!dot)return;
+  const cap=tallasDeDotacion(dot.id).slice().sort((a,b)=>String(a.empleado_id).localeCompare(String(b.empleado_id),undefined,{numeric:true}));
+  const tipos=getDotacionTipos();
+  let h='';
+  h+='<div class="form-group"><label class="form-label">Filtrar por tipo</label><select class="form-select" id="capFiltroTipo"><option value="">Todos</option>';
+  tipos.forEach(t=>{h+='<option value="'+esc(t.id)+'">'+esc(t.nombre)+'</option>';});
+  h+='</select></div>';
+  h+='<div id="capListaCapWrap" style="max-height:400px;overflow:auto"></div>';
+  modal.open('Capturados — '+esc(dot.nombre||('Dotación '+dot.anio)),h,'<button class="btn btn-ghost" id="capLcCerrar">Cerrar</button>','lg');
+  document.getElementById('capLcCerrar').addEventListener('click',()=>modal.close());
+  function pintar(filtro){
+    const data=cap.filter(t=>!filtro||t.tipo_dotacion===filtro);
+    const wrap=document.getElementById('capListaCapWrap');
+    if(!wrap)return;
+    if(!data.length){
+      wrap.innerHTML='<div class="empty-state" style="padding:18px"><i class="fas fa-inbox"></i><p>Sin capturas</p></div>';
+      return;
+    }
+    let html='<table class="dt"><thead><tr><th>#</th><th>Nombre</th><th>Tipo</th><th>Fecha</th><th>Firma</th></tr></thead><tbody>';
+    data.forEach(t=>{
+      const tipo=tipos.find(x=>x.id===t.tipo_dotacion);
+      html+='<tr>';
+      html+='<td class="font-mono text-xs">'+esc(t.empleado_id)+'</td>';
+      html+='<td>'+esc(t.empleado_nombre||'')+'</td>';
+      html+='<td>'+esc(tipo?.nombre||t.tipo_dotacion||'—')+'</td>';
+      html+='<td class="text-xs">'+esc((t.fecha_captura||'').slice(0,16).replace('T',' '))+'</td>';
+      html+='<td>'+(t.firma?'<img src="'+t.firma+'" style="height:30px;border:1px solid #e5e7eb;border-radius:4px;background:#fff">':'—')+'</td>';
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+    wrap.innerHTML=html;
+  }
+  pintar('');
+  document.getElementById('capFiltroTipo')?.addEventListener('change',e=>pintar(e.target.value||''));
+}
+
+// ── Lista de pendientes ─────────────────────────────────────────────────
+function openListaPendientes(){
+  const dot=dotacionSeleccionada();
+  if(!dot)return;
+  const yaCap=new Set(tallasDeDotacion(dot.id).map(t=>t.empleado_id));
+  const tipos=getDotacionTipos();
+  const pendientes=empleadosActivos().filter(e=>!yaCap.has(e.id))
+    .sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
+  let h='';
+  h+='<div class="form-group"><label class="form-label">Filtrar por tipo</label><select class="form-select" id="capFiltroTipoP"><option value="">Todos</option>';
+  tipos.forEach(t=>{h+='<option value="'+esc(t.id)+'">'+esc(t.nombre)+'</option>';});
+  h+='<option value="__sin__">Sin tipo asignado</option>';
+  h+='</select></div>';
+  h+='<div id="capListaPendWrap" style="max-height:400px;overflow:auto"></div>';
+  modal.open('Pendientes — '+esc(dot.nombre||('Dotación '+dot.anio)),h,'<button class="btn btn-ghost" id="capLpCerrar">Cerrar</button>','lg');
+  document.getElementById('capLpCerrar').addEventListener('click',()=>modal.close());
+  function pintar(filtro){
+    let data=pendientes;
+    if(filtro==='__sin__')data=data.filter(e=>!e.tipo_dotacion);
+    else if(filtro)data=data.filter(e=>e.tipo_dotacion===filtro);
+    const wrap=document.getElementById('capListaPendWrap');
+    if(!wrap)return;
+    if(!data.length){
+      wrap.innerHTML='<div class="empty-state" style="padding:18px"><i class="fas fa-check-circle"></i><p>Todos capturados</p></div>';
+      return;
+    }
+    let html='<table class="dt"><thead><tr><th>#</th><th>Nombre</th><th>Área</th><th>Tipo</th><th></th></tr></thead><tbody>';
+    data.forEach(e=>{
+      const tipo=tipos.find(x=>x.id===e.tipo_dotacion);
+      html+='<tr>';
+      html+='<td class="font-mono text-xs">'+esc(e.id)+'</td>';
+      html+='<td><a href="#" class="cap-pend-go" data-id="'+esc(e.id)+'" style="color:#1d4ed8;text-decoration:none;font-weight:600">'+esc(e.nombre||'')+' '+esc(e.paterno||'')+'</a></td>';
+      html+='<td class="text-xs">'+esc(e.area||'—')+'</td>';
+      html+='<td class="text-xs">'+esc(tipo?.nombre||(e.tipo_dotacion?e.tipo_dotacion:'Sin tipo'))+'</td>';
+      html+='<td><button class="btn btn-ghost btn-sm cap-pend-go" data-id="'+esc(e.id)+'"><i class="fas fa-pen"></i> Capturar</button></td>';
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+    wrap.innerHTML=html;
+    wrap.querySelectorAll('.cap-pend-go').forEach(b=>{
+      b.addEventListener('click',ev=>{
+        ev.preventDefault();
+        const id=b.dataset.id;
+        const emp=(getStore().employees||[]).find(x=>x.id===id);
+        if(!emp)return;
+        modal.close();
+        const inp=document.getElementById('capEmpInput');if(inp)inp.value=id;
+        abrirCapturaParaEmpleado(emp);
+      });
+    });
+  }
+  pintar('');
+  document.getElementById('capFiltroTipoP')?.addEventListener('change',e=>pintar(e.target.value||''));
 }
