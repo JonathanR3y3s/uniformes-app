@@ -17,6 +17,7 @@ const views={dashboard:{render:renderDashboard,init:initDashboard},empleados:{re
 let currentView='dashboard';
 function navigate(v){currentView=v;history.pushState({v},'','#'+v);buildNav(currentView);render();}
 function render(){destroyCharts();const m=document.getElementById('mainContent');const view=views[currentView]||views.dashboard;m.innerHTML=view.render();if(view.init)view.init();}
-window.addEventListener('popstate',e=>{const v=(e.state&&e.state.v)||location.hash.slice(1)||'dashboard';currentView=views[v]?v:'dashboard';buildNav(currentView);render();});
+window.addEventListener('popstate',e=>{const v=(e.state&&e.state.v)||location.hash.slice(1)||'dashboard';currentView=views[v]?v:'dashboard';buildNav(currentView);// No hay detach/cleanup global; render() limpia charts antes de pintar.
+render();});
 (async function(){initStorage(REGLAS);initUserRoles();if(!initAuth()){return;}initDeliveryEvidence();await initOfflineStorage().catch(e=>console.warn('[OFFLINE]',e));const role=getUserRole();const isOp=role==='operador';const defView=isOp?'empleados':'dashboard';const _v=location.hash.slice(1)||defView;currentView=(views[_v]&&!(isOp&&_v==='dashboard')&&!(role==='consulta'&&_v==='admin'))?_v:defView;buildNav(currentView);setupEvents(navigate);render();console.log('[ASSA ABLOY] Sistema de Uniformes v'+VERSION+' — Listo.');// Iniciar sync con Supabase en segundo plano (no bloquea UI)
 initSync().catch(e=>console.warn('[SYNC] Error al iniciar:',e));})();

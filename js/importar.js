@@ -212,7 +212,7 @@ function handleRestoreFile(file){
     try{
       const bk=JSON.parse(e.target.result);
       previewRestore(bk);
-    }catch(err){notify('Archivo inválido o corrupto: '+err.message,'error');}
+    }catch(err){notify('Archivo inválido o corrupto: '+err.message,'error');return;}
   };
   reader.readAsText(file);
 }

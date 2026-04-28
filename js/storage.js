@@ -97,15 +97,21 @@ export function setStockExtra(prenda,talla,cantidad){if(!store.stockExtra[prenda
 /** Genera snapshot completo para backup */
 export function buildBackup(){
   const s=store;
+  let users=[];
+  let areasRules={};
+  let catalogoProveedores=[];
+  try{users=JSON.parse(localStorage.getItem('_users_store')||'[]');}catch(e){users=[];}
+  try{areasRules=JSON.parse(localStorage.getItem('_areas_rules')||'{}');}catch(e){areasRules={};}
+  try{catalogoProveedores=JSON.parse(localStorage.getItem('_cats_provs')||'[]');}catch(e){catalogoProveedores=[];}
   return{
     _meta:{version:VERSION,exportedAt:new Date().toISOString(),counts:{employees:s.employees.length,entregas:s.entregas.length,proveedores:s.proveedores.length,inventario:s.inventario.length,salidas:s.salidas.length,comprasAlmacen:s.comprasAlmacen.length,campanias:s.campanias.length,stockUniformes:s.stockUniformes.length,encuestas:s.encuestas.length,auditLog:s.auditLog.length}},
     employees:s.employees,proveedores:s.proveedores,inventario:s.inventario,
     entregas:s.entregas,salidas:s.salidas,stockExtra:s.stockExtra,areas:s.areas,
     auditLog:s.auditLog,comprasAlmacen:s.comprasAlmacen,campanias:s.campanias,
     stockUniformes:s.stockUniformes,encuestas:s.encuestas,
-    users:JSON.parse(localStorage.getItem('_users_store')||'[]'),
-    areasRules:JSON.parse(localStorage.getItem('_areas_rules')||'{}'),
-    catalogoProveedores:JSON.parse(localStorage.getItem('_cats_provs')||'[]'),
+    users:users,
+    areasRules:areasRules,
+    catalogoProveedores:catalogoProveedores,
   };
 }
 /** Restaura desde backup validado — retorna {ok,errors[]} */
