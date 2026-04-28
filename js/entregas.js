@@ -7,7 +7,7 @@ import { getStore, saveEntregasNuevas } from './storage.js';
 import { esc, fmtDate } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
-import { getEntregasNuevas, registrarEntregaNueva, getProductos } from './almacen-api.js';
+import { getEntregasNuevas, registrarEntregaNueva, getProductos, createProducto } from './almacen-api.js';
 
 let _entregasWizardHandler = null;
 
@@ -16,6 +16,15 @@ function detachEntregasWizardHandler() {
     document.removeEventListener('click', _entregasWizardHandler, true);
     _entregasWizardHandler = null;
   }
+}
+
+function getTallaLinea(producto, linea) {
+  if (!producto || !linea) return '';
+  if (linea.variante_id) {
+    const variante = (producto.variantes || []).find(v => v.id === linea.variante_id);
+    return variante?.talla || variante?.nombre || '';
+  }
+  return linea.talla || '';
 }
 
 export function render() {
@@ -92,7 +101,7 @@ function renderEntregas() {
     entregasNuevas.forEach(e => {
       const lineas = getStore().lineasEntrega.filter(l => l.entrega_id === e.id);
       const piezas = lineas.reduce((s, l) => s + l.cantidad, 0);
-      const firmaIcon = (e.firma_recibe || e.firma) ? '<i class="fas fa-check" style="color:#4ade80"></i>' : '—';
+      const firmaIcon = (e.firma_recibe || e.firma) ? '<i class="fas fa-check" style="color:#4ade80"></i>' : '<span style="background:#7f1d1d;color:#fecaca;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px">SIN FIRMA</span>';
       const recibe = e.quien_recibe || e.empleado_nombre || '—';
 
       html += `
@@ -158,6 +167,46 @@ function openNuevaEntrega() {
     firma: null,
   };
 
+  function getStockDisponible(producto, varianteId = null) {
+    if (!producto) return 0;
+    if (varianteId) {
+      const variante = (producto.variantes || []).find(v => v.id === varianteId);
+      return variante ? Number(variante.stock_actual) || 0 : 0;
+    }
+    if (producto.es_por_variante) return (producto.variantes || []).reduce((s, v) => s + (Number(v.stock_actual) || 0), 0);
+    return Number(producto.stock_actual) || 0;
+  }
+
+  function getTallaLinea(producto, linea) {
+    if (!producto || !linea) return '';
+    if (linea.variante_id) {
+      const variante = (producto.variantes || []).find(v => v.id === linea.variante_id);
+      return variante?.talla || variante?.nombre || '';
+    }
+    return linea.talla || '';
+  }
+
+  function validarLineasStock() {
+    for (const linea of datos.lineas) {
+      const producto = getStore().productos.find(p => p.id === linea.producto_id);
+      const stock = getStockDisponible(producto, linea.variante_id || null);
+      const talla = getTallaLinea(producto, linea);
+      if (!producto || stock < linea.cantidad) {
+        notify('Sin stock de ' + (producto?.nombre || 'producto') + (talla ? ' talla ' + talla : ''), 'error');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function canvasTieneFirma(canvas) {
+    if (!canvas) return false;
+    const ctx = canvas.getContext('2d');
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let i = 3; i < data.length; i += 4) if (data[i] > 0) return true;
+    return false;
+  }
+
   showPaso();
 
   function showPaso() {
@@ -215,8 +264,23 @@ function openNuevaEntrega() {
       const productoTipo = datos.tipo_entrega === 'consumible' ? 'consumible' : 'personal';
       const productos = getProductos({ soloEntregables: true, tipo: productoTipo });
       body = `
-        <input type="text" id="searchProd" placeholder="Buscar producto..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
+        <input type="text" id="searchProd" placeholder="Buscar producto por nombre o SKU..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
         <div id="prodList" style="max-height:150px;overflow-y:auto;margin-bottom:12px"></div>
+        <div id="prodSelectedBox" style="margin-bottom:12px"></div>
+        <div id="quickProductBox" style="display:none;margin-bottom:12px;padding:10px;background:#111;border:1px solid #444;border-radius:4px">
+          <p class="font-bold" style="margin-bottom:8px">Agregar producto al catálogo</p>
+          <input type="text" id="quickProdNombre" placeholder="Nombre" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
+          <input type="text" id="quickProdSku" placeholder="SKU / referencia" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
+          <select id="quickProdTipo" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
+            <option value="personal">Personal</option>
+            <option value="consumible">Consumible</option>
+          </select>
+          <select id="quickProdCategoria" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
+            ${(getStore().categorias || []).filter(c => c.activa !== false).map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('')}
+          </select>
+          <button class="btn btn-primary" id="btnCrearProductoRapido" style="width:100%"><i class="fas fa-box"></i> Crear producto</button>
+          <p class="text-xs text-muted" style="margin-top:6px">La API genera el SKU interno automáticamente.</p>
+        </div>
         <input type="number" id="cantidad" min="1" value="1" placeholder="Cantidad" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
         <button class="btn btn-success" id="btnAgregar" style="width:100%"><i class="fas fa-plus"></i> Agregar</button>
         <div id="lineasList" style="margin-top:12px;max-height:200px;overflow-y:auto"></div>
@@ -312,27 +376,106 @@ function openNuevaEntrega() {
       });
     } else if (paso === 3) {
       const productoTipo = datos.tipo_entrega === 'consumible' ? 'consumible' : 'personal';
-      const productos = getProductos({ soloEntregables: true, tipo: productoTipo });
+      let productos = getProductos({ soloEntregables: true, tipo: productoTipo });
       let selectedProd = null;
+      let selectedVarianteId = null;
+      let selectedTalla = '';
+
+      function renderProductoSeleccionado() {
+        const box = document.getElementById('prodSelectedBox');
+        if (!box) return;
+        if (!selectedProd) {
+          box.innerHTML = '';
+          return;
+        }
+        const tipo = selectedProd.tipo || 'personal';
+        let extra = '';
+        if (tipo !== 'consumible') {
+          if (selectedProd.es_por_variante && (selectedProd.variantes || []).length) {
+            extra = `<label>Talla</label><select id="varianteProd" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-top:4px">${selectedProd.variantes.map(v => `<option value="${v.id}">${esc(v.talla || v.nombre || 'Sin talla')} — ${Number(v.stock_actual) || 0} disp.</option>`).join('')}</select>`;
+          } else {
+            extra = '<label>Talla</label><input type="text" id="tallaManual" placeholder="Talla" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-top:4px">';
+          }
+        }
+        box.innerHTML = `<div style="padding:10px;background:#111;border:1px solid #444;border-radius:4px"><p><strong>${esc(selectedProd.nombre)}</strong> <small style="color:#999">${esc(selectedProd.sku || '')}</small></p><p class="text-xs text-muted">Stock disponible: ${getStockDisponible(selectedProd)}</p>${extra}</div>`;
+        document.getElementById('varianteProd')?.addEventListener('change', e => {
+          selectedVarianteId = e.target.value;
+          const v = (selectedProd.variantes || []).find(x => x.id === selectedVarianteId);
+          selectedTalla = v?.talla || v?.nombre || '';
+        });
+        const firstVar = document.getElementById('varianteProd')?.value;
+        if (firstVar) {
+          selectedVarianteId = firstVar;
+          const v = (selectedProd.variantes || []).find(x => x.id === selectedVarianteId);
+          selectedTalla = v?.talla || v?.nombre || '';
+        }
+      }
+
+      function showQuickCreate(q) {
+        if (!window.confirm('Producto no encontrado. ¿Deseas agregarlo al catálogo?')) return;
+        const box = document.getElementById('quickProductBox');
+        if (box) box.style.display = 'block';
+        const name = document.getElementById('quickProdNombre');
+        const sku = document.getElementById('quickProdSku');
+        if (name) name.value = q || '';
+        if (sku && !sku.value) sku.value = q || '';
+      }
 
       document.getElementById('searchProd')?.addEventListener('keyup', (e) => {
-        const q = e.target.value.toLowerCase();
-        const filtered = productos.filter(p => p.nombre.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)).slice(0, 10);
+        const q = e.target.value.toLowerCase().trim();
+        const filtered = q ? productos.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q)).slice(0, 10) : [];
         let html = '';
         filtered.forEach(p => {
-          const stock = p.es_por_variante ? (p.variantes || []).reduce((s, v) => s + (v.stock_actual || 0), 0) : (p.stock_actual || 0);
+          const stock = getStockDisponible(p);
           const tipoLabel = (p.tipo || 'personal') === 'consumible' ? 'Consumible' : 'Personal';
-          html += `<div class="prod-item" style="cursor:pointer;padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;font-size:13px" data-prod-id="${p.id}"><strong>${esc(p.nombre)}</strong> <small style="color:#999">${tipoLabel}</small> (${stock} disponibles)</div>`;
+          html += `<div class="prod-item" style="cursor:pointer;padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;font-size:13px" data-prod-id="${p.id}"><strong>${esc(p.nombre)}</strong> <small style="color:#999">${esc(p.sku || '')} · ${tipoLabel}</small> (${stock} disponibles)</div>`;
         });
+        if (q && !filtered.length) html = '<button class="btn btn-secondary" id="btnProductoNoExiste" style="width:100%">Producto no encontrado. ¿Deseas agregarlo al catálogo?</button>';
         document.getElementById('prodList').innerHTML = html;
 
         document.querySelectorAll('.prod-item').forEach(item => {
           item.addEventListener('click', () => {
             selectedProd = productos.find(p => p.id === item.dataset.prodId);
+            selectedVarianteId = null;
+            selectedTalla = '';
             document.getElementById('searchProd').value = selectedProd ? selectedProd.nombre : '';
             document.getElementById('prodList').innerHTML = '';
+            renderProductoSeleccionado();
           });
         });
+        document.getElementById('btnProductoNoExiste')?.addEventListener('click', () => showQuickCreate(e.target.value.trim()));
+      });
+
+      document.getElementById('btnCrearProductoRapido')?.addEventListener('click', () => {
+        const nombre = (document.getElementById('quickProdNombre')?.value || '').trim();
+        const skuRef = (document.getElementById('quickProdSku')?.value || '').trim();
+        const tipo = document.getElementById('quickProdTipo')?.value || productoTipo;
+        const categoria_id = document.getElementById('quickProdCategoria')?.value || '';
+        if (!nombre) {
+          notify('Escribe el nombre del producto', 'warning');
+          return;
+        }
+        if (!categoria_id) {
+          notify('Selecciona una categoría', 'warning');
+          return;
+        }
+        selectedProd = createProducto({
+          nombre,
+          categoria_id,
+          descripcion: skuRef ? 'SKU / referencia sugerida: ' + skuRef : '',
+          unidad: 'pieza',
+          tipo,
+          es_entregable: true,
+          es_por_variante: false,
+          stock_minimo: 0,
+        });
+        productos = getProductos({ soloEntregables: true, tipo });
+        selectedVarianteId = null;
+        selectedTalla = '';
+        document.getElementById('quickProductBox').style.display = 'none';
+        document.getElementById('searchProd').value = selectedProd.nombre;
+        renderProductoSeleccionado();
+        notify('Producto creado. Recuerda que inicia sin stock.', 'success');
       });
 
       document.getElementById('btnAgregar')?.addEventListener('click', () => {
@@ -345,21 +488,39 @@ function openNuevaEntrega() {
           notify('Cantidad inválida', 'error');
           return;
         }
+        const tipoProd = selectedProd.tipo || 'personal';
+        if (tipoProd !== 'consumible') {
+          if (selectedProd.es_por_variante && (selectedProd.variantes || []).length) {
+            selectedVarianteId = document.getElementById('varianteProd')?.value || selectedVarianteId;
+            const variante = (selectedProd.variantes || []).find(v => v.id === selectedVarianteId);
+            selectedTalla = variante?.talla || variante?.nombre || '';
+          } else {
+            selectedTalla = (document.getElementById('tallaManual')?.value || '').trim();
+          }
+          if (!selectedTalla) {
+            notify('Selecciona o escribe talla', 'warning');
+            return;
+          }
+        } else {
+          selectedVarianteId = null;
+          selectedTalla = '';
+        }
 
-        const stockDisp = selectedProd.es_por_variante
-          ? (selectedProd.variantes || []).reduce((s, v) => s + (v.stock_actual || 0), 0)
-          : (selectedProd.stock_actual || 0);
+        const stockDisp = getStockDisponible(selectedProd, selectedVarianteId);
 
         if (cant > stockDisp) {
-          notify(`Stock insuficiente (disponible: ${stockDisp})`, 'error');
+          notify('Sin stock de ' + selectedProd.nombre + (selectedTalla ? ' talla ' + selectedTalla : ''), 'error');
           return;
         }
 
-        datos.lineas.push({ producto_id: selectedProd.id, cantidad: cant });
+        datos.lineas.push({ producto_id: selectedProd.id, variante_id: selectedVarianteId || null, talla: selectedTalla, cantidad: cant, observaciones: selectedTalla ? 'Talla: ' + selectedTalla : '' });
         notify('Producto agregado', 'success');
         selectedProd = null;
+        selectedVarianteId = null;
+        selectedTalla = '';
         document.getElementById('searchProd').value = '';
         document.getElementById('cantidad').value = '1';
+        document.getElementById('prodSelectedBox').innerHTML = '';
         renderLineas();
       });
 
@@ -367,9 +528,22 @@ function openNuevaEntrega() {
         let html = '';
         datos.lineas.forEach((l, idx) => {
           const p = getStore().productos.find(x => x.id === l.producto_id);
-          html += `<div style="padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;display:flex;justify-content:space-between"><span>${p ? esc(p.nombre) : '?'} x${l.cantidad}</span><button class="btn-icon btn-danger" onclick="removeLinea(${idx})" style="padding:2px 6px"><i class="fas fa-trash"></i></button></div>`;
+          const talla = getTallaLinea(p, l);
+          html += `<div style="padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;display:flex;gap:8px;align-items:center;justify-content:space-between"><span>${p ? esc(p.nombre) : '?'}${talla ? ' T:' + esc(talla) : ''}</span><input type="number" min="1" value="${l.cantidad}" data-linea-idx="${idx}" class="linea-cantidad" style="width:70px;padding:4px;border:1px solid #444;border-radius:4px;background:#111;color:#fff"><button class="btn-icon btn-danger" onclick="removeLinea(${idx})" style="padding:2px 6px"><i class="fas fa-trash"></i></button></div>`;
         });
         document.getElementById('lineasList').innerHTML = html;
+        document.querySelectorAll('.linea-cantidad').forEach(inp => {
+          inp.addEventListener('change', e => {
+            const idx = parseInt(e.target.dataset.lineaIdx, 10);
+            const val = parseInt(e.target.value || '0', 10);
+            if (val <= 0) {
+              notify('Cantidad inválida', 'error');
+              e.target.value = datos.lineas[idx].cantidad;
+              return;
+            }
+            datos.lineas[idx].cantidad = val;
+          });
+        });
       }
 
       window.removeLinea = (idx) => {
@@ -427,7 +601,10 @@ function openNuevaEntrega() {
     }
     if (e.target.id === 'btnSig') {
       if (paso === 3 && datos.lineas.length === 0) {
-        notify('Agrega al menos un producto', 'warning');
+        notify('Agrega al menos un artículo', 'warning');
+        return;
+      }
+      if (paso === 3 && !validarLineasStock()) {
         return;
       }
       if (paso === 1 && datos.tipo_entrega === 'personal' && !datos.empleado_id) {
@@ -437,6 +614,13 @@ function openNuevaEntrega() {
       if (paso === 1 && datos.tipo_receptor === 'empleado' && datos.tipo_entrega !== 'consumible' && !datos.empleado_id) {
         notify('Selecciona un empleado', 'warning');
         return;
+      }
+      if (paso === 1 && datos.tipo_receptor === 'empleado' && datos.tipo_entrega !== 'consumible') {
+        const empActivo = empleados.find(e => e.id === datos.empleado_id && e.estado === 'activo');
+        if (!empActivo) {
+          notify('Empleado inactivo o no encontrado', 'error');
+          return;
+        }
       }
       if (paso === 1 && datos.tipo_receptor === 'ocasional') {
         const nombreOcasional = (document.getElementById('receptorOcasionalNombre')?.value || datos.receptor_ocasional?.nombre || '').trim();
@@ -467,8 +651,19 @@ function openNuevaEntrega() {
       // Capturar firma del canvas si existe y no se marcó "sin firma"
       const sinFirma = document.getElementById('sinFirma')?.checked;
       const signCanvas = document.getElementById('signaturePad');
-      if (signCanvas && !sinFirma) {
+      const tieneFirma = signCanvas && !sinFirma && canvasTieneFirma(signCanvas);
+      if (tieneFirma) {
         datos.firma = signCanvas.toDataURL('image/png');
+      } else {
+        datos.firma = null;
+        notify('ENTREGA SIN FIRMA', 'warning');
+      }
+      if (datos.lineas.length === 0) {
+        notify('Agrega al menos un artículo', 'warning');
+        return;
+      }
+      if (!validarLineasStock()) {
+        return;
       }
       const resultado = registrarEntregaNueva({
         empleado_id: datos.empleado_id,
@@ -496,6 +691,7 @@ function openNuevaEntrega() {
         tipo_entrega: datos.tipo_entrega,
         motivo: datos.motivo || '',
         observaciones: datos.observaciones || '',
+        entrega_sin_firma: !datos.firma,
       });
       saveEntregasNuevas();
 
@@ -524,6 +720,7 @@ function openDetalleEntrega(id) {
     <p><strong>Área:</strong> ${esc(entrega.area)}</p>
     <p><strong>Motivo:</strong> ${esc(entrega.motivo)}</p>
     <p><strong>Observaciones:</strong> ${esc(entrega.observaciones || '—')}</p>
+    ${!(entrega.firma_recibe || entrega.firma) ? '<p><span style="background:#7f1d1d;color:#fecaca;font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px">ENTREGA SIN FIRMA</span></p>' : ''}
     <p><strong>Fecha:</strong> ${fmtDate(entrega.fecha_hora)}</p>
     <p><strong>Entregado por:</strong> ${esc(entrega.entregado_por)}</p>
 
@@ -533,7 +730,8 @@ function openDetalleEntrega(id) {
       <tbody>
         ${lineas.map(l => {
           const p = getStore().productos.find(x => x.id === l.producto_id);
-          return `<tr><td>${p ? esc(p.nombre) : '?'}</td><td style="text-align:center">${l.cantidad}</td></tr>`;
+          const talla = getTallaLinea(p, l);
+          return `<tr><td>${p ? esc(p.nombre) : '?'}${talla ? ' · T:' + esc(talla) : ''}</td><td style="text-align:center">${l.cantidad}</td></tr>`;
         }).join('')}
         <tr style="font-weight:bold"><td>Total Piezas</td><td style="text-align:center">${piezas}</td></tr>
       </tbody>
@@ -577,6 +775,7 @@ function imprimirRecibo(id) {
         <tr><td><strong>Área:</strong></td><td>${esc(entrega.area)}</td></tr>
         <tr><td><strong>Motivo:</strong></td><td>${esc(entrega.motivo)}</td></tr>
         <tr><td><strong>Obs.:</strong></td><td>${esc(entrega.observaciones || '—')}</td></tr>
+        ${!(entrega.firma_recibe || entrega.firma) ? '<tr><td><strong>Firma:</strong></td><td>ENTREGA SIN FIRMA</td></tr>' : ''}
         <tr><td><strong>Fecha:</strong></td><td>${fmtDate(entrega.fecha_hora)}</td></tr>
       </table>
 
@@ -585,7 +784,8 @@ function imprimirRecibo(id) {
         <tr style="font-weight: bold; border-bottom: 2px solid #000;"><td>Producto</td><td style="text-align: right;">Cant</td></tr>
         ${lineas.map(l => {
           const p = getStore().productos.find(x => x.id === l.producto_id);
-          return `<tr><td>${p ? esc(p.nombre) : '?'}</td><td style="text-align: right;">${l.cantidad}</td></tr>`;
+          const talla = getTallaLinea(p, l);
+          return `<tr><td>${p ? esc(p.nombre) : '?'}${talla ? ' · T:' + esc(talla) : ''}</td><td style="text-align: right;">${l.cantidad}</td></tr>`;
         }).join('')}
         <tr class="total"><td>Total</td><td style="text-align: right;">${piezas}</td></tr>
       </table>
