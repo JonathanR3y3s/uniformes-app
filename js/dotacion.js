@@ -1,5 +1,5 @@
 import{esc,fmtMoney,genId}from'./utils.js';
-import{getDotaciones,saveDotaciones,getDotacionTipos,saveDotacionTipos,getDotacionKits,saveDotacionKits,getDotacionTallas,saveDotacionTallas,getStore,saveEmployees,log}from'./storage.js';
+import{getDotaciones,saveDotaciones,getDotacionTipos,saveDotacionTipos,getDotacionKits,saveDotacionKits,getDotacionTallas,saveDotacionTallas,getDotacionConfig,saveDotacionConfig,getStore,saveEmployees,log}from'./storage.js';
 import{notify,modal,confirm as confirmDialog,buildNav}from'./ui.js';
 import{getProductos}from'./almacen-api.js';
 import{getAreaNames}from'./areas-config.js';
@@ -61,6 +61,7 @@ export function render(){
           <button class="tab active" data-tab="dotaciones">Dotaciones</button>
           <button class="tab" data-tab="kits">Kits</button>
           <button class="tab" data-tab="captura">Captura Tallas</button>
+          <button class="tab" data-tab="concentrado">Concentrado</button>
           <button class="tab" data-tab="entrega">Entrega</button>
         </div>
         <div id="dotTabContent" class="mt-4"></div>
@@ -95,6 +96,11 @@ function renderTab(tab){
   if(tab==='captura'){
     wrap.innerHTML=renderCaptura();
     bindCaptura();
+    return;
+  }
+  if(tab==='concentrado'){
+    wrap.innerHTML=renderConcentrado();
+    bindConcentrado();
     return;
   }
   wrap.innerHTML='<div class="empty-state"><i class="fas fa-clock"></i><p>Próximamente</p></div>';
@@ -1159,4 +1165,403 @@ function openListaPendientes(){
   }
   pintar('');
   document.getElementById('capFiltroTipoP')?.addEventListener('change',e=>pintar(e.target.value||''));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TAB CONCENTRADO — Fase 2.2
+// Concentrado automático para compras
+// ════════════════════════════════════════════════════════════════════════
+
+let _concentradoDotacionId=null;
+let _concentradoUltimo=null;
+
+function dotacionConcentradoSeleccionada(){
+  const lista=dotaciones().slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0));
+  if(_concentradoDotacionId){
+    const d=findDotacion(_concentradoDotacionId);
+    if(d)return d;
+  }
+  const act=lista.find(d=>d.estado==='activa');
+  const sel=act||lista[0]||null;
+  if(sel)_concentradoDotacionId=sel.id;
+  return sel;
+}
+
+function renderConcentrado(){
+  const lista=dotaciones();
+  if(!lista.length){
+    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Primero crea una dotación</p><p class="text-sm text-muted">Ve al tab "Dotaciones" para crearla.</p></div>';
+  }
+  const cfg=getDotacionConfig();
+  const dot=dotacionConcentradoSeleccionada();
+  const data=calcularConcentrado(dot?.id,Number(cfg.buffer_stock));
+  _concentradoUltimo=data;
+  let h='';
+  h+='<div class="flex justify-between items-start gap-3 mb-4" style="flex-wrap:wrap">';
+  h+='<div><h2 style="font-size:18px;margin:0">Concentrado de Compras</h2><p class="text-sm text-muted">Costo estimado con precios actuales</p></div>';
+  h+='<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">';
+  h+='<div class="form-group" style="margin:0"><label class="form-label">Dotación</label><select class="form-input" id="concDotSel" style="min-width:220px">';
+  lista.slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0)).forEach(d=>{
+    h+='<option value="'+esc(d.id)+'"'+(dot&&d.id===dot.id?' selected':'')+'>'+esc(d.nombre||('Dotación '+d.anio))+(d.estado==='activa'?' • ACTIVA':'')+'</option>';
+  });
+  h+='</select></div>';
+  h+='<div class="form-group" style="margin:0"><label class="form-label">Buffer stock</label><div style="display:flex;align-items:center;gap:6px"><input class="form-input" id="concBuffer" type="number" min="0" step="1" value="'+Number(data.buffer_stock||0)+'" style="width:90px;text-align:right"><span class="text-sm text-muted">%</span></div></div>';
+  h+='<button class="btn btn-success" id="concExportExcel"><i class="fas fa-file-excel"></i> Exportar Excel</button>';
+  h+='<button class="btn btn-ghost" id="concExportPdf"><i class="fas fa-file-pdf"></i> Exportar PDF</button>';
+  h+='</div></div>';
+  if(data.warnings.length){
+    h+='<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:10px 12px;margin-bottom:14px;color:#9a3412;font-size:13px">';
+    h+=data.warnings.map(w=>'<div>'+esc(w)+'</div>').join('');
+    h+='</div>';
+  }
+  h+=renderConcentradoResumen(data);
+  h+=renderConcentradoDetalle(data);
+  return h;
+}
+
+function bindConcentrado(){
+  document.getElementById('concDotSel')?.addEventListener('change',e=>{
+    _concentradoDotacionId=e.target.value;
+    renderTab('concentrado');
+  });
+  document.getElementById('concBuffer')?.addEventListener('input',e=>{
+    const cfg=getDotacionConfig();
+    const val=Math.max(0,Number(e.target.value)||0);
+    cfg.buffer_stock=val;
+    saveDotacionConfig();
+    renderTab('concentrado');
+  });
+  document.getElementById('concExportExcel')?.addEventListener('click',exportarConcentradoExcel);
+  document.getElementById('concExportPdf')?.addEventListener('click',exportarConcentradoPDF);
+}
+
+function renderConcentradoResumen(data){
+  const s=data.resumen;
+  const items=[
+    ['Empleados capturados',s.empleados_capturados],
+    ['Empleados totales',s.empleados_totales],
+    ['Cobertura %',s.cobertura_pct+'%'],
+    ['Total prendas necesarias',s.total_prendas],
+    ['Total con buffer',s.total_con_buffer],
+    ['Stock actual disponible',s.stock_actual],
+    ['Total a comprar',s.total_a_comprar],
+    ['Estimado total',fmtMoney(s.estimado_total)],
+    ['Productos sin precio',s.productos_sin_precio]
+  ];
+  let h='<div class="grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">';
+  items.forEach(([label,value])=>{
+    h+='<div class="card" style="margin:0;background:#f8fafc"><div class="card-body" style="padding:12px">';
+    h+='<div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700">'+esc(label)+'</div>';
+    h+='<div style="font-size:22px;font-weight:800;margin-top:4px">'+esc(String(value))+'</div>';
+    h+='</div></div>';
+  });
+  h+='</div>';
+  h+='<div class="text-xs text-muted mb-3"><i class="fas fa-info-circle"></i> Costo estimado con precios actuales. Los productos sin precio se excluyen del total financiero.</div>';
+  return h;
+}
+
+function renderConcentradoDetalle(data){
+  if(!data.detalle.length){
+    return '<div class="empty-state"><i class="fas fa-table"></i><p>Sin datos de concentrado</p><p class="text-sm text-muted">Configura kits y captura tallas para generar el concentrado.</p></div>';
+  }
+  let h='<div class="card"><div class="card-head"><h3>Detalle por producto/talla</h3><span class="text-sm text-muted">'+data.detalle.length+' líneas</span></div>';
+  h+='<div class="table-wrap"><table class="dt"><thead><tr>';
+  ['Producto','Talla','Necesario','Buffer','Total','Stock','A Comprar','Costo Unitario','Subtotal','Advertencias'].forEach(th=>{h+='<th>'+th+'</th>';});
+  h+='</tr></thead><tbody>';
+  data.detalle.forEach(r=>{
+    h+='<tr>';
+    h+='<td><strong>'+esc(r.producto)+'</strong><div class="text-xs text-muted">'+esc(r.proveedor||'Sin proveedor')+'</div></td>';
+    h+='<td><span class="badge badge-info">'+esc(r.talla)+'</span></td>';
+    h+='<td style="text-align:right">'+r.necesario+'</td>';
+    h+='<td style="text-align:right">'+r.buffer+'</td>';
+    h+='<td style="text-align:right;font-weight:700">'+r.total+'</td>';
+    h+='<td style="text-align:right">'+r.stock+'</td>';
+    h+='<td style="text-align:right;font-weight:800;color:#1d4ed8">'+r.a_comprar+'</td>';
+    h+='<td style="text-align:right">'+(r.sin_precio?'<span style="color:#b45309">⚠ Sin precio</span>':fmtMoney(r.costo_unitario))+'</td>';
+    h+='<td style="text-align:right">'+(r.sin_precio?'—':fmtMoney(r.subtotal))+'</td>';
+    h+='<td class="text-xs">'+(r.advertencias.length?r.advertencias.map(a=>'<div style="color:#b45309">'+esc(a)+'</div>').join(''):'—')+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div></div>';
+  return h;
+}
+
+function calcularConcentrado(dotacionId,bufferStock){
+  const dot=findDotacion(dotacionId);
+  const buffer=Number.isFinite(Number(bufferStock))?Math.max(0,Number(bufferStock)):30;
+  const fecha=new Date();
+  const empleados=empleadosActivos();
+  const capturas=dot?tallasDeDotacion(dot.id):[];
+  const capturadosSet=new Set(capturas.map(c=>String(c.empleado_id)));
+  const empleadosPorTipo=new Map();
+  empleados.forEach(emp=>{
+    const tipo=emp.tipo_dotacion||'';
+    if(!empleadosPorTipo.has(tipo))empleadosPorTipo.set(tipo,[]);
+    empleadosPorTipo.get(tipo).push(emp);
+  });
+  const capturasPorTipo=new Map();
+  capturas.forEach(cap=>{
+    const tipo=cap.tipo_dotacion||'';
+    if(!capturasPorTipo.has(tipo))capturasPorTipo.set(tipo,[]);
+    capturasPorTipo.get(tipo).push(cap);
+  });
+  const productos=getProductos();
+  const productosById=new Map(productos.map(p=>[p.id,p]));
+  const rows=new Map();
+  const warnings=[];
+  if(!dot){
+    return concentradoVacio(buffer,fecha,['Selecciona una dotación válida']);
+  }
+  const kitsAnio=kits().filter(k=>Number(k.anio)===Number(dot.anio));
+  if(!kitsAnio.length)warnings.push('No hay kits configurados para el año '+dot.anio);
+  kitsAnio.forEach(kit=>{
+    const tipoId=kit.tipo_id||'';
+    const empleadosTipo=empleadosPorTipo.get(tipoId)||[];
+    const capturasTipo=capturasPorTipo.get(tipoId)||[];
+    (kit.items||[]).forEach(item=>{
+      const producto=productosById.get(item.producto_id)||null;
+      const productoNombre=item.nombre||producto?.nombre||'Producto';
+      const cantidad=Math.max(0,Number(item.cantidad)||0);
+      if(!cantidad)return;
+      if(esProductoSinTalla(producto,item)){
+        acumularConcentrado(rows,producto,item,'Única',empleadosTipo.length*cantidad);
+        return;
+      }
+      const porTalla=new Map();
+      capturasTipo.forEach(cap=>{
+        const talla=normalizarTallaConcentrado(cap.tallas?.[item.producto_id]);
+        if(!talla)return;
+        porTalla.set(talla,(porTalla.get(talla)||0)+cantidad);
+      });
+      if(!porTalla.size)return;
+      porTalla.forEach((necesario,talla)=>acumularConcentrado(rows,producto,{...item,nombre:productoNombre},talla,necesario));
+    });
+  });
+  const detalle=Array.from(rows.values()).map(base=>finalizarLineaConcentrado(base,buffer));
+  detalle.sort((a,b)=>a.producto.localeCompare(b.producto,'es')||a.talla.localeCompare(b.talla,'es',undefined,{numeric:true}));
+  const sinPrecio=new Set(detalle.filter(r=>r.sin_precio).map(r=>r.producto_id));
+  const resumen={
+    dotacion:dot.nombre||('Dotación '+dot.anio),
+    anio:dot.anio||'',
+    fecha_generacion:fecha.toLocaleString('es-MX'),
+    empleados_totales:empleados.length,
+    empleados_capturados:capturadosSet.size,
+    cobertura_pct:empleados.length?Math.round((capturadosSet.size/empleados.length)*100):0,
+    total_prendas:detalle.reduce((t,r)=>t+r.necesario,0),
+    total_con_buffer:detalle.reduce((t,r)=>t+r.total,0),
+    stock_actual:detalle.reduce((t,r)=>t+r.stock,0),
+    total_a_comprar:detalle.reduce((t,r)=>t+r.a_comprar,0),
+    estimado_total:detalle.reduce((t,r)=>t+(r.sin_precio?0:r.subtotal),0),
+    buffer_aplicado:buffer,
+    productos_sin_precio:sinPrecio.size
+  };
+  return{dotacion:dot,buffer_stock:buffer,fecha,detalle,resumen,warnings};
+}
+
+function concentradoVacio(buffer,fecha,warnings){
+  return{
+    dotacion:null,
+    buffer_stock:buffer,
+    fecha,
+    detalle:[],
+    resumen:{
+      dotacion:'—',anio:'—',fecha_generacion:fecha.toLocaleString('es-MX'),
+      empleados_totales:0,empleados_capturados:0,cobertura_pct:0,total_prendas:0,
+      total_con_buffer:0,stock_actual:0,total_a_comprar:0,estimado_total:0,
+      buffer_aplicado:buffer,productos_sin_precio:0
+    },
+    warnings
+  };
+}
+
+function acumularConcentrado(rows,producto,item,talla,necesario){
+  const productoId=item.producto_id||producto?.id||'';
+  const key=productoId+'__'+talla;
+  if(!rows.has(key)){
+    rows.set(key,{
+      producto_id:productoId,
+      producto:item.nombre||producto?.nombre||'Producto',
+      producto_obj:producto,
+      talla,
+      necesario:0
+    });
+  }
+  rows.get(key).necesario+=necesario;
+}
+
+function finalizarLineaConcentrado(base,bufferStock){
+  const producto=base.producto_obj;
+  const buffer=Math.ceil(base.necesario*(bufferStock/100));
+  const total=base.necesario+buffer;
+  const stockInfo=obtenerStockConcentrado(producto,base.talla);
+  const aComprar=Math.max(0,total-stockInfo.stock);
+  const costo=Number(producto?.costo_promedio);
+  const sinPrecio=!Number.isFinite(costo)||costo<=0;
+  const advertencias=[...stockInfo.advertencias];
+  if(sinPrecio)advertencias.push('⚠ Sin precio');
+  return{
+    producto_id:base.producto_id,
+    producto:base.producto,
+    talla:base.talla,
+    necesario:base.necesario,
+    buffer,
+    total,
+    stock:stockInfo.stock,
+    a_comprar:aComprar,
+    costo_unitario:sinPrecio?0:costo,
+    subtotal:sinPrecio?0:aComprar*costo,
+    sin_precio:sinPrecio,
+    proveedor:proveedorProducto(producto),
+    advertencias
+  };
+}
+
+function esProductoSinTalla(producto,item){
+  const nombre=((producto?.nombre||item?.nombre||'')+'').toLowerCase();
+  if(/\b(paraguas|termo|vaso|toalla|gorra|unitalla)\b/i.test(nombre))return true;
+  if(esTallaUnica(producto?.talla)||esTallaUnica(producto?.talla_default)||esTallaUnica(item?.talla))return true;
+  const variantes=Array.isArray(producto?.variantes)?producto.variantes:[];
+  return variantes.length===1&&esTallaUnica(variantes[0]?.talla);
+}
+
+function esTallaUnica(v){
+  const t=normalizarTallaConcentrado(v).toLowerCase();
+  return t==='unica'||t==='única'||t==='unitalla'||t==='sin talla';
+}
+
+function normalizarTallaConcentrado(v){
+  const s=String(v||'').trim();
+  if(!s)return'';
+  const low=s.toLowerCase();
+  if(low==='unica'||low==='única'||low==='unitalla')return'Única';
+  if(low==='sin talla')return'Sin talla';
+  return s;
+}
+
+function tallaKey(v){
+  return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+}
+
+function obtenerStockConcentrado(producto,talla){
+  if(!producto)return{stock:0,advertencias:[]};
+  const advertencias=[];
+  const variantes=Array.isArray(producto.variantes)?producto.variantes:[];
+  const usaTalla=!(talla==='Única'||talla==='Sin talla');
+  if(variantes.length){
+    const variante=variantes.find(v=>tallaKey(v.talla)===tallaKey(talla)||tallaKey(v.nombre)===tallaKey(talla));
+    return{stock:Number(variante?.stock_actual)||0,advertencias};
+  }
+  const stock=Number(producto.stock_actual)||0;
+  if(usaTalla)advertencias.push('⚠ Stock no segmentado por talla — usando total');
+  return{stock,advertencias};
+}
+
+function proveedorProducto(producto){
+  return(producto?.proveedor_frecuente||producto?.proveedor||producto?.proveedor_nombre||'Sin proveedor').trim()||'Sin proveedor';
+}
+
+function exportarConcentradoExcel(){
+  const data=_concentradoUltimo||calcularConcentrado(dotacionConcentradoSeleccionada()?.id,Number(getDotacionConfig().buffer_stock));
+  if(!window.XLSX){notify('SheetJS no está disponible para exportar Excel','error');return;}
+  const wb=window.XLSX.utils.book_new();
+  const s=data.resumen;
+  const resumenRows=[
+    {Campo:'Dotación',Valor:s.dotacion},
+    {Campo:'Año',Valor:s.anio},
+    {Campo:'Fecha generación',Valor:s.fecha_generacion},
+    {Campo:'Total empleados',Valor:s.empleados_totales},
+    {Campo:'Empleados capturados',Valor:s.empleados_capturados},
+    {Campo:'Cobertura %',Valor:s.cobertura_pct},
+    {Campo:'Total prendas',Valor:s.total_prendas},
+    {Campo:'Total con buffer',Valor:s.total_con_buffer},
+    {Campo:'Stock actual',Valor:s.stock_actual},
+    {Campo:'A comprar',Valor:s.total_a_comprar},
+    {Campo:'Estimado total',Valor:s.estimado_total},
+    {Campo:'Buffer aplicado',Valor:s.buffer_aplicado+'%'},
+    {Campo:'Productos sin precio',Valor:s.productos_sin_precio}
+  ];
+  const detalleRows=data.detalle.map(r=>({
+    Producto:r.producto,
+    Talla:r.talla,
+    Necesario:r.necesario,
+    Buffer:r.buffer,
+    Total:r.total,
+    Stock:r.stock,
+    'A Comprar':r.a_comprar,
+    'Costo Unitario':r.sin_precio?'Sin precio':r.costo_unitario,
+    Subtotal:r.sin_precio?0:r.subtotal,
+    Advertencias:r.advertencias.join(' | ')
+  }));
+  const provMap=new Map();
+  data.detalle.forEach(r=>{
+    const key=r.proveedor||'Sin proveedor';
+    if(!provMap.has(key))provMap.set(key,{Proveedor:key,productos:new Set(),'Total unidades':0,'Total costo':0});
+    const row=provMap.get(key);
+    row.productos.add(r.producto);
+    row['Total unidades']+=r.a_comprar;
+    row['Total costo']+=r.sin_precio?0:r.subtotal;
+  });
+  const proveedorRows=Array.from(provMap.values()).map(r=>({
+    Proveedor:r.Proveedor,
+    Productos:Array.from(r.productos).join(', '),
+    'Total unidades':r['Total unidades'],
+    'Total costo':r['Total costo']
+  }));
+  const fecha=data.fecha.toLocaleString('es-MX');
+  const snapshotRows=data.detalle.map(r=>({
+    Producto:r.producto,
+    'Costo utilizado':r.sin_precio?'Sin precio':r.costo_unitario,
+    'Fecha generación':fecha,
+    Nota:'Costos al '+fecha+'. Sujetos a cambio.'
+  }));
+  window.XLSX.utils.book_append_sheet(wb,window.XLSX.utils.json_to_sheet(resumenRows),'Resumen');
+  window.XLSX.utils.book_append_sheet(wb,window.XLSX.utils.json_to_sheet(detalleRows),'Detalle');
+  window.XLSX.utils.book_append_sheet(wb,window.XLSX.utils.json_to_sheet(proveedorRows),'Por Proveedor');
+  window.XLSX.utils.book_append_sheet(wb,window.XLSX.utils.json_to_sheet(snapshotRows),'Snapshot de Costos');
+  const anio=s.anio||today();
+  window.XLSX.writeFile(wb,'concentrado_compras_'+anio+'_'+today()+'.xlsx');
+  notify('Excel generado con 4 hojas','success');
+}
+
+function exportarConcentradoPDF(){
+  const data=_concentradoUltimo||calcularConcentrado(dotacionConcentradoSeleccionada()?.id,Number(getDotacionConfig().buffer_stock));
+  prepararEstilosPrintConcentrado();
+  const prev=document.getElementById('dotConcentradoPrintArea');
+  if(prev)prev.remove();
+  const area=document.createElement('div');
+  area.id='dotConcentradoPrintArea';
+  area.innerHTML=htmlPrintConcentrado(data);
+  document.body.appendChild(area);
+  const cleanup=()=>{setTimeout(()=>area.remove(),300);window.removeEventListener('afterprint',cleanup);};
+  window.addEventListener('afterprint',cleanup);
+  window.print();
+  setTimeout(()=>{if(document.body.contains(area))area.remove();},3000);
+}
+
+function prepararEstilosPrintConcentrado(){
+  if(document.getElementById('dotConcentradoPrintStyle'))return;
+  const st=document.createElement('style');
+  st.id='dotConcentradoPrintStyle';
+  st.textContent='@media print{body>*:not(#dotConcentradoPrintArea){display:none!important}#dotConcentradoPrintArea{display:block!important;padding:18px;font-family:Inter,Arial,sans-serif;color:#111827}#dotConcentradoPrintArea table{width:100%;border-collapse:collapse;font-size:11px}#dotConcentradoPrintArea th,#dotConcentradoPrintArea td{border:1px solid #d1d5db;padding:5px;text-align:left}#dotConcentradoPrintArea th{background:#f3f4f6}.print-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0}.print-kpi{border:1px solid #d1d5db;padding:7px}.print-kpi strong{display:block;font-size:16px;margin-top:2px}}#dotConcentradoPrintArea{display:none}';
+  document.head.appendChild(st);
+}
+
+function htmlPrintConcentrado(data){
+  const s=data.resumen;
+  let h='<h1 style="margin:0 0 4px;font-size:22px">Concentrado de Compras</h1>';
+  h+='<div style="font-size:12px;color:#4b5563;margin-bottom:10px">'+esc(s.dotacion)+' · Año '+esc(String(s.anio))+' · '+esc(s.fecha_generacion)+'</div>';
+  h+='<div class="print-grid">';
+  [
+    ['Total empleados',s.empleados_totales],['Capturados',s.empleados_capturados],['Cobertura',s.cobertura_pct+'%'],
+    ['Total prendas',s.total_prendas],['Total con buffer',s.total_con_buffer],['Stock actual',s.stock_actual],
+    ['A comprar',s.total_a_comprar],['Estimado total',fmtMoney(s.estimado_total)],['Sin precio',s.productos_sin_precio]
+  ].forEach(([label,value])=>{h+='<div class="print-kpi">'+esc(label)+'<strong>'+esc(String(value))+'</strong></div>';});
+  h+='</div>';
+  h+='<p style="font-size:11px;color:#4b5563">Costo estimado con precios actuales. Buffer aplicado: '+esc(String(s.buffer_aplicado))+'%.</p>';
+  h+='<table><thead><tr><th>Producto</th><th>Talla</th><th>Necesario</th><th>Buffer</th><th>Total</th><th>Stock</th><th>A Comprar</th><th>Costo Unitario</th><th>Subtotal</th><th>Advertencias</th></tr></thead><tbody>';
+  data.detalle.forEach(r=>{
+    h+='<tr><td>'+esc(r.producto)+'</td><td>'+esc(r.talla)+'</td><td>'+r.necesario+'</td><td>'+r.buffer+'</td><td>'+r.total+'</td><td>'+r.stock+'</td><td>'+r.a_comprar+'</td><td>'+(r.sin_precio?'Sin precio':fmtMoney(r.costo_unitario))+'</td><td>'+(r.sin_precio?'—':fmtMoney(r.subtotal))+'</td><td>'+esc(r.advertencias.join(' | '))+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  return h;
 }
