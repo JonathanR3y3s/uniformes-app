@@ -313,7 +313,7 @@ export function getEntradas(filtros = {}) {
   return result.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
 }
 
-export function registrarEntrada({ proveedor, factura_data, lineas = [], observaciones }) {
+export function registrarEntrada({ proveedor, fecha_hora, factura_data, lineas = [], observaciones }) {
   const store = getStore();
   const user = getUser();
 
@@ -333,10 +333,13 @@ export function registrarEntrada({ proveedor, factura_data, lineas = [], observa
   const snap = _cloneAlmacenState(store);
   const id = 'ent-' + Date.now();
   const numero = nextNumeroEntrada();
+  const fechaRecepcion = new Date(fecha_hora || Date.now());
+  const fechaRecepcionISO = isNaN(fechaRecepcion.getTime()) ? new Date().toISOString() : fechaRecepcion.toISOString();
+  const fechaCreacionISO = new Date().toISOString();
   const entrada = {
     id,
     numero,
-    fecha_hora: new Date().toISOString(),
+    fecha_hora: fechaRecepcionISO,
     recibido_por: user?.name || 'Sistema',
     recibido_por_id: user?.id || 'system',
     proveedor,
@@ -349,7 +352,7 @@ export function registrarEntrada({ proveedor, factura_data, lineas = [], observa
     observaciones: observaciones || '',
     estado: factura_data?.folio ? 'completa' : 'pendiente_factura',
     creado_por: user?.name || 'Sistema',
-    fecha_creacion: new Date().toISOString(),
+    fecha_creacion: fechaCreacionISO,
   };
 
   store.entradas.push(entrada);

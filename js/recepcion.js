@@ -4,7 +4,7 @@
  */
 
 import { getStore } from './storage.js';
-import { esc, fmtDate, fmtMoney } from './utils.js';
+import { esc, fmtMoney } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getEntradas, registrarEntrada, completarFactura, getProductos, getCategorias } from './almacen-api.js';
@@ -80,10 +80,20 @@ function renderFacturaPreview() {
     : '';
 }
 
+function formatFechaSegura(value) {
+  if (!value) return 'Sin fecha';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return 'Sin fecha';
+  return d.toLocaleDateString('es-MX');
+}
+
 export function render() {
   const entradas = getEntradas();
   const mesActual = new Date().toISOString().slice(0, 7);
-  const entradasMes = entradas.filter(e => e.fecha_hora.startsWith(mesActual));
+  const entradasMes = entradas.filter(e => {
+    const d = new Date(e.fecha_hora);
+    return !isNaN(d.getTime()) && d.toISOString().slice(0, 7) === mesActual;
+  });
   const pendientesFactura = entradas.filter(e => e.estado === 'pendiente_factura');
 
   let html = `
@@ -176,7 +186,7 @@ function renderEntradas() {
         <tr>
           <td><strong>${esc(e.numero)}</strong></td>
           <td>${esc(e.proveedor)}</td>
-          <td>${fmtDate(e.fecha_hora)}</td>
+          <td>${formatFechaSegura(e.fecha_hora)}</td>
           <td style="text-align:center">${lineas.length}</td>
           <td style="text-align:right">${fmtMoney(e.factura_total || 0)}</td>
           <td>${estadoBadge}</td>
@@ -511,6 +521,9 @@ function _attachRecepcionWizardListener() {
     if (e.target.id === 'btnSiguiente') {
       if (currentStep === 1) {
         wizardData.proveedor = document.getElementById('prov')?.value || '';
+        const fechaHora = document.getElementById('fechaHora')?.value || '';
+        const fechaRecepcion = fechaHora ? new Date(fechaHora) : new Date();
+        wizardData.fecha_hora = isNaN(fechaRecepcion.getTime()) ? new Date().toISOString() : fechaRecepcion.toISOString();
         wizardData.observaciones = document.getElementById('obs')?.value || '';
         if (!wizardData.proveedor) {
           notify('El proveedor es obligatorio', 'error');
@@ -536,6 +549,7 @@ function _attachRecepcionWizardListener() {
     if (e.target.id === 'btnConfirmar') {
       const resultado = registrarEntrada({
         proveedor: wizardData.proveedor,
+        fecha_hora: wizardData.fecha_hora,
         factura_data: document.getElementById('sinFactura')?.checked ? {} : wizardData.factura,
         lineas: wizardData.lineas,
         observaciones: wizardData.observaciones,
@@ -571,14 +585,14 @@ function openDetalleEntrada(id) {
       <h4>Información de Recepción</h4>
       <p><strong>Número:</strong> ${esc(entrada.numero)}</p>
       <p><strong>Proveedor:</strong> ${esc(entrada.proveedor)}</p>
-      <p><strong>Fecha:</strong> ${fmtDate(entrada.fecha_hora)}</p>
+      <p><strong>Fecha:</strong> ${formatFechaSegura(entrada.fecha_hora)}</p>
       <p><strong>Recibido por:</strong> ${esc(entrada.recibido_por)}</p>
       <p><strong>Observaciones:</strong> ${esc(entrada.observaciones)}</p>
 
       ${entrada.factura_folio ? `
       <h4 style="margin-top:12px">Factura</h4>
       <p><strong>Folio:</strong> ${esc(entrada.factura_folio)}</p>
-      <p><strong>Fecha:</strong> ${fmtDate(entrada.factura_fecha)}</p>
+      <p><strong>Fecha:</strong> ${formatFechaSegura(entrada.factura_fecha)}</p>
       <p><strong>Subtotal:</strong> ${fmtMoney(entrada.factura_subtotal || 0)}</p>
       <p><strong>IVA:</strong> ${fmtMoney(entrada.factura_iva || 0)}</p>
       <p><strong>Total:</strong> ${fmtMoney(entrada.factura_total || 0)}</p>
