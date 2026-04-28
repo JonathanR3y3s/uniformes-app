@@ -927,6 +927,34 @@ function getFirmaJPEG(){
   return c.toDataURL('image/jpeg',0.5);
 }
 
+// ── Validación de captura ──────────────────────────────────────────────────
+function validateCaptura(empleado, tallas, kit){
+  const warnings=[];
+
+  // Validación 1: Verificar que el empleado tenga tipo_dotacion
+  if(!empleado.tipo_dotacion){
+    warnings.push('⚠ El empleado no tiene tipo de dotación asignado');
+  }
+
+  // Validación 2: Verificar que todos los productos del kit tengan talla
+  if(kit && Array.isArray(kit.items)){
+    const sinTalla=[];
+    kit.items.forEach(item=>{
+      if(!tallas[item.producto_id]){
+        sinTalla.push(item.nombre || 'Producto');
+      }
+    });
+    if(sinTalla.length>0){
+      warnings.push('⚠ Faltan tallas por capturar: '+sinTalla.join(', '));
+    }
+  }
+
+  return{
+    valido: warnings.length === 0,
+    warnings: warnings
+  };
+}
+
 // ── Guardar tallas ──────────────────────────────────────────────────────
 function guardarTallas(){
   const emp=_capturaState.empleadoActual;
@@ -939,6 +967,14 @@ function guardarTallas(){
   const firma=getFirmaJPEG();
   if(!firma){notify('No se pudo capturar la firma','error');return;}
   const tallas={...(_capturaState.tallasSeleccionadas||{})};
+
+  // VALIDACIÓN DE CAPTURA
+  const kit=findKit(emp.tipo_dotacion,dot.anio);
+  const validacion=validateCaptura(emp,tallas,kit);
+  if(validacion.warnings.length>0){
+    validacion.warnings.forEach(w=>notify(w,'warning'));
+  }
+
   if(!Object.keys(tallas).length){
     if(!confirmDialog('No has seleccionado ninguna talla. ¿Guardar de todos modos?'))return;
   }
