@@ -1,7 +1,7 @@
 import{esc,fmtMoney,genId}from'./utils.js';
-import{getDotaciones,saveDotaciones,getDotacionTipos,saveDotacionTipos,getDotacionKits,saveDotacionKits,getDotacionTallas,saveDotacionTallas,getDotacionConfig,saveDotacionConfig,getStore,saveEmployees,log}from'./storage.js';
+import{getDotaciones,saveDotaciones,getDotacionTipos,saveDotacionTipos,getDotacionKits,saveDotacionKits,getDotacionTallas,saveDotacionTallas,getDotacionConfig,saveDotacionConfig,getDotacionEntregas,saveDotacionEntregas,getStore,saveEmployees,log}from'./storage.js';
 import{notify,modal,confirm as confirmDialog,buildNav}from'./ui.js';
-import{getProductos}from'./almacen-api.js';
+import{getProductos,registrarEntregaNueva}from'./almacen-api.js';
 import{getAreaNames}from'./areas-config.js';
 
 function today(){return new Date().toISOString().slice(0,10);}
@@ -62,7 +62,7 @@ export function render(){
           <button class="tab" data-tab="kits">Kits</button>
           <button class="tab" data-tab="captura">Captura Tallas</button>
           <button class="tab" data-tab="concentrado">Concentrado</button>
-          <button class="tab" data-tab="entrega">Entrega</button>
+          <button class="tab" data-tab="entrega">Entrega Masiva</button>
         </div>
         <div id="dotTabContent" class="mt-4"></div>
       </div>
@@ -101,6 +101,11 @@ function renderTab(tab){
   if(tab==='concentrado'){
     wrap.innerHTML=renderConcentrado();
     bindConcentrado();
+    return;
+  }
+  if(tab==='entrega'){
+    wrap.innerHTML=renderEntregaMasiva();
+    bindEntregaMasiva();
     return;
   }
   wrap.innerHTML='<div class="empty-state"><i class="fas fa-clock"></i><p>Próximamente</p></div>';
@@ -1564,4 +1569,461 @@ function htmlPrintConcentrado(data){
   });
   h+='</tbody></table>';
   return h;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TAB ENTREGA MASIVA — Fase 2.3
+// Entrega anual de kits por dotación
+// ════════════════════════════════════════════════════════════════════════
+
+let _entregaState={
+  dotacionId:null,
+  empleado:null,
+  captura:null,
+  productos:[],
+  signatureCanvas:null,
+  signatureCtx:null,
+  signatureDrawing:false,
+  signatureLastX:0,
+  signatureLastY:0,
+  signatureHasInk:false
+};
+
+function dotacionEntregaSeleccionada(){
+  if(_entregaState.dotacionId){
+    const d=findDotacion(_entregaState.dotacionId);
+    if(d)return d;
+  }
+  const lista=dotaciones().slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0));
+  const act=lista.find(d=>d.estado==='activa');
+  const sel=act||lista[0]||null;
+  if(sel)_entregaState.dotacionId=sel.id;
+  return sel;
+}
+
+function renderEntregaMasiva(){
+  const lista=dotaciones();
+  if(!lista.length){
+    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Primero crea una dotación</p><p class="text-sm text-muted">Ve al tab "Dotaciones" para crearla.</p></div>';
+  }
+  const dot=dotacionEntregaSeleccionada();
+  const stats=statsEntregaMasiva(dot?.id);
+  let h='';
+  h+='<div class="flex justify-between items-start gap-3 mb-4" style="flex-wrap:wrap">';
+  h+='<div><h2 style="font-size:18px;margin:0">Entrega Masiva</h2><p class="text-sm text-muted">Entrega anual de kits por empleado</p></div>';
+  h+='<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">';
+  h+='<div class="form-group" style="margin:0"><label class="form-label">Dotación</label><select class="form-input" id="entDotSel" style="min-width:220px">';
+  lista.slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0)).forEach(d=>{
+    h+='<option value="'+esc(d.id)+'"'+(dot&&d.id===dot.id?' selected':'')+'>'+esc(d.nombre||('Dotación '+d.anio))+(d.estado==='activa'?' • ACTIVA':'')+'</option>';
+  });
+  h+='</select></div>';
+  h+='<button class="btn btn-ghost" id="entVerEntregados"><i class="fas fa-list"></i> Ver entregados</button>';
+  h+='<button class="btn btn-ghost" id="entVerPendientes"><i class="fas fa-hourglass-half"></i> Ver pendientes</button>';
+  h+='</div></div>';
+  h+='<div class="grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">';
+  [
+    ['Entregados',stats.entregados],
+    ['Total',stats.total],
+    ['Pendientes',stats.pendientes],
+    ['Entregas hoy',stats.hoy]
+  ].forEach(([label,value])=>{
+    h+='<div class="card" style="margin:0;background:#f8fafc"><div class="card-body" style="padding:12px">';
+    h+='<div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700">'+esc(label)+'</div>';
+    h+='<div style="font-size:24px;font-weight:800;margin-top:4px">'+esc(String(value))+'</div>';
+    h+='</div></div>';
+  });
+  h+='</div>';
+  h+='<div class="card"><div class="card-body">';
+  h+='<div class="form-row c2" style="align-items:end">';
+  h+='<div class="form-group"><label class="form-label">Buscar empleado por número</label><input class="form-input" id="entEmpInput" placeholder="Ej. 001" autocomplete="off"></div>';
+  h+='<div><button class="btn btn-primary" id="entEmpBuscar"><i class="fas fa-search"></i> Buscar</button></div>';
+  h+='</div>';
+  h+='<div id="entFlujoWrap" class="mt-4">'+renderEntregaFicha()+'</div>';
+  h+='</div></div>';
+  return h;
+}
+
+function bindEntregaMasiva(){
+  document.getElementById('entDotSel')?.addEventListener('change',e=>{
+    _entregaState.dotacionId=e.target.value;
+    resetEntregaEmpleado();
+    renderTab('entrega');
+  });
+  document.getElementById('entEmpBuscar')?.addEventListener('click',()=>{
+    const numero=(document.getElementById('entEmpInput')?.value||'').trim();
+    buscarEmpleadoEntrega(numero);
+  });
+  document.getElementById('entEmpInput')?.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();buscarEmpleadoEntrega((e.target.value||'').trim());}
+  });
+  document.getElementById('entVerEntregados')?.addEventListener('click',openEntregadosDotacion);
+  document.getElementById('entVerPendientes')?.addEventListener('click',openPendientesEntrega);
+  bindEntregaFicha();
+}
+
+function bindEntregaFicha(){
+  const wrap=document.getElementById('entFlujoWrap');
+  if(!wrap||!_entregaState.empleado)return;
+  wrap.querySelectorAll('.ent-prod-check').forEach(ch=>{
+    ch.addEventListener('change',()=>{
+      const idx=Number(ch.dataset.idx);
+      if(_entregaState.productos[idx])_entregaState.productos[idx].surtido=ch.checked;
+      renderEntregaFichaIntoWrap();
+    });
+  });
+  document.getElementById('entTodos')?.addEventListener('click',()=>{
+    _entregaState.productos.forEach(p=>{p.surtido=true;});
+    renderEntregaFichaIntoWrap();
+  });
+  document.getElementById('entNinguno')?.addEventListener('click',()=>{
+    _entregaState.productos.forEach(p=>{p.surtido=false;});
+    renderEntregaFichaIntoWrap();
+  });
+  document.getElementById('entSigClear')?.addEventListener('click',clearEntregaFirmaCanvas);
+  document.getElementById('entConfirmar')?.addEventListener('click',()=>confirmarEntregaMasiva(false));
+  initEntregaFirmaCanvas();
+}
+
+function renderEntregaFichaIntoWrap(){
+  const wrap=document.getElementById('entFlujoWrap');
+  if(!wrap)return;
+  wrap.innerHTML=renderEntregaFicha();
+  bindEntregaFicha();
+}
+
+function renderEntregaFicha(){
+  const emp=_entregaState.empleado;
+  if(!emp){
+    return '<div class="empty-state" style="padding:18px"><i class="fas fa-user-check"></i><p>Busca un empleado para preparar su kit.</p></div>';
+  }
+  const dot=dotacionEntregaSeleccionada();
+  const tipo=findTipo(emp.tipo_dotacion);
+  const seleccionados=_entregaState.productos.filter(p=>p.surtido);
+  let h='<div class="card" style="background:#f8fafc;margin:0"><div class="card-body">';
+  h+='<div class="flex justify-between items-start gap-3" style="flex-wrap:wrap">';
+  h+='<div><h3 style="margin:0 0 4px;font-size:17px">#'+esc(emp.id)+' '+esc(nombreEmpleado(emp))+'</h3>';
+  h+='<div class="text-sm text-muted">Dotación: <strong>'+esc(dot?.nombre||'—')+'</strong> &nbsp;·&nbsp; Tipo: <strong>'+esc(tipo?.nombre||emp.tipo_dotacion||'—')+'</strong> &nbsp;·&nbsp; Área: <strong>'+esc(emp.area||'—')+'</strong></div></div>';
+  h+='<span class="badge badge-info">'+seleccionados.length+'/'+_entregaState.productos.length+' seleccionados</span>';
+  h+='</div>';
+  h+='<div class="mt-4 flex gap-2" style="flex-wrap:wrap">';
+  h+='<button class="btn btn-ghost btn-sm" id="entTodos"><i class="fas fa-check-double"></i> Marcar todos</button>';
+  h+='<button class="btn btn-ghost btn-sm" id="entNinguno"><i class="fas fa-times"></i> Desmarcar</button>';
+  h+='</div>';
+  h+='<div class="mt-3" style="display:grid;gap:8px">';
+  _entregaState.productos.forEach((p,idx)=>{
+    const stockColor=p.stock_disp>=p.cantidad?'#059669':(p.stock_disp>0?'#b45309':'#dc2626');
+    h+='<label style="display:grid;grid-template-columns:28px 1fr 90px 90px;gap:8px;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:8px;cursor:pointer">';
+    h+='<input type="checkbox" class="ent-prod-check" data-idx="'+idx+'" '+(p.surtido?'checked':'')+'>';
+    h+='<span><strong>'+esc(p.nombre)+'</strong><div class="text-xs text-muted">Talla: '+esc(p.talla||'Única')+(p.variante_id?' · stock por talla':'')+'</div></span>';
+    h+='<span class="text-sm" style="text-align:right">Cant. <strong>'+p.cantidad+'</strong></span>';
+    h+='<span class="text-sm" style="text-align:right;color:'+stockColor+'">Stock <strong>'+p.stock_disp+'</strong></span>';
+    h+='</label>';
+  });
+  h+='</div>';
+  h+='<div class="mt-4" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px">';
+  h+='<p style="margin:0 0 8px;font-size:13px"><i class="fas fa-pen-fancy"></i> Firma de conformidad del empleado</p>';
+  h+='<div style="border:2px dashed #cbd5e1;border-radius:8px;background:#fff"><canvas id="entSigCanvas" style="display:block;width:100%;height:200px;cursor:crosshair;touch-action:none"></canvas></div>';
+  h+='<div class="mt-2"><button class="btn btn-ghost btn-sm" id="entSigClear"><i class="fas fa-eraser"></i> Limpiar firma</button></div>';
+  h+='</div>';
+  h+='<div class="mt-4"><button class="btn btn-primary" id="entConfirmar"><i class="fas fa-hand-holding"></i> Confirmar entrega</button></div>';
+  h+='</div></div>';
+  return h;
+}
+
+function buscarEmpleadoEntrega(numero){
+  if(!numero){notify('Escribe un número de empleado','warning');return;}
+  const dot=dotacionEntregaSeleccionada();
+  if(!dot){notify('Selecciona una dotación válida','warning');return;}
+  const emp=(getStore().employees||[]).find(e=>String(e.id||'')===String(numero));
+  if(!emp){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('Empleado no encontrado','error');return;}
+  const activos=empleadosActivos();
+  if(!activos.some(e=>String(e.id||'')===String(emp.id||''))){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('El empleado no está activo para entrega','warning');return;}
+  if(!emp.tipo_dotacion){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('El empleado no tiene tipo de dotación asignado','warning');return;}
+  if(entregaExistente(dot.id,emp.id)){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('Este empleado ya recibió la dotación seleccionada','warning');return;}
+  const captura=tallasDeDotacion(dot.id).find(t=>String(t.empleado_id)===String(emp.id));
+  if(!captura){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('El empleado no tiene tallas capturadas para esta dotación','warning');return;}
+  const kit=findKit(emp.tipo_dotacion,dot.anio);
+  if(!kit||!Array.isArray(kit.items)||!kit.items.length){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('No hay kit configurado para el tipo del empleado en este año','warning');return;}
+  const armado=armarKitEntrega(kit,captura);
+  if(!armado.ok){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify(armado.error,'warning');return;}
+  _entregaState.empleado=emp;
+  _entregaState.captura=captura;
+  _entregaState.productos=armado.productos;
+  _entregaState.signatureHasInk=false;
+  renderEntregaFichaIntoWrap();
+}
+
+function resetEntregaEmpleado(){
+  _entregaState.empleado=null;
+  _entregaState.captura=null;
+  _entregaState.productos=[];
+  _entregaState.signatureCanvas=null;
+  _entregaState.signatureCtx=null;
+  _entregaState.signatureHasInk=false;
+}
+
+function armarKitEntrega(kit,captura){
+  const productos=getProductos();
+  const out=[];
+  for(const item of (kit.items||[])){
+    const prod=productos.find(p=>p.id===item.producto_id);
+    if(!prod)return{ok:false,error:'Producto no encontrado en inventario: '+(item.nombre||item.producto_id)};
+    const sinTalla=esProductoSinTalla(prod,item);
+    const talla=sinTalla?'Única':normalizarTallaConcentrado(captura.tallas?.[item.producto_id]);
+    if(!talla)return{ok:false,error:'Falta talla capturada para '+(item.nombre||prod.nombre||'producto')};
+    const stock=resolverStockEntrega(prod,talla);
+    out.push({
+      producto_id:item.producto_id,
+      variante_id:stock.variante_id,
+      nombre:item.nombre||prod.nombre||'Producto',
+      talla,
+      cantidad:Math.max(1,Number(item.cantidad)||1),
+      stock_disp:stock.stock,
+      surtido:true
+    });
+  }
+  return{ok:true,productos:out};
+}
+
+function resolverStockEntrega(producto,talla){
+  const variantes=Array.isArray(producto?.variantes)?producto.variantes:[];
+  if(variantes.length){
+    const v=variantes.find(x=>tallaKey(x.talla)===tallaKey(talla)||tallaKey(x.nombre)===tallaKey(talla));
+    if(v)return{stock:Number(v.stock_actual)||0,variante_id:v.id};
+    return{stock:0,variante_id:null};
+  }
+  return{stock:Number(producto?.stock_actual)||0,variante_id:null};
+}
+
+function validarStockEntrega(lineas){
+  const acc=new Map();
+  lineas.forEach(l=>{
+    const key=l.producto_id+'__'+(l.variante_id||'general');
+    if(!acc.has(key))acc.set(key,{...l,cantidad:0});
+    acc.get(key).cantidad+=l.cantidad;
+  });
+  const faltantes=[];
+  acc.forEach(l=>{
+    const prod=getProductos().find(p=>p.id===l.producto_id);
+    const stock=resolverStockEntrega(prod,l.talla).stock;
+    if(stock<l.cantidad)faltantes.push({...l,stock_disp:stock,faltante:l.cantidad-stock});
+  });
+  return faltantes;
+}
+
+function getLineasEntregaSeleccionadas(parcial){
+  const disponibles=new Map();
+  return _entregaState.productos.filter(p=>p.surtido).map(p=>{
+    if(!parcial)return{...p};
+    const key=p.producto_id+'__'+(p.variante_id||'general');
+    if(!disponibles.has(key))disponibles.set(key,Math.max(0,p.stock_disp));
+    const disp=disponibles.get(key);
+    const cantidad=Math.min(p.cantidad,disp);
+    disponibles.set(key,Math.max(0,disp-cantidad));
+    return{...p,cantidad};
+  }).filter(p=>p.cantidad>0);
+}
+
+function confirmarEntregaMasiva(parcial){
+  const emp=_entregaState.empleado;
+  const dot=dotacionEntregaSeleccionada();
+  if(!emp||!dot){notify('Busca un empleado primero','warning');return;}
+  if(entregaExistente(dot.id,emp.id)){notify('Este empleado ya recibió la dotación seleccionada','warning');return;}
+  if(!_entregaState.signatureHasInk){notify('La firma es obligatoria','warning');return;}
+  const lineas=getLineasEntregaSeleccionadas(Boolean(parcial));
+  if(!lineas.length){notify('Selecciona al menos un producto','warning');return;}
+  const faltantes=validarStockEntrega(lineas);
+  if(faltantes.length&&!parcial){openStockInsuficiente(faltantes);return;}
+  const firma=getEntregaFirmaJPEG();
+  if(!firma){notify('No se pudo capturar la firma','error');return;}
+  const tipo=findTipo(emp.tipo_dotacion);
+  const res=registrarEntregaNueva({
+    empleado_id:emp.id,
+    empleado_nombre:nombreEmpleado(emp),
+    area:emp.area||'',
+    motivo:'Dotación anual '+(dot.anio||''),
+    autorizado_por:'',
+    firma,
+    firma_empleado:firma,
+    firma_recibe:firma,
+    quien_recibe:nombreEmpleado(emp),
+    tipo_entrega:'personal',
+    lineas:lineas.map(l=>({producto_id:l.producto_id,variante_id:l.variante_id||null,cantidad:l.cantidad,observaciones:'Dotación '+(dot.nombre||dot.anio)+' · talla '+l.talla})),
+    observaciones:'Entrega masiva dotación '+(dot.nombre||dot.anio)
+  });
+  if(!res.ok){notify(res.error||'No se pudo registrar la entrega','error');return;}
+  const now=new Date();
+  const productos=_entregaState.productos.map(p=>{
+    const delivered=lineas.find(l=>l.producto_id===p.producto_id&&String(l.variante_id||'')===String(p.variante_id||''));
+    return{producto_id:p.producto_id,nombre:p.nombre,talla:p.talla,cantidad:p.cantidad,surtido:Number(delivered?.cantidad||0)};
+  });
+  const pendientes=productos.filter(p=>p.surtido<p.cantidad).map(p=>({...p,cantidad:p.cantidad-p.surtido}));
+  getDotacionEntregas().push({
+    id:'dot-ent-'+dot.id+'-'+emp.id+'-'+timestamp(),
+    dotacion_id:dot.id,
+    empleado_id:emp.id,
+    empleado_nombre:nombreEmpleado(emp),
+    tipo_dotacion:emp.tipo_dotacion,
+    productos,
+    firma,
+    fecha:today(),
+    hora:now.toTimeString().slice(0,5),
+    entregado_por:getEntregaUsuario(),
+    estado:pendientes.length?'parcial':'entregada',
+    pendientes
+  });
+  saveDotacionEntregas();
+  log('DOTACION_ENTREGA','Empleado #'+emp.id+' · '+productos.length+' producto(s) · '+(pendientes.length?'parcial':'completa'),'DOTACION');
+  notify('Entrega registrada'+(pendientes.length?' parcialmente':'')+' para #'+emp.id,'success');
+  resetEntregaEmpleado();
+  renderTab('entrega');
+}
+
+function openStockInsuficiente(faltantes){
+  let h='<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:10px 12px;color:#9a3412;font-size:13px;margin-bottom:12px"><strong>Stock insuficiente</strong><br>Revisa los productos con faltante antes de confirmar.</div>';
+  h+='<table class="dt"><thead><tr><th>Producto</th><th>Talla</th><th>Solicitado</th><th>Stock</th></tr></thead><tbody>';
+  faltantes.forEach(f=>{
+    h+='<tr><td>'+esc(f.nombre)+'</td><td>'+esc(f.talla||'Única')+'</td><td style="text-align:right">'+f.cantidad+'</td><td style="text-align:right;color:#dc2626">'+f.stock_disp+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  modal.open('Stock insuficiente',h,'<button class="btn btn-ghost" id="entStockCancel">Cancelar</button><button class="btn btn-primary" id="entStockParcial">Entrega parcial</button>','md');
+  document.getElementById('entStockCancel')?.addEventListener('click',()=>modal.close());
+  document.getElementById('entStockParcial')?.addEventListener('click',()=>{modal.close();confirmarEntregaMasiva(true);});
+}
+
+function entregaExistente(dotacionId,empleadoId){
+  return getDotacionEntregas().some(e=>e.dotacion_id===dotacionId&&String(e.empleado_id)===String(empleadoId)&&e.estado!=='cancelada');
+}
+
+function statsEntregaMasiva(dotacionId){
+  const total=empleadosActivos().length;
+  const entregas=getDotacionEntregas().filter(e=>e.dotacion_id===dotacionId&&e.estado!=='cancelada');
+  const empIds=new Set(entregas.map(e=>String(e.empleado_id)));
+  const hoy=today();
+  return{entregados:empIds.size,total,pendientes:Math.max(0,total-empIds.size),hoy:entregas.filter(e=>e.fecha===hoy).length};
+}
+
+function openEntregadosDotacion(){
+  const dot=dotacionEntregaSeleccionada();
+  if(!dot)return;
+  const entregas=getDotacionEntregas().filter(e=>e.dotacion_id===dot.id&&e.estado!=='cancelada').slice().sort((a,b)=>String(a.empleado_id).localeCompare(String(b.empleado_id),undefined,{numeric:true}));
+  let h='';
+  if(!entregas.length)h='<div class="empty-state" style="padding:18px"><i class="fas fa-inbox"></i><p>Sin entregas registradas</p></div>';
+  else{
+    h='<table class="dt"><thead><tr><th>#</th><th>Empleado</th><th>Fecha</th><th>Estado</th><th></th></tr></thead><tbody>';
+    entregas.forEach(e=>{
+      h+='<tr><td class="font-mono text-xs">'+esc(e.empleado_id)+'</td><td>'+esc(e.empleado_nombre||'')+'</td><td>'+esc((e.fecha||'')+' '+(e.hora||''))+'</td><td>'+esc(e.estado||'entregada')+'</td><td><button class="btn btn-ghost btn-sm ent-det" data-id="'+esc(e.id)+'"><i class="fas fa-eye"></i> Detalle</button></td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  modal.open('Entregados — '+esc(dot.nombre||dot.anio),h,'<button class="btn btn-ghost" id="entListaCerrar">Cerrar</button>','lg');
+  document.getElementById('entListaCerrar')?.addEventListener('click',()=>modal.close());
+  document.querySelectorAll('.ent-det').forEach(btn=>btn.addEventListener('click',()=>openDetalleDotacionEntrega(btn.dataset.id)));
+}
+
+function openDetalleDotacionEntrega(id){
+  const ent=getDotacionEntregas().find(e=>e.id===id);
+  if(!ent)return;
+  let h='<div style="display:grid;gap:6px;font-size:13px">';
+  h+='<div><strong>Empleado:</strong> #'+esc(ent.empleado_id)+' '+esc(ent.empleado_nombre||'')+'</div>';
+  h+='<div><strong>Fecha:</strong> '+esc((ent.fecha||'')+' '+(ent.hora||''))+'</div>';
+  h+='<div><strong>Estado:</strong> '+esc(ent.estado||'entregada')+'</div>';
+  h+='</div>';
+  h+='<table class="dt mt-3"><thead><tr><th>Producto</th><th>Talla</th><th>Cantidad</th><th>Surtido</th></tr></thead><tbody>';
+  (ent.productos||[]).forEach(p=>{
+    h+='<tr><td>'+esc(p.nombre||'')+'</td><td>'+esc(p.talla||'Única')+'</td><td style="text-align:right">'+Number(p.cantidad||0)+'</td><td style="text-align:right">'+Number(p.surtido||0)+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  if(ent.firma)h+='<div class="mt-3"><strong>Firma:</strong><br><img src="'+ent.firma+'" style="max-width:260px;border:1px solid #e5e7eb;border-radius:6px;background:#fff"></div>';
+  modal.open('Detalle entrega dotación',h,'<button class="btn btn-ghost" id="entDetCerrar">Cerrar</button>','lg');
+  document.getElementById('entDetCerrar')?.addEventListener('click',()=>modal.close());
+}
+
+function openPendientesEntrega(){
+  const dot=dotacionEntregaSeleccionada();
+  if(!dot)return;
+  const entregados=new Set(getDotacionEntregas().filter(e=>e.dotacion_id===dot.id&&e.estado!=='cancelada').map(e=>String(e.empleado_id)));
+  const pendientes=empleadosActivos().filter(e=>!entregados.has(String(e.id))).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
+  let h='';
+  if(!pendientes.length)h='<div class="empty-state" style="padding:18px"><i class="fas fa-check-circle"></i><p>Sin pendientes</p></div>';
+  else{
+    h='<table class="dt"><thead><tr><th>#</th><th>Empleado</th><th>Tipo</th><th></th></tr></thead><tbody>';
+    pendientes.forEach(emp=>{
+      const tipo=findTipo(emp.tipo_dotacion);
+      h+='<tr><td class="font-mono text-xs">'+esc(emp.id)+'</td><td>'+esc(nombreEmpleado(emp))+'</td><td>'+esc(tipo?.nombre||emp.tipo_dotacion||'Sin tipo')+'</td><td><button class="btn btn-ghost btn-sm ent-pend-go" data-id="'+esc(emp.id)+'"><i class="fas fa-hand-holding"></i> Entregar</button></td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  modal.open('Pendientes — '+esc(dot.nombre||dot.anio),h,'<button class="btn btn-ghost" id="entPendCerrar">Cerrar</button>','lg');
+  document.getElementById('entPendCerrar')?.addEventListener('click',()=>modal.close());
+  document.querySelectorAll('.ent-pend-go').forEach(btn=>btn.addEventListener('click',()=>{
+    modal.close();
+    const inp=document.getElementById('entEmpInput');if(inp)inp.value=btn.dataset.id;
+    buscarEmpleadoEntrega(btn.dataset.id);
+  }));
+}
+
+function initEntregaFirmaCanvas(){
+  const c=document.getElementById('entSigCanvas');
+  if(!c)return;
+  c.width=400;
+  c.height=200;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,c.width,c.height);
+  ctx.strokeStyle='#0f172a';
+  ctx.lineWidth=2;
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+  _entregaState.signatureCanvas=c;
+  _entregaState.signatureCtx=ctx;
+  _entregaState.signatureDrawing=false;
+  _entregaState.signatureHasInk=false;
+  function toCanvas(cx,cy){
+    const r=c.getBoundingClientRect();
+    return{x:(cx-r.left)*(c.width/r.width),y:(cy-r.top)*(c.height/r.height)};
+  }
+  function down(e){_entregaState.signatureDrawing=true;const p=toCanvas(e.clientX,e.clientY);_entregaState.signatureLastX=p.x;_entregaState.signatureLastY=p.y;}
+  function move(e){
+    if(!_entregaState.signatureDrawing)return;
+    const p=toCanvas(e.clientX,e.clientY);
+    ctx.beginPath();
+    ctx.moveTo(_entregaState.signatureLastX,_entregaState.signatureLastY);
+    ctx.lineTo(p.x,p.y);
+    ctx.stroke();
+    _entregaState.signatureLastX=p.x;_entregaState.signatureLastY=p.y;
+    _entregaState.signatureHasInk=true;
+  }
+  function up(){_entregaState.signatureDrawing=false;}
+  c.addEventListener('mousedown',down);
+  c.addEventListener('mousemove',move);
+  c.addEventListener('mouseup',up);
+  c.addEventListener('mouseleave',up);
+  c.addEventListener('touchstart',e=>{e.preventDefault();if(!e.touches[0])return;const t=e.touches[0];down({clientX:t.clientX,clientY:t.clientY});},{passive:false});
+  c.addEventListener('touchmove',e=>{e.preventDefault();if(!e.touches[0])return;const t=e.touches[0];move({clientX:t.clientX,clientY:t.clientY});},{passive:false});
+  c.addEventListener('touchend',e=>{e.preventDefault();up();},{passive:false});
+}
+
+function clearEntregaFirmaCanvas(){
+  const c=_entregaState.signatureCanvas;
+  const ctx=_entregaState.signatureCtx;
+  if(!c||!ctx)return;
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,c.width,c.height);
+  _entregaState.signatureHasInk=false;
+}
+
+function getEntregaFirmaJPEG(){
+  const c=_entregaState.signatureCanvas;
+  if(!c)return null;
+  return c.toDataURL('image/jpeg',0.5);
+}
+
+function nombreEmpleado(emp){
+  return[emp?.nombre||'',emp?.paterno||'',emp?.materno||''].join(' ').replace(/\s+/g,' ').trim();
+}
+
+function getEntregaUsuario(){
+  try{const u=JSON.parse(localStorage.getItem('_user')||'{}');return u.name||u.id||'admin';}catch(e){return'admin';}
 }

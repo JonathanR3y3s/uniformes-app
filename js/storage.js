@@ -19,7 +19,7 @@ function _pushKV(key,value){
       import('./supabase-client.js').then(c=>c.upsertKV(key,value)).catch(()=>{});
   }).catch(()=>{});
 }
-const store={employees:[],proveedores:[],inventario:[],entregas:[],salidas:[],areas:[],stockExtra:{},auditLog:[],comprasAlmacen:[],campanias:[],stockUniformes:[],encuestas:[],articulos:[],skus:[],movimientosInventario:[],documentosEntrega:[],documentosDevolucion:[],productos:[],categorias:[],entradas:[],lineasEntrada:[],entregasNuevas:[],lineasEntrega:[],salidasNuevas:[],lineasSalida:[],devolucionesNuevas:[],lineasDevolucion:[],movimientos:[],dotaciones:[],dotacionTipos:[],dotacionKits:[],dotacionTallas:[],dotacionConfig:{buffer_stock:30},config:{dotacionVisible:true}};
+const store={employees:[],proveedores:[],inventario:[],entregas:[],salidas:[],areas:[],stockExtra:{},auditLog:[],comprasAlmacen:[],campanias:[],stockUniformes:[],encuestas:[],articulos:[],skus:[],movimientosInventario:[],documentosEntrega:[],documentosDevolucion:[],productos:[],categorias:[],entradas:[],lineasEntrada:[],entregasNuevas:[],lineasEntrega:[],salidasNuevas:[],lineasSalida:[],devolucionesNuevas:[],lineasDevolucion:[],movimientos:[],dotaciones:[],dotacionTipos:[],dotacionKits:[],dotacionTallas:[],dotacionConfig:{buffer_stock:30},dotacionEntregas:[],config:{dotacionVisible:true}};
 function key(s){return STORAGE_KEY+(s||'');}
 function load(s,d){try{const r=localStorage.getItem(key(s));return r?JSON.parse(r):d;}catch(e){return d;}}
 function save(s,v){try{localStorage.setItem(key(s),JSON.stringify(v));return true;}catch(e){console.error('[STORAGE] No se pudo guardar',s,e);notify_storage_warn();return false;}}
@@ -62,6 +62,8 @@ export function init(REGLAS){
   store.dotacionKits=load('_dotacion_kits',[]);
   store.dotacionTallas=load('_dotacion_tallas',[]);
   if(!Array.isArray(store.dotacionTallas))store.dotacionTallas=[];
+  store.dotacionEntregas=load('_dotacion_entregas',[]);
+  if(!Array.isArray(store.dotacionEntregas))store.dotacionEntregas=[];
   store.dotacionConfig=load('_dotacion_config',{buffer_stock:30});
   if(!store.dotacionConfig||typeof store.dotacionConfig!=='object')store.dotacionConfig={buffer_stock:30};
   if(!Number.isFinite(Number(store.dotacionConfig.buffer_stock)))store.dotacionConfig.buffer_stock=30;
@@ -111,6 +113,8 @@ export function saveDotacionTallas(){save('_dotacion_tallas',store.dotacionTalla
 export function getDotacionTallas(){return store.dotacionTallas||[];}
 export function saveDotacionConfig(){store.dotacionConfig=store.dotacionConfig||{buffer_stock:30};if(!Number.isFinite(Number(store.dotacionConfig.buffer_stock)))store.dotacionConfig.buffer_stock=30;save('_dotacion_config',store.dotacionConfig);_pushKV('dotacionConfig',store.dotacionConfig);}
 export function getDotacionConfig(){if(!store.dotacionConfig||typeof store.dotacionConfig!=='object')store.dotacionConfig={buffer_stock:30};if(!Number.isFinite(Number(store.dotacionConfig.buffer_stock)))store.dotacionConfig.buffer_stock=30;return store.dotacionConfig;}
+export function saveDotacionEntregas(){if(!Array.isArray(store.dotacionEntregas))store.dotacionEntregas=[];save('_dotacion_entregas',store.dotacionEntregas);_push('dotacionEntregas',store.dotacionEntregas);}
+export function getDotacionEntregas(){if(!Array.isArray(store.dotacionEntregas))store.dotacionEntregas=[];return store.dotacionEntregas;}
 export function getConfig(){return store.config||{dotacionVisible:true};}
 export function saveConfig(){save('_config',store.config);}
 export function setConfigDotacionVisible(visible){store.config=store.config||{};store.config.dotacionVisible=Boolean(visible);saveConfig();}
