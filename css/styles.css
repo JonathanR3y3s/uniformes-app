@@ -72,3 +72,20 @@
   .topbar-badge{display:none}
 }
 
+/* v8.5b — botones funcionales, legibilidad iPad */
+.exec-link{align-self:flex-start;background:rgba(103,232,249,.12);color:#67e8f9;font-weight:700;font-size:12px;padding:5px 12px;border-radius:6px;margin-top:auto;border:1px solid rgba(103,232,249,.22);min-height:30px;display:inline-flex;align-items:center;cursor:pointer}
+.exec-link:hover{background:rgba(103,232,249,.22);border-color:rgba(103,232,249,.4)}
+.exec-kpi-section-head{grid-column:1/-1;padding:10px 0 2px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#475569;display:flex;align-items:center;gap:8px}
+.exec-kpi-section-head i{color:#38bdf8;font-size:12px}
+@media(max-width:1024px){
+  .nav-item{font-size:14px;height:46px}
+  .nav-item i{font-size:15px;opacity:.8}
+  .nav-section{font-size:11px;letter-spacing:.1em}
+  .sidebar-title{font-size:16px}
+  .sidebar-sub{font-size:12px}
+  table.dt td{font-size:14px;padding:13px 14px}
+  table.dt th{font-size:12px}
+  .exec-kpi-value,.fin-kpi-value{font-size:26px}
+  .exec-kpi-label,.fin-kpi-label{font-size:12px}
+}
+
