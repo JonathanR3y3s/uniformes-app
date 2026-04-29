@@ -841,12 +841,13 @@ function renderFichaCaptura(emp){
   h+='</div>';
   // Confirmación + firma
   h+='<div class="mt-4" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px">';
-  h+='<p style="margin:0 0 8px;font-size:13px"><i class="fas fa-pen-fancy"></i> "Confirmo que estas son mis tallas"</p>';
+  h+='<label style="font-size:15px;font-weight:600;display:block;margin-bottom:4px"><i class="fas fa-pen-fancy"></i> Firma del empleado</label>';
+  h+='<p style="font-size:12px;color:#64748b;margin:0 0 8px">Use el dedo o Apple Pencil para firmar. "Confirmo que estas son mis tallas"</p>';
   h+='<div id="capSigContainer" style="border:2px dashed #cbd5e1;border-radius:8px;background:#fff"><canvas id="capSigCanvas" style="display:block;width:100%;height:200px;cursor:crosshair;touch-action:none"></canvas></div>';
   if(previo&&previo.firma){
     h+='<div class="mt-2 text-xs text-muted"><i class="fas fa-info-circle"></i> Firma anterior registrada el '+esc((previo.fecha_captura||'').slice(0,16).replace('T',' '))+'. Vuelve a firmar para reemplazar.</div>';
   }
-  h+='<div class="mt-2"><button class="btn btn-ghost btn-sm" id="capSigClear"><i class="fas fa-eraser"></i> Limpiar firma</button></div>';
+  h+='<div class="mt-2"><button class="btn btn-ghost" id="capSigClear" style="width:100%"><i class="fas fa-eraser"></i> Limpiar firma</button></div>';
   h+='</div>';
   h+='<div class="mt-4 flex gap-2" style="flex-wrap:wrap">';
   h+='<button class="btn btn-primary" id="capGuardar"><i class="fas fa-save"></i> Guardar</button>';
@@ -1730,11 +1731,12 @@ function renderEntregaFicha(){
   });
   h+='</div>';
   h+='<div class="mt-4" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px">';
-  h+='<p style="margin:0 0 8px;font-size:13px"><i class="fas fa-pen-fancy"></i> Firma de conformidad del empleado</p>';
+  h+='<label style="font-size:15px;font-weight:600;display:block;margin-bottom:4px"><i class="fas fa-pen-fancy"></i> Firma del empleado</label>';
+  h+='<p style="font-size:12px;color:#64748b;margin:0 0 8px">Use el dedo o Apple Pencil para firmar el recibo de conformidad</p>';
   h+='<div style="border:2px dashed #cbd5e1;border-radius:8px;background:#fff"><canvas id="entSigCanvas" style="display:block;width:100%;height:200px;cursor:crosshair;touch-action:none"></canvas></div>';
-  h+='<div class="mt-2"><button class="btn btn-ghost btn-sm" id="entSigClear"><i class="fas fa-eraser"></i> Limpiar firma</button></div>';
+  h+='<div class="mt-2"><button class="btn btn-ghost" id="entSigClear" style="width:100%"><i class="fas fa-eraser"></i> Limpiar firma</button></div>';
   h+='</div>';
-  h+='<div class="mt-4"><button class="btn btn-primary" id="entConfirmar"><i class="fas fa-hand-holding"></i> Confirmar entrega</button></div>';
+  h+='<div class="mt-4"><button class="btn btn-primary" id="entConfirmar" style="width:100%;min-height:48px;font-size:16px"><i class="fas fa-hand-holding"></i> Confirmar entrega</button></div>';
   h+='</div></div>';
   return h;
 }

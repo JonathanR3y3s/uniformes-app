@@ -145,7 +145,7 @@ function generateReport(moduleKeys) {
   });
 
   reportHtml += '<div class="report-actions mt-4">';
-  reportHtml += '<button class="btn btn-sm btn-success" id="btnExportExcel"><i class="fas fa-file-excel"></i> Exportar Excel</button>';
+  reportHtml += '<button class="btn btn-sm btn-ghost" disabled title="Próximamente" style="opacity:0.45;cursor:not-allowed"><i class="fas fa-file-excel"></i> Excel (próximamente)</button>';
   reportHtml += '<button class="btn btn-sm btn-primary" id="btnPrintReport"><i class="fas fa-print"></i> Imprimir</button>';
   reportHtml += '</div>';
 
@@ -155,10 +155,6 @@ function generateReport(moduleKeys) {
   const container = document.getElementById('reportContainer');
   if (container) {
     container.innerHTML = reportHtml;
-
-    document.getElementById('btnExportExcel')?.addEventListener('click', () => {
-      exportReportToExcel(moduleKeys, metrics);
-    });
 
     document.getElementById('btnPrintReport')?.addEventListener('click', () => {
       window.print();
@@ -317,7 +313,5 @@ function renderInventoryDemand(data) {
 }
 
 function exportReportToExcel(moduleKeys, metrics) {
-  // TODO: Implementar exportación real a Excel usando XLSX library
-  console.log('Exportando reporte:', moduleKeys);
-  alert('Exportación a Excel no implementada aún. Usa Imprimir para guardar como PDF');
+  console.log('Exportar Excel: próximamente para reportes avanzados', moduleKeys);
 }

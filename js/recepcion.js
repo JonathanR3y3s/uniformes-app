@@ -647,6 +647,8 @@ function openDetalleEntrada(id) {
   if (!entrada) return;
 
   const lineas = getStore().lineasEntrada.filter(l => l.entrada_id === id);
+  const facturaFotoSrc = getEvidenceSrc(entrada.factura_foto);
+  const lineasConFoto = lineas.filter(l => l.foto_producto);
 
   const body = `
     <div>
@@ -664,9 +666,22 @@ function openDetalleEntrada(id) {
       <p><strong>Subtotal:</strong> ${fmtMoney(entrada.factura_subtotal || 0)}</p>
       <p><strong>IVA:</strong> ${fmtMoney(entrada.factura_iva || 0)}</p>
       <p><strong>Total:</strong> ${fmtMoney(entrada.factura_total || 0)}</p>
+      ${facturaFotoSrc ? `<div style="margin-top:8px"><strong>Foto factura:</strong><br><img src="${esc(facturaFotoSrc)}" style="max-width:160px;max-height:160px;border-radius:6px;object-fit:cover;border:1px solid #e5e7eb;margin-top:4px;cursor:pointer" onclick="window.open(this.src,'_blank')" title="Tap para ver grande"></div>` : '<p style="font-size:12px;color:#94a3b8;margin-top:4px"><i class="fas fa-image"></i> Sin foto de factura</p>'}
       ` : '<p style="color:#facc15">⚠️ Sin factura registrada</p>'}
 
+      ${lineasConFoto.length > 0 ? `
+      <h4 style="margin-top:12px">Fotos de Productos</h4>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+        ${lineasConFoto.map(l => {
+          const src = getEvidenceSrc(l.foto_producto);
+          const prod = getStore().productos.find(p => p.id === l.producto_id);
+          return src ? `<div style="text-align:center"><img src="${esc(src)}" style="width:100px;height:100px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;cursor:pointer" onclick="window.open(this.src,'_blank')" title="Tap para ver grande"><div style="font-size:10px;color:#94a3b8;margin-top:4px">${esc(prod?.nombre || '?')}</div></div>` : '';
+        }).join('')}
+      </div>
+      ` : ''}
+
       <h4 style="margin-top:12px">Artículos</h4>
+      <div style="overflow-x:auto">
       <table class="data-table">
         <thead>
           <tr><th>Producto</th><th>Cantidad</th><th>Costo Unit.</th><th>Total</th></tr>
@@ -685,6 +700,7 @@ function openDetalleEntrada(id) {
           }).join('')}
         </tbody>
       </table>
+      </div>
     </div>
   `;
 

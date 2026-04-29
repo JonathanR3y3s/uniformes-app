@@ -281,14 +281,15 @@ function openNuevaEntrega() {
         <div id="lineasList" style="margin-top:12px;max-height:200px;overflow-y:auto"></div>
       `;
     } else if (paso === 4) {
-      const receptorFirma = datos.tipo_entrega === 'consumible' ? 'supervisora de limpieza' : (datos.tipo_receptor === 'ocasional' ? 'receptor ocasional' : 'empleado');
       body = `
-        <p style="margin-bottom:12px">Firma digital de ${receptorFirma}</p>
-        <canvas id="signaturePad" style="border:1px solid #444;border-radius:4px;background:#0f0f0f;width:100%;height:150px;cursor:crosshair"></canvas>
-        <button class="btn btn-secondary" id="btnLimpiarFirma" style="margin-top:8px">Limpiar Firma</button>
-        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
-          <input type="checkbox" id="sinFirma" disabled> Continuar sin firma
-        </label>
+        <div>
+          <label style="font-size:15px;font-weight:600;display:block;margin-bottom:4px"><i class="fas fa-pen-fancy"></i> Firma del empleado</label>
+          <p style="font-size:12px;color:#94a3b8;margin:0 0 10px">Use el dedo o Apple Pencil para firmar en el área de abajo</p>
+          <div style="border:2px dashed #4b5563;border-radius:8px;overflow:hidden">
+            <canvas id="signaturePad" style="display:block;width:100%;height:180px;cursor:crosshair;touch-action:none;background:#fff"></canvas>
+          </div>
+          <button class="btn btn-ghost" id="btnLimpiarFirma" style="margin-top:10px;width:100%"><i class="fas fa-eraser"></i> Limpiar firma</button>
+        </div>
       `;
     }
 
@@ -554,6 +555,8 @@ function openNuevaEntrega() {
         canvas.width = 900;
         canvas.height = 300;
         const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#0f172a';
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
@@ -713,7 +716,7 @@ function openNuevaEntrega() {
       });
       saveEntregasNuevas();
 
-      notify('Entrega registrada', 'success');
+      notify('Entrega registrada correctamente', 'success');
       modal.close();
       detachEntregasWizardHandler();
       renderEntregas();
@@ -742,7 +745,7 @@ function openDetalleEntrega(id) {
     ${!(entrega.firma_recibe || entrega.firma) ? '<p><span style="background:#7f1d1d;color:#fecaca;font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px">ENTREGA SIN FIRMA</span></p>' : ''}
     <p><strong>Fecha:</strong> ${fmtDate(entrega.fecha_hora)}</p>
     <p><strong>Entregado por:</strong> ${esc(entrega.entregado_por)}</p>
-    ${firmaSrc ? `<p><strong>Firma:</strong><br><img src="${esc(firmaSrc)}" style="max-width:260px;border:1px solid #e5e7eb;border-radius:6px;background:#fff"></p>` : ''}
+    ${firmaSrc ? `<p><strong>Firma:</strong><br><img src="${esc(firmaSrc)}" style="max-width:260px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;margin-top:4px" onclick="window.open(this.src,'_blank')" title="Tap para ver grande" style="cursor:pointer"></p>` : '<p><strong>Firma:</strong> <span style="background:#7f1d1d;color:#fecaca;font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px">Sin firma registrada</span></p>'}
 
     <h4 style="margin-top:12px">Productos</h4>
     <table class="data-table">

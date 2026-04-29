@@ -8,6 +8,7 @@ import { esc, fmtDate } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getDevolucionesNuevas, registrarDevolucionNueva, getProductos } from './almacen-api.js';
+import { getEvidenceSrc } from './evidence-storage.js';
 
 let _devolucionesWizardHandler = null;
 
@@ -229,9 +230,12 @@ function openNuevaDevolucion() {
           </tbody>
         </table>
         <div style="margin-top:14px">
-          <p style="margin-bottom:12px">Firma digital del empleado</p>
-          <canvas id="signaturePad" style="border:1px solid #444;border-radius:4px;background:#0f0f0f;width:100%;height:150px;cursor:crosshair"></canvas>
-          <button class="btn btn-secondary" id="btnLimpiarFirma" style="margin-top:8px">Limpiar Firma</button>
+          <label style="font-size:15px;font-weight:600;display:block;margin-bottom:4px"><i class="fas fa-pen-fancy"></i> Firma del empleado</label>
+          <p style="font-size:12px;color:#94a3b8;margin:0 0 10px">Use el dedo o Apple Pencil para firmar</p>
+          <div style="border:2px dashed #4b5563;border-radius:8px;overflow:hidden">
+            <canvas id="signaturePad" style="display:block;width:100%;height:180px;cursor:crosshair;touch-action:none;background:#fff"></canvas>
+          </div>
+          <button class="btn btn-ghost" id="btnLimpiarFirma" style="margin-top:10px;width:100%"><i class="fas fa-eraser"></i> Limpiar firma</button>
         </div>
       `;
     }
@@ -319,6 +323,8 @@ function openNuevaDevolucion() {
         canvas.width = 900;
         canvas.height = 300;
         const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#0f172a';
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
@@ -410,7 +416,7 @@ function openNuevaDevolucion() {
         return;
       }
 
-      notify('Devolución registrada', 'success');
+      notify('Devolución registrada correctamente', 'success');
       modal.close();
       detachDevolucionesWizardHandler();
       renderDevoluciones();
@@ -425,6 +431,7 @@ function openDetalleDevolucion(id) {
 
   const lineas = getStore().lineasDevolucion.filter(l => l.devolucion_id === id);
   const piezas = lineas.reduce((s, l) => s + l.cantidad, 0);
+  const firmaSrc = getEvidenceSrc(devolucion.firma);
 
   let body = `
     <p><strong>Número:</strong> ${esc(devolucion.numero)}</p>
@@ -434,6 +441,7 @@ function openDetalleDevolucion(id) {
     <p><strong>Observaciones:</strong> ${esc(devolucion.observaciones || '—')}</p>
     <p><strong>Fecha:</strong> ${fmtDate(devolucion.fecha_hora)}</p>
     <p><strong>Registrado por:</strong> ${esc(devolucion.registrado_por)}</p>
+    ${firmaSrc ? `<p><strong>Firma:</strong><br><img src="${esc(firmaSrc)}" style="max-width:260px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;margin-top:4px" onclick="window.open(this.src,'_blank')" title="Tap para ver grande"></p>` : '<p><strong>Firma:</strong> <span style="background:#7f1d1d;color:#fecaca;font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px">Sin firma registrada</span></p>'}
 
     <h4 style="margin-top:12px">Productos Devueltos</h4>
     <table class="data-table">
