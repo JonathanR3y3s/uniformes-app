@@ -12,6 +12,8 @@ import{
   getDocumentosDevolucion,
   getAllSkusResumen,
 }from'./sku-api.js';
+const PAGE_SIZE=50;
+let dvVisibleLimit=PAGE_SIZE;
 
 // ─── RENDER PRINCIPAL ─────────────────────────────────────────────────────────
 export function render(){
@@ -45,7 +47,7 @@ export function render(){
   h+='<div class="card"><div class="card-head"><h3>Historial de devoluciones</h3><span class="text-sm text-muted" id="dvCount">'+docs.length+' documentos</span></div>';
   h+='<div class="table-wrap"><table class="dt"><thead><tr>';
   h+='<th>Número</th><th>Empleado</th><th>Área</th><th style="text-align:right">Arts.</th><th style="text-align:right">Piezas</th><th>Fecha</th><th style="text-align:center">Acciones</th>';
-  h+='</tr></thead><tbody id="dvTB"></tbody></table></div></div>';
+  h+='</tr></thead><tbody id="dvTB"></tbody></table></div><div class="text-center mt-2 mb-3"><button class="btn btn-ghost btn-sm" id="dvVerMas" style="display:none">Ver más</button></div></div>';
   return h;
 }
 
@@ -63,13 +65,13 @@ function renderTabla(){
   if(fDesde)docs=docs.filter(d=>d.fecha_hora.slice(0,10)>=fDesde);
   if(fHasta)docs=docs.filter(d=>d.fecha_hora.slice(0,10)<=fHasta);
 
-  const cnt=document.getElementById('dvCount');if(cnt)cnt.textContent=docs.length+' documentos';
+  const cnt=document.getElementById('dvCount');if(cnt)cnt.textContent=Math.min(dvVisibleLimit,docs.length)+' de '+docs.length+' documentos';
 
   if(!docs.length){
     tb.innerHTML='<tr><td colspan="7" class="empty-state" style="padding:24px"><i class="fas fa-undo"></i><p>Sin devoluciones con estos filtros</p></td></tr>';
     return;
   }
-  tb.innerHTML=docs.map(d=>{
+  tb.innerHTML=docs.slice(0,dvVisibleLimit).map(d=>{
     const pzas=(d.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
     return'<tr>'
       +'<td><code style="font-weight:800;font-size:12px;color:#059669">'+esc(d.numero)+'</code></td>'
@@ -84,6 +86,7 @@ function renderTabla(){
       +'</td>'
       +'</tr>';
   }).join('');
+  const more=document.getElementById('dvVerMas');if(more)more.style.display=docs.length>dvVisibleLimit?'inline-flex':'none';
 }
 
 // ─── COMPROBANTE IMPRIMIBLE (FASE 5) ─────────────────────────────────────────
@@ -274,10 +277,12 @@ function openDetalleDevolucion(docId){
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 export function init(){
   document.getElementById('dvBtnNueva')?.addEventListener('click',openNuevaDevolucion);
-  document.getElementById('dvFEmp')?.addEventListener('input',renderTabla);
-  document.getElementById('dvFArea')?.addEventListener('change',renderTabla);
-  document.getElementById('dvFDesde')?.addEventListener('change',renderTabla);
-  document.getElementById('dvFHasta')?.addEventListener('change',renderTabla);
+  const reset=()=>{dvVisibleLimit=PAGE_SIZE;renderTabla();};
+  document.getElementById('dvFEmp')?.addEventListener('input',reset);
+  document.getElementById('dvFArea')?.addEventListener('change',reset);
+  document.getElementById('dvFDesde')?.addEventListener('change',reset);
+  document.getElementById('dvFHasta')?.addEventListener('change',reset);
+  document.getElementById('dvVerMas')?.addEventListener('click',()=>{dvVisibleLimit+=PAGE_SIZE;renderTabla();});
   const main=document.getElementById('mainContent');
   if(main)main.onclick=e=>{
     const det=e.target.closest('.dv-det');if(det){openDetalleDevolucion(det.dataset.id);}

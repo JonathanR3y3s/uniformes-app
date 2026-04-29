@@ -11,6 +11,8 @@ import { getEntregasNuevas, registrarEntregaNueva, getProductos, createProducto,
 import { saveEvidence, getEvidenceSrc } from './evidence-storage.js';
 
 let _entregasWizardHandler = null;
+const PAGE_SIZE = 50;
+let entregasVisibleLimit = PAGE_SIZE;
 
 function detachEntregasWizardHandler() {
   if (_entregasWizardHandler) {
@@ -67,7 +69,7 @@ export function render() {
         <input type="text" id="filterEmpleado" placeholder="Filtrar por empleado..." style="padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;flex:1">
         <select id="filterArea" style="padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
           <option value="">Todas las áreas</option>
-          ${(getStore().areas || []).filter(a => a.activa !== false).map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('')}
+          ${(getStore().areas || []).filter(a => a.activa !== false).map(a => `<option value="${esc(a.nombre)}">${esc(a.nombre)}</option>`).join('')}
         </select>
       </div>
 
@@ -80,8 +82,9 @@ export function render() {
 
 export function init() {
   document.getElementById('btnNuevaEntrega')?.addEventListener('click', openNuevaEntrega);
-  document.getElementById('filterEmpleado')?.addEventListener('keyup', renderEntregas);
-  document.getElementById('filterArea')?.addEventListener('change', renderEntregas);
+  const resetEntregas = () => { entregasVisibleLimit = PAGE_SIZE; renderEntregas(); };
+  document.getElementById('filterEmpleado')?.addEventListener('keyup', resetEntregas);
+  document.getElementById('filterArea')?.addEventListener('change', resetEntregas);
 
   renderEntregas();
 }
@@ -93,13 +96,14 @@ function renderEntregas() {
   let entregasNuevas = getEntregasNuevas();
   if (empleado) entregasNuevas = entregasNuevas.filter(e => ((e.quien_recibe || e.empleado_nombre || '').toLowerCase().includes(empleado.toLowerCase())));
   if (area) entregasNuevas = entregasNuevas.filter(e => e.area === area);
+  const entregasVisibles = entregasNuevas.slice(0, entregasVisibleLimit);
 
   let html = `<table class="data-table"><thead><tr><th>Número</th><th>Recibe</th><th>Tipo</th><th>Área</th><th>Motivo</th><th>Artículos</th><th>Piezas</th><th>Fecha</th><th>Firma</th><th>Acciones</th></tr></thead><tbody>`;
 
   if (entregasNuevas.length === 0) {
     html += `<tr><td colspan="10" style="text-align:center;padding:20px;color:#999">Sin entregas registradas</td></tr>`;
   } else {
-    entregasNuevas.forEach(e => {
+    entregasVisibles.forEach(e => {
       const lineas = getStore().lineasEntrega.filter(l => l.entrega_id === e.id);
       const piezas = lineas.reduce((s, l) => s + l.cantidad, 0);
       const firmaIcon = (e.firma_recibe || e.firma) ? '<i class="fas fa-check" style="color:#4ade80"></i>' : '<span style="background:#7f1d1d;color:#fecaca;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px">SIN FIRMA</span>';
@@ -126,10 +130,20 @@ function renderEntregas() {
   }
 
   html += `</tbody></table>`;
+  if (entregasNuevas.length > entregasVisibleLimit) {
+    html += `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" id="entregasVerMas">Ver más</button></div>`;
+  }
   const container = document.getElementById('entregasContainer');
   container.innerHTML = html;
 
   container.onclick = e => {
+    const moreBtn = e.target.closest('#entregasVerMas');
+    if (moreBtn) {
+      entregasVisibleLimit += PAGE_SIZE;
+      renderEntregas();
+      return;
+    }
+
     const verBtn = e.target.closest('button:not(.btn-imprimir)');
     if (verBtn && verBtn.dataset.entregaId) {
       openDetalleEntrega(verBtn.dataset.entregaId);
@@ -166,6 +180,7 @@ function openNuevaEntrega() {
     autorizado_por: '',
     lineas: [],
     firma: null,
+    consumible_confirmado: false,
   };
 
   function getStockDisponible(producto, varianteId = null) {
@@ -281,7 +296,24 @@ function openNuevaEntrega() {
         <div id="lineasList" style="margin-top:12px;max-height:200px;overflow-y:auto"></div>
       `;
     } else if (paso === 4) {
+      const totalPiezas = datos.lineas.reduce((sum, l) => sum + (Number(l.cantidad) || 0), 0);
       body = `
+        <div style="padding:12px;background:#111;border:1px solid #334155;border-radius:8px;margin-bottom:14px">
+          <h4 style="margin:0 0 8px;font-size:14px">Resumen de entrega</h4>
+          <p><strong>Empleado / receptor:</strong> ${esc(datos.quien_recibe || datos.empleado_nombre || '—')}</p>
+          <p><strong>Tipo de entrega:</strong> ${esc(datos.tipo_entrega || 'dotacion')}</p>
+          <p><strong>Cantidad total de piezas:</strong> ${totalPiezas}</p>
+          <table class="data-table" style="margin-top:10px;font-size:12px">
+            <thead><tr><th>Producto</th><th style="text-align:center">Cantidad</th></tr></thead>
+            <tbody>
+              ${datos.lineas.map(l => {
+                const p = getStore().productos.find(x => x.id === l.producto_id);
+                const talla = getTallaLinea(p, l);
+                return `<tr><td>${p ? esc(p.nombre) : '?'}${talla ? ' · T:' + esc(talla) : ''}</td><td style="text-align:center">${l.cantidad}</td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
         <div>
           <label style="font-size:15px;font-weight:600;display:block;margin-bottom:4px"><i class="fas fa-pen-fancy"></i> Firma del empleado</label>
           <p style="font-size:12px;color:#94a3b8;margin:0 0 10px">Use el dedo o Apple Pencil para firmar en el área de abajo</p>
@@ -317,6 +349,7 @@ function openNuevaEntrega() {
       tipoEntrega?.addEventListener('change', (e) => {
         datos.tipo_entrega = e.target.value;
         datos.lineas = [];
+        datos.consumible_confirmado = false;
         if (datos.tipo_entrega === 'consumible') {
           datos.tipo_receptor = 'empleado';
           datos.receptor_ocasional = null;
@@ -654,6 +687,10 @@ function openNuevaEntrega() {
         datos.empleado_nombre = 'Supervisora de Limpieza';
         datos.quien_recibe = 'Supervisora de Limpieza';
         datos.area = 'Limpieza';
+        if (!datos.consumible_confirmado) {
+          if (!window.confirm('¿Confirmar entrega de consumibles a Supervisora de Limpieza?')) return;
+          datos.consumible_confirmado = true;
+        }
       }
       if (paso < 4) paso++;
       showPaso();

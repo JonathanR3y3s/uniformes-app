@@ -41,6 +41,9 @@ const TIPO_MOV_LABEL={
 };
 
 let _f={cat:'',modelo:'',bajoStock:false,q:''};
+const PAGE_SIZE=50;
+let skuVisibleLimit=PAGE_SIZE;
+let movVisibleLimit=PAGE_SIZE;
 
 // ─── RENDER PRINCIPAL ─────────────────────────────────────────────────────────
 export function render(){
@@ -93,7 +96,7 @@ export function render(){
   h+='<th>Código SKU</th><th>Prenda</th><th>Talla</th><th>Modelo</th><th>Cat.</th>';
   h+='<th style="text-align:right">Stock</th><th style="text-align:center">Estado</th>';
   h+='<th style="text-align:center">Acciones</th></tr></thead>';
-  h+='<tbody id="skuTB"></tbody></table></div></div>';
+  h+='<tbody id="skuTB"></tbody></table></div><div class="text-center mt-2 mb-3"><button class="btn btn-ghost btn-sm" id="skuVerMas" style="display:none">Ver más</button></div></div>';
 
   // Reporte de movimientos (FASE 3)
   if(isAdmin){
@@ -120,6 +123,7 @@ export function render(){
       +'<th>Referencia / Obs.</th>'
       +'<th>Usuario</th>'
       +'</tr></thead><tbody id="rmTB"></tbody></table></div>'
+      +'<div class="text-center mt-2"><button class="btn btn-ghost btn-sm" id="rmVerMas" style="display:none">Ver más</button></div>'
       +'<div id="rmSummary" class="card-body text-xs text-muted pt-2 pb-3"></div>'
       +'</div>';
   }
@@ -138,12 +142,12 @@ function renderRows(){
   // Orden: categoría → nombre → modelo → talla
   list.sort((a,b)=>{if(a.categoria!==b.categoria)return a.categoria.localeCompare(b.categoria);if(a.nombre!==b.nombre)return a.nombre.localeCompare(b.nombre);if(a.modelo_anio!==b.modelo_anio)return b.modelo_anio.localeCompare(a.modelo_anio);return(a.talla||'').localeCompare(b.talla||'');});
   const tb=document.getElementById('skuTB');if(!tb)return;
-  const cc=document.getElementById('skuCount');if(cc)cc.textContent=list.length+' SKUs';
+  const cc=document.getElementById('skuCount');if(cc)cc.textContent=Math.min(skuVisibleLimit,list.length)+' de '+list.length+' SKUs';
   if(!list.length){
     tb.innerHTML='<tr><td colspan="8" class="empty-state"><i class="fas fa-barcode"></i><p>Sin SKUs registrados</p><p class="text-sm text-muted">Usa "Inventario Inicial" para cargar el conteo físico del almacén</p></td></tr>';
     return;
   }
-  tb.innerHTML=list.map(s=>{
+  tb.innerHTML=list.slice(0,skuVisibleLimit).map(s=>{
     const cat=CATS[s.categoria]||CATS.uniformes;
     const estadoBadge=s.sinStock
       ?'<span style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">Sin stock</span>'
@@ -166,6 +170,7 @@ function renderRows(){
       +'</div></td>'
       +'</tr>';
   }).join('');
+  const more=document.getElementById('skuVerMas');if(more)more.style.display=list.length>skuVisibleLimit?'inline-flex':'none';
 }
 
 // ─── MODAL: INVENTARIO INICIAL ────────────────────────────────────────────────
@@ -456,15 +461,14 @@ function renderReporte(){
   if(fTipo)movs=movs.filter(m=>m.tipo===fTipo);
   if(fDesde)movs=movs.filter(m=>m.fecha_hora.slice(0,10)>=fDesde);
   if(fHasta)movs=movs.filter(m=>m.fecha_hora.slice(0,10)<=fHasta);
-  movs=movs.slice(0,200); // máximo 200 filas
-
   if(!movs.length){
     tb.innerHTML='<tr><td colspan="7" class="empty-state" style="padding:20px"><i class="fas fa-history"></i><p>Sin movimientos con los filtros actuales</p></td></tr>';
     const s=document.getElementById('rmSummary');if(s)s.textContent='';
     return;
   }
 
-  tb.innerHTML=movs.map(m=>{
+  const visibles=movs.slice(0,movVisibleLimit);
+  tb.innerHTML=visibles.map(m=>{
     const s=skuMap[m.sku_id];
     const tipoLabel=TIPO_MOV_LABEL[m.tipo]||m.tipo;
     const esPos=m.cantidad>0;
@@ -482,10 +486,11 @@ function renderReporte(){
   }).join('');
 
   // Resumen
-  const totalPos=movs.filter(m=>m.cantidad>0).reduce((t,m)=>t+m.cantidad,0);
-  const totalNeg=movs.filter(m=>m.cantidad<0).reduce((t,m)=>t+Math.abs(m.cantidad),0);
+  const totalPos=visibles.filter(m=>m.cantidad>0).reduce((t,m)=>t+m.cantidad,0);
+  const totalNeg=visibles.filter(m=>m.cantidad<0).reduce((t,m)=>t+Math.abs(m.cantidad),0);
+  const more=document.getElementById('rmVerMas');if(more)more.style.display=movs.length>movVisibleLimit?'inline-flex':'none';
   const sm=document.getElementById('rmSummary');
-  if(sm)sm.innerHTML='<strong>'+movs.length+'</strong> movimientos · <span style="color:#059669">+'+totalPos+' entradas</span> · <span style="color:#dc2626">−'+totalNeg+' salidas</span>'+(movs.length===200?' <em>(mostrando solo los últimos 200)</em>':'');
+  if(sm)sm.innerHTML='<strong>'+Math.min(movVisibleLimit,movs.length)+' de '+movs.length+'</strong> movimientos · <span style="color:#059669">+'+totalPos+' entradas visibles</span> · <span style="color:#dc2626">−'+totalNeg+' salidas visibles</span>';
 }
 
 // ─── MODAL: AJUSTE DE INVENTARIO (FASE 3) ────────────────────────────────────
@@ -559,12 +564,14 @@ export function init(){
   ['skuFCat','skuFMod'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{
     _f.cat=document.getElementById('skuFCat')?.value||'';
     _f.modelo=document.getElementById('skuFMod')?.value||'';
+    skuVisibleLimit=PAGE_SIZE;
     renderRows();
   }));
-  document.getElementById('skuFQ')?.addEventListener('input',function(){_f.q=this.value;renderRows();});
-  document.getElementById('skuFBajo')?.addEventListener('change',function(){_f.bajoStock=this.checked;renderRows();});
+  document.getElementById('skuFQ')?.addEventListener('input',function(){_f.q=this.value;skuVisibleLimit=PAGE_SIZE;renderRows();});
+  document.getElementById('skuFBajo')?.addEventListener('change',function(){_f.bajoStock=this.checked;skuVisibleLimit=PAGE_SIZE;renderRows();});
   document.getElementById('skuFClear')?.addEventListener('click',()=>{
     _f={cat:'',modelo:'',bajoStock:false,q:''};
+    skuVisibleLimit=PAGE_SIZE;
     ['skuFCat','skuFMod','skuFQ'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const cb=document.getElementById('skuFBajo');if(cb)cb.checked=false;
     renderRows();
@@ -574,9 +581,12 @@ export function init(){
     const min=e.target.closest('.sku-min');if(min){openEditMinimo(min.dataset.id);return;}
     const aj=e.target.closest('.sku-ajuste');if(aj){openAjusteSKU(aj.dataset.id);return;}
   });
+  document.getElementById('skuVerMas')?.addEventListener('click',()=>{skuVisibleLimit+=PAGE_SIZE;renderRows();});
   renderRows();
   // Reporte de movimientos (FASE 3)
   renderReporte();
-  ['rmFSku','rmFTipo','rmFDesde','rmFHasta'].forEach(id=>document.getElementById(id)?.addEventListener('input',renderReporte));
-  ['rmFTipo'].forEach(id=>document.getElementById(id)?.addEventListener('change',renderReporte));
+  const resetReporte=()=>{movVisibleLimit=PAGE_SIZE;renderReporte();};
+  ['rmFSku','rmFTipo','rmFDesde','rmFHasta'].forEach(id=>document.getElementById(id)?.addEventListener('input',resetReporte));
+  ['rmFTipo'].forEach(id=>document.getElementById(id)?.addEventListener('change',resetReporte));
+  document.getElementById('rmVerMas')?.addEventListener('click',()=>{movVisibleLimit+=PAGE_SIZE;renderReporte();});
 }

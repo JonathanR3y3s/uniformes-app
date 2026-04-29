@@ -1,6 +1,7 @@
 import * as reportesGeneral from './reportes.js';
 import * as reportesAvanzados from './advanced-reports.js';
 import * as centroCostos from './centro-costos.js';
+import { destroyCharts } from './ui.js';
 
 const tabs = [
   { id: 'general', label: 'General', module: reportesGeneral },
@@ -27,6 +28,7 @@ function initActiveModule() {
 function mountActiveModule() {
   const content = document.getElementById('reportesHubContent');
   if (!content) return;
+  destroyCharts();
   content.innerHTML = renderActiveModule();
   initActiveModule();
 }

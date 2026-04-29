@@ -11,6 +11,8 @@ import { getDevolucionesNuevas, registrarDevolucionNueva, getProductos } from '.
 import { getEvidenceSrc } from './evidence-storage.js';
 
 let _devolucionesWizardHandler = null;
+const PAGE_SIZE = 50;
+let devolucionesVisibleLimit = PAGE_SIZE;
 
 function detachDevolucionesWizardHandler() {
   if (_devolucionesWizardHandler) {
@@ -82,8 +84,9 @@ export function render() {
 
 export function init() {
   document.getElementById('btnNuevaDevolucion')?.addEventListener('click', openNuevaDevolucion);
-  document.getElementById('filterEmpleado')?.addEventListener('keyup', renderDevoluciones);
-  document.getElementById('filterMotivo')?.addEventListener('change', renderDevoluciones);
+  const resetDevoluciones = () => { devolucionesVisibleLimit = PAGE_SIZE; renderDevoluciones(); };
+  document.getElementById('filterEmpleado')?.addEventListener('keyup', resetDevoluciones);
+  document.getElementById('filterMotivo')?.addEventListener('change', resetDevoluciones);
 
   renderDevoluciones();
 }
@@ -95,13 +98,14 @@ function renderDevoluciones() {
   let devolucionesNuevas = getDevolucionesNuevas();
   if (empleado) devolucionesNuevas = devolucionesNuevas.filter(d => d.empleado_nombre.toLowerCase().includes(empleado.toLowerCase()));
   if (motivo) devolucionesNuevas = devolucionesNuevas.filter(d => d.motivo === motivo);
+  const devolucionesVisibles = devolucionesNuevas.slice(0, devolucionesVisibleLimit);
 
   let html = `<table class="data-table"><thead><tr><th>Número</th><th>Empleado</th><th>Área</th><th>Motivo</th><th>Productos</th><th>Piezas</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>`;
 
   if (devolucionesNuevas.length === 0) {
     html += `<tr><td colspan="8" style="text-align:center;padding:20px;color:#999">Sin devoluciones registradas</td></tr>`;
   } else {
-    devolucionesNuevas.forEach(d => {
+    devolucionesVisibles.forEach(d => {
       const lineas = getStore().lineasDevolucion.filter(l => l.devolucion_id === d.id);
       const piezas = lineas.reduce((s, l) => s + l.cantidad, 0);
       const motivoIcon = {
@@ -130,10 +134,20 @@ function renderDevoluciones() {
   }
 
   html += `</tbody></table>`;
+  if (devolucionesNuevas.length > devolucionesVisibleLimit) {
+    html += `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" id="devolucionesVerMas">Ver más</button></div>`;
+  }
   const container = document.getElementById('devolucionesContainer');
   container.innerHTML = html;
 
   container.onclick = e => {
+    const moreBtn = e.target.closest('#devolucionesVerMas');
+    if (moreBtn) {
+      devolucionesVisibleLimit += PAGE_SIZE;
+      renderDevoluciones();
+      return;
+    }
+
     const btn = e.target.closest('button[data-devolucion-id]');
     if (btn) {
       openDetalleDevolucion(btn.dataset.devolucionId);

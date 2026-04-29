@@ -12,6 +12,8 @@ import{
   getDocumentosEntrega,
   getAllSkusResumen,
 }from'./sku-api.js';
+const PAGE_SIZE=50;
+let esVisibleLimit=PAGE_SIZE;
 
 // ─── RENDER PRINCIPAL ─────────────────────────────────────────────────────────
 export function render(){
@@ -45,7 +47,7 @@ export function render(){
   h+='<div class="card"><div class="card-head"><h3>Historial de entregas</h3><span class="text-sm text-muted" id="esCount">'+docs.length+' documentos</span></div>';
   h+='<div class="table-wrap"><table class="dt"><thead><tr>';
   h+='<th>Número</th><th>Empleado</th><th>Área</th><th style="text-align:right">Arts.</th><th style="text-align:right">Piezas</th><th>Fecha</th><th style="text-align:center">Acciones</th>';
-  h+='</tr></thead><tbody id="esTB"></tbody></table></div></div>';
+  h+='</tr></thead><tbody id="esTB"></tbody></table></div><div class="text-center mt-2 mb-3"><button class="btn btn-ghost btn-sm" id="esVerMas" style="display:none">Ver más</button></div></div>';
   return h;
 }
 
@@ -63,13 +65,13 @@ function renderTabla(){
   if(fDesde)docs=docs.filter(d=>d.fecha_hora.slice(0,10)>=fDesde);
   if(fHasta)docs=docs.filter(d=>d.fecha_hora.slice(0,10)<=fHasta);
 
-  const cnt=document.getElementById('esCount');if(cnt)cnt.textContent=docs.length+' documentos';
+  const cnt=document.getElementById('esCount');if(cnt)cnt.textContent=Math.min(esVisibleLimit,docs.length)+' de '+docs.length+' documentos';
 
   if(!docs.length){
     tb.innerHTML='<tr><td colspan="7" class="empty-state" style="padding:24px"><i class="fas fa-hand-holding"></i><p>Sin entregas con estos filtros</p></td></tr>';
     return;
   }
-  tb.innerHTML=docs.map(d=>{
+  tb.innerHTML=docs.slice(0,esVisibleLimit).map(d=>{
     const pzas=(d.lineas||[]).reduce((t,l)=>t+l.cantidad,0);
     return'<tr>'
       +'<td><code style="font-weight:800;font-size:12px;color:var(--primary)">'+esc(d.numero)+'</code></td>'
@@ -84,6 +86,7 @@ function renderTabla(){
       +'</td>'
       +'</tr>';
   }).join('');
+  const more=document.getElementById('esVerMas');if(more)more.style.display=docs.length>esVisibleLimit?'inline-flex':'none';
 }
 
 // ─── RECIBO IMPRIMIBLE (FASE 4) ───────────────────────────────────────────────
@@ -273,10 +276,12 @@ function openDetalleEntrega(docId){
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 export function init(){
   document.getElementById('esBtnNueva')?.addEventListener('click',openNuevaEntrega);
-  document.getElementById('esFEmp')?.addEventListener('input',renderTabla);
-  document.getElementById('esFArea')?.addEventListener('change',renderTabla);
-  document.getElementById('esFDesde')?.addEventListener('change',renderTabla);
-  document.getElementById('esFHasta')?.addEventListener('change',renderTabla);
+  const reset=()=>{esVisibleLimit=PAGE_SIZE;renderTabla();};
+  document.getElementById('esFEmp')?.addEventListener('input',reset);
+  document.getElementById('esFArea')?.addEventListener('change',reset);
+  document.getElementById('esFDesde')?.addEventListener('change',reset);
+  document.getElementById('esFHasta')?.addEventListener('change',reset);
+  document.getElementById('esVerMas')?.addEventListener('click',()=>{esVisibleLimit+=PAGE_SIZE;renderTabla();});
   const main=document.getElementById('mainContent');
   if(main)main.onclick=e=>{
     const det=e.target.closest('.es-det');if(det){openDetalleEntrega(det.dataset.id);}

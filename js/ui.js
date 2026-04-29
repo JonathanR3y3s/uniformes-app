@@ -2,8 +2,10 @@ import{NAV}from'./config.js';import{esc}from'./utils.js';import{verificarCaptura
 let charts={};
 export function notify(msg,type){type=type||'info';const wrap=document.getElementById('notifWrap');if(!wrap)return;const icons={info:'fa-info-circle',success:'fa-check-circle',warning:'fa-exclamation-triangle',error:'fa-times-circle'};const el=document.createElement('div');el.className='notif '+(type==='error'?'error':type);el.innerHTML='<i class="fas '+(icons[type]||icons.info)+'"></i><span>'+esc(msg)+'</span>';wrap.appendChild(el);setTimeout(()=>{el.style.opacity='0';el.style.transform='translateX(100%)';el.style.transition='all .3s';setTimeout(()=>el.remove(),300);},4000);}
 export const modal={open(title,body,foot,size){document.getElementById('modalTitle').textContent=title;document.getElementById('modalBody').innerHTML=body;document.getElementById('modalFoot').innerHTML=foot||'';document.getElementById('modalBox').className='modal-box '+(size||'md');document.getElementById('modalOverlay').classList.add('open');},close(){document.getElementById('modalOverlay').classList.remove('open');}};
-export function destroyCharts(){Object.keys(charts).forEach(k=>{try{charts[k].destroy();}catch(e){}});charts={};}
-export function createChart(id,cfg){if(charts[id])try{charts[id].destroy();}catch(e){}const el=document.getElementById(id);if(!el)return null;charts[id]=new Chart(el,cfg);return charts[id];}
+window._charts=window._charts||[];
+export function registerChart(chart){if(chart)window._charts.push(chart);return chart;}
+export function destroyCharts(){Object.keys(charts).forEach(k=>{try{charts[k].destroy();}catch(e){}});charts={};if(!window._charts)return;window._charts.forEach(c=>{try{c.destroy();}catch(e){}});window._charts=[];}
+export function createChart(id,cfg){if(charts[id])try{charts[id].destroy();}catch(e){}const el=document.getElementById(id);if(!el)return null;charts[id]=new Chart(el,cfg);registerChart(charts[id]);return charts[id];}
 export function confirm(msg){return window.confirm(msg);}
 export function buildNav(currentView){
   const nav=document.getElementById('sidebarNav');

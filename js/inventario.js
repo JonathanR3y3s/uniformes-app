@@ -23,9 +23,21 @@ import {
   generateSKU,
 } from './almacen-api.js';
 import { saveEvidence, getEvidenceSrc } from './evidence-storage.js';
+import { isImageFile } from './file-validation.js';
 
 let currentPage = 1;
 let currentView = 'grid'; // 'grid' o 'tabla'
+const PAGE_SIZE = 50;
+let productosVisibleLimit = PAGE_SIZE;
+
+function validateImage(file) {
+  if (!file) return false;
+  if (!isImageFile(file)) {
+    notify('Solo se permiten imágenes.', 'warning');
+    return false;
+  }
+  return true;
+}
 
 function nivelControl(p) {
   return Number(p?.nivel_control || 3);
@@ -137,6 +149,7 @@ export function init() {
 
   document.getElementById('btnToggleView')?.addEventListener('click', () => {
     currentView = currentView === 'grid' ? 'tabla' : 'grid';
+    productosVisibleLimit = PAGE_SIZE;
     renderProductos();
   });
 
@@ -145,13 +158,15 @@ export function init() {
     document.getElementById('filterNivelControl').value = '';
     document.getElementById('filterBusqueda').value = '';
     document.getElementById('filterBajoStock').checked = false;
+    productosVisibleLimit = PAGE_SIZE;
     renderProductos();
   });
 
-  document.getElementById('filterCategoria')?.addEventListener('change', renderProductos);
-  document.getElementById('filterNivelControl')?.addEventListener('change', renderProductos);
-  document.getElementById('filterBusqueda')?.addEventListener('keyup', () => setTimeout(renderProductos, 300));
-  document.getElementById('filterBajoStock')?.addEventListener('change', renderProductos);
+  const resetProductos = () => { productosVisibleLimit = PAGE_SIZE; renderProductos(); };
+  document.getElementById('filterCategoria')?.addEventListener('change', resetProductos);
+  document.getElementById('filterNivelControl')?.addEventListener('change', resetProductos);
+  document.getElementById('filterBusqueda')?.addEventListener('keyup', () => setTimeout(resetProductos, 300));
+  document.getElementById('filterBajoStock')?.addEventListener('change', resetProductos);
 
   renderProductos();
 }
@@ -242,6 +257,7 @@ function renderProductos() {
   const catMap = Object.fromEntries(categorias.map(c => [c.id, c]));
   const role = getUserRole();
   const isAdmin = role === 'admin';
+  const productosVisibles = productos.slice(0, productosVisibleLimit);
 
   let html = '';
 
@@ -251,7 +267,7 @@ function renderProductos() {
     </div>`;
   } else if (currentView === 'grid') {
     html = `<div class="products-grid">`;
-    productos.forEach(p => {
+    productosVisibles.forEach(p => {
       const cat = catMap[p.categoria_id];
       const foto = getProductoFotoSrc(p);
       const bgColor = cat?.color || '#666';
@@ -314,7 +330,7 @@ function renderProductos() {
       <tbody>
     `;
 
-    productos.forEach(p => {
+    productosVisibles.forEach(p => {
       const cat = catMap[p.categoria_id];
       const tipo = p.tipo || 'personal';
       const nivel = nivelControl(p);
@@ -378,6 +394,10 @@ function renderProductos() {
     html += `</tbody></table>`;
   }
 
+  if (productos.length > productosVisibleLimit) {
+    html += `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" id="productosVerMas">Ver más</button></div>`;
+  }
+
   const container = document.getElementById('productosContainer');
   container.innerHTML = html;
 
@@ -425,6 +445,11 @@ function renderProductos() {
       openDetalleProducto(id);
     }
   };
+
+  document.getElementById('productosVerMas')?.addEventListener('click', () => {
+    productosVisibleLimit += PAGE_SIZE;
+    renderProductos();
+  });
 }
 
 function openNuevoProducto() {
@@ -572,6 +597,12 @@ function openNuevoProducto() {
   fotoInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (!validateImage(file)) {
+        e.target.value = '';
+        delete fotoInput.dataset.base64;
+        document.getElementById('fotoPreview').innerHTML = '';
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (ev) => {
         document.getElementById('fotoPreview').innerHTML = `<img src="${esc(ev.target.result)}" style="max-width:100px;max-height:100px;border-radius:4px;object-fit:cover">`;
@@ -815,6 +846,10 @@ function openDetalleProducto(id) {
     document.getElementById('detalleFotoInput')?.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      if (!validateImage(file)) {
+        e.target.value = '';
+        return;
+      }
       try {
         const dataUrl = await readFileAsDataURL(file);
         const preview = document.getElementById('detalleFotoProducto');
@@ -1024,6 +1059,12 @@ function openMermaProducto(id, variante_id = null) {
       if (preview) preview.textContent = 'Sin evidencia';
       return;
     }
+    if (!validateImage(file)) {
+      e.target.value = '';
+      delete evidenciaInput.dataset.base64;
+      if (preview) preview.textContent = 'Sin evidencia';
+      return;
+    }
     try {
       const dataUrl = await readFileAsDataURL(file);
       evidenciaInput.dataset.base64 = dataUrl;
@@ -1056,6 +1097,9 @@ function openMermaProducto(id, variante_id = null) {
     }
     if (cantidad > stock) {
       notify('Stock insuficiente para registrar merma', 'error');
+      return;
+    }
+    if (!window.confirm('¿Seguro que deseas registrar esta merma? Esta acción no se puede deshacer.')) {
       return;
     }
 

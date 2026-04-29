@@ -9,11 +9,14 @@ import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getEntradas, registrarEntrada, completarFactura, getProductos, getCategorias, updateProducto } from './almacen-api.js';
 import { saveEvidence, getEvidenceSrc } from './evidence-storage.js';
+import { isImageFile } from './file-validation.js';
 
 let currentStep = 1;
 let _recepcionWizardHandler = null;
 const FACTURA_MAX_BYTES = 500 * 1024;
 const FACTURA_MAX_SIDE = 800;
+const PAGE_SIZE = 50;
+let entradasVisibleLimit = PAGE_SIZE;
 let wizardData = {
   proveedor: '',
   fecha_hora: new Date().toISOString(),
@@ -22,6 +25,15 @@ let wizardData = {
   productoFoto: null,
   lineas: [],
 };
+
+function validateImage(file) {
+  if (!file) return false;
+  if (!isImageFile(file)) {
+    notify('Solo se permiten imágenes.', 'warning');
+    return false;
+  }
+  return true;
+}
 
 function getBase64Bytes(base64) {
   if (!base64 || typeof base64 !== 'string') return 0;
@@ -164,8 +176,9 @@ export function render() {
 
 export function init() {
   document.getElementById('btnNuevaRecepcion')?.addEventListener('click', openNuevaRecepcion);
-  document.getElementById('filterProveedor')?.addEventListener('keyup', renderEntradas);
-  document.getElementById('filterEstado')?.addEventListener('change', renderEntradas);
+  const resetEntradas = () => { entradasVisibleLimit = PAGE_SIZE; renderEntradas(); };
+  document.getElementById('filterProveedor')?.addEventListener('keyup', resetEntradas);
+  document.getElementById('filterEstado')?.addEventListener('change', resetEntradas);
 
   renderEntradas();
 }
@@ -177,6 +190,7 @@ function renderEntradas() {
   };
 
   let entradas = getEntradas(filtros);
+  const entradasVisibles = entradas.slice(0, entradasVisibleLimit);
 
   let html = `
     <table class="data-table">
@@ -197,7 +211,7 @@ function renderEntradas() {
   if (entradas.length === 0) {
     html += `<tr><td colspan="7" style="text-align:center;padding:20px;color:#999">Sin recepciones registradas</td></tr>`;
   } else {
-    entradas.forEach(e => {
+    entradasVisibles.forEach(e => {
       const lineas = getStore().lineasEntrada.filter(l => l.entrada_id === e.id);
       const estadoBadge = e.estado === 'pendiente_factura'
         ? '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:12px">⚠️ Pendiente</span>'
@@ -221,12 +235,22 @@ function renderEntradas() {
   }
 
   html += `</tbody></table>`;
+  if (entradas.length > entradasVisibleLimit) {
+    html += `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" id="entradasVerMas">Ver más</button></div>`;
+  }
 
   const container = document.getElementById('entradasContainer');
   container.innerHTML = html;
 
   // Delegación de eventos (onclick evita acumulación de listeners por cada render)
   container.onclick = e => {
+    const moreBtn = e.target.closest('#entradasVerMas');
+    if (moreBtn) {
+      entradasVisibleLimit += PAGE_SIZE;
+      renderEntradas();
+      return;
+    }
+
     const verBtn = e.target.closest('button[data-entrada-id]:not(.btn-completar)');
     if (verBtn) {
       const id = verBtn.dataset.entradaId;
@@ -269,9 +293,9 @@ function showWizardStep() {
     body = `
       <div>
         <label>Proveedor *</label>
-        <input type="text" id="prov" list="proveedoresList" value="${wizardData.proveedor}" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+        <input type="text" id="prov" list="proveedoresList" value="${esc(wizardData.proveedor)}" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
         <datalist id="proveedoresList">
-          ${proveedoresHistorico.map(p => `<option value="${p}">`).join('')}
+          ${proveedoresHistorico.map(p => `<option value="${esc(p)}">`).join('')}
         </datalist>
       </div>
       <div style="margin-top:12px">
@@ -280,7 +304,7 @@ function showWizardStep() {
       </div>
       <div style="margin-top:12px">
         <label>Observaciones</label>
-        <textarea id="obs" placeholder="Notas de la recepción..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;min-height:80px">${wizardData.observaciones}</textarea>
+        <textarea id="obs" placeholder="Notas de la recepción..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;min-height:80px">${esc(wizardData.observaciones)}</textarea>
       </div>
     `;
   } else if (currentStep === 2) {
@@ -297,11 +321,11 @@ function showWizardStep() {
         <div class="form-row c2">
           <div>
             <label>Folio Factura</label>
-            <input type="text" id="folio" value="${wizardData.factura.folio}" placeholder="Ej: INV-2024-001" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+            <input type="text" id="folio" value="${esc(wizardData.factura.folio)}" placeholder="Ej: INV-2024-001" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
           </div>
           <div>
             <label>Fecha Factura</label>
-            <input type="date" id="fechaFact" value="${wizardData.factura.fecha}" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+            <input type="date" id="fechaFact" value="${esc(wizardData.factura.fecha)}" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
           </div>
         </div>
 
@@ -413,6 +437,12 @@ function showWizardStep() {
     document.getElementById('fotoFact')?.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      if (!validateImage(file)) {
+        e.target.value = '';
+        wizardData.factura.foto = null;
+        renderFacturaPreview();
+        return;
+      }
       try {
         const result = await resizeFacturaFile(file);
         if (result.bytes > FACTURA_MAX_BYTES) {
@@ -459,6 +489,12 @@ function showWizardStep() {
     document.getElementById('fotoProd')?.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      if (!validateImage(file)) {
+        e.target.value = '';
+        wizardData.productoFoto = null;
+        renderProductoPreview();
+        return;
+      }
       try {
         const result = await resizeFacturaFile(file);
         wizardData.productoFoto = result.base64;

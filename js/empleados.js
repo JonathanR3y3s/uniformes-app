@@ -7,8 +7,11 @@ import{getUserRole,getUser}from'./user-roles.js';
 import{findUser}from'./users.js';
 import{getDocumentosEntregaByEmpleado,getDocumentosDevolucion}from'./sku-api.js';
 import{saveEvidence,getEvidenceSrc}from'./evidence-storage.js';
+import{isImageFile}from'./file-validation.js';
 
 let empStatusFilter='activo';
+const PAGE_SIZE=50;
+let empVisibleLimit=PAGE_SIZE;
 const BAJA_DEFAULT_ITEMS=['Playera','Pantalón','Zapatos'];
 
 function normEstado(e){const v=(e||'activo').toLowerCase();if(v==='incapacidad')return'incapacitado';return v;}
@@ -21,10 +24,15 @@ function getHistorialEmpleado(emp){const s=getStore();const actuales=(s.entregas
 function bajaEstadoBadge(baja){if(!baja)return'';const complete=baja.estado==='completo';return'<span class="badge '+(complete?'badge-success':'badge-warning')+'"><i class="fas '+(complete?'fa-check-circle':'fa-exclamation-triangle')+'"></i> '+(complete?'Baja completa':'Baja con pendientes')+'</span>';}
 function bajaChecklistBase(emp){const actual=Array.isArray(emp.baja?.checklist)?emp.baja.checklist.filter(x=>x&&x.item):[];if(actual.length)return actual.map(x=>({item:String(x.item),devuelto:!!x.devuelto}));const seen=new Set();const items=[];getHistorialEmpleado(emp).forEach(ent=>{getEntregaLineas(ent).forEach(l=>{const item=String(l.producto||'').trim();const k=item.toLowerCase();if(item&&!seen.has(k)){seen.add(k);items.push({item,devuelto:false});}});});return(items.length?items:BAJA_DEFAULT_ITEMS.map(item=>({item,devuelto:false}))).slice(0,40);}
 function readFileAsDataURL(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=ev=>resolve(ev.target.result);reader.onerror=()=>reject(new Error('No se pudo leer la evidencia'));reader.readAsDataURL(file);});}
+function validateImage(file){
+  if(!file)return false;
+  if(!isImageFile(file)){notify('Solo se permiten imágenes.','warning');return false;}
+  return true;
+}
 
 function avatarHTML(emp,size){
   size=size||36;
-  if(emp.foto)return'<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="'+emp.foto+'" style="width:100%;height:100%;object-fit:cover"></div>';
+  if(emp.foto)return'<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="'+esc(emp.foto)+'" style="width:100%;height:100%;object-fit:cover"></div>';
   const initials=((emp.nombre||'?')[0]+(emp.paterno?emp.paterno[0]:emp.nombre&&emp.nombre[1]?emp.nombre[1]:'?')).toUpperCase();
   const colors=['#004B87','#16a34a','#ca8a04','#7c3aed','#dc2626'];
   const ci=Math.abs((emp.id||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0))%colors.length;
@@ -67,6 +75,7 @@ export function render(){
   h+='<div class="tabs mb-4" id="empStatusTabs"><button class="tab-btn active" data-status="activo">Activos</button><button class="tab-btn" data-status="incapacitado">Incapacitados</button><button class="tab-btn" data-status="vacaciones">Vacaciones</button><button class="tab-btn" data-status="baja">Baja</button><button class="tab-btn" data-status="">Todos</button></div>';
   h+='<div class="card"><div class="table-wrap"><table class="dt"><thead><tr><th style="width:44px"></th><th>#</th><th>Nombre</th><th>Área</th><th>Estado</th><th>Captura</th><th>Acciones</th></tr></thead><tbody id="empT"></tbody></table></div></div>';
   h+='<p class="text-xs text-muted mt-3 text-center"><span id="empCount">0</span> empleados mostrados</p>';
+  h+='<div class="text-center mt-2"><button class="btn btn-ghost btn-sm" id="empVerMas" style="display:none">Ver más</button></div>';
   return h;
 }
 
@@ -88,9 +97,10 @@ function filterEmp(){
   const tb=document.getElementById('empT');
   if(!tb)return;
   const cnt=document.getElementById('empCount');
-  if(cnt)cnt.textContent=list.length;
+  if(cnt)cnt.textContent=Math.min(empVisibleLimit,list.length)+' de '+list.length;
   if(!list.length){tb.innerHTML='<tr><td colspan="7" class="empty-state"><i class="fas fa-users"></i><p>No hay empleados con esos filtros</p></td></tr>';return;}
-  tb.innerHTML=list.map(e=>{
+  const visible=list.slice(0,empVisibleLimit);
+  tb.innerHTML=visible.map(e=>{
     const baja=['baja','movimiento','incapacidad','incapacitado'].includes(e.estado);
     const rc=baja?'inactive':(verificarCaptura(e)?'capturado':'');
     return'<tr class="'+rc+'">'
@@ -106,6 +116,8 @@ function filterEmp(){
       +(getUserRole()!=='operador'?'<button class="btn btn-ghost btn-sm del-emp" data-id="'+e.id+'" title="Eliminar"><i class="fas fa-trash"></i></button>':'')
       +'</div></td></tr>';
   }).join('');
+  const more=document.getElementById('empVerMas');
+  if(more)more.style.display=list.length>empVisibleLimit?'inline-flex':'none';
 }
 
 export function openNewEmp(){
@@ -151,7 +163,7 @@ function saveNewEmp(){
 function delEmp(id){
   const e=getStore().employees.find(x=>x.id===id);
   if(!e)return;
-  if(!confirm('¿Eliminar a '+e.nombre+' (#'+e.id+')?\nEsta acción no se puede deshacer.'))return;
+  if(!confirm('¿Seguro que deseas eliminar este empleado? Esta acción no se puede deshacer.'))return;
   getStore().employees=getStore().employees.filter(x=>x.id!==id);
   saveEmployees();
   log('ELIMINAR',e.nombre+' (#'+e.id+')');
@@ -251,13 +263,13 @@ export function openEditEmp(id){
   function setPreview(src){
     fotoB64=src;
     const p=document.getElementById('empAvatarPreview');
-    if(p)p.innerHTML=src?'<img src="'+src+'" style="width:100%;height:100%;object-fit:cover">':'<span style="font-size:22px;font-weight:700;color:var(--text-muted)">'+((emp.nombre||'?')[0]).toUpperCase()+'</span>';
+    if(p)p.innerHTML=src?'<img src="'+esc(src)+'" style="width:100%;height:100%;object-fit:cover">':'<span style="font-size:22px;font-weight:700;color:var(--text-muted)">'+esc(((emp.nombre||'?')[0]).toUpperCase())+'</span>';
   }
   // Galería — sin voltear
-  function loadFile(file){if(!file)return;const r=new FileReader();r.onload=e=>setPreview(e.target.result);r.readAsDataURL(file);}
+  function loadFile(file){if(!validateImage(file))return;const r=new FileReader();r.onload=e=>setPreview(e.target.result);r.readAsDataURL(file);}
   // Cámara frontal — voltear horizontalmente (corrección espejo)
   function loadFileFront(file){
-    if(!file)return;
+    if(!validateImage(file))return;
     const r=new FileReader();
     r.onload=function(ev){
       const img=new Image();
@@ -442,6 +454,7 @@ function openBajaEmp(id){
     const file=e.target.files?.[0];
     const preview=document.getElementById('bajaEvidenciaPreview');
     if(!file){delete evidenciaInput.dataset.base64;if(preview)preview.innerHTML='<p class="text-xs text-muted">Sin evidencia</p>';return;}
+    if(!validateImage(file)){e.target.value='';delete evidenciaInput.dataset.base64;if(preview)preview.innerHTML='<p class="text-xs text-muted">Sin evidencia</p>';return;}
     try{
       const dataUrl=await readFileAsDataURL(file);
       evidenciaInput.dataset.base64=dataUrl;
@@ -559,10 +572,12 @@ export function init(){
   // Inyectar "Nuevo" en topbar
   const ta=document.getElementById('topbarActions');
   if(ta){ta.innerHTML='<button class="btn btn-primary topbar-action-btn" id="btnTopNewEmp"><i class="fas fa-user-plus"></i> Nuevo</button>';document.getElementById('btnTopNewEmp')?.addEventListener('click',openNewEmp);}
-  document.getElementById('empS')?.addEventListener('input',filterEmp);
-  document.getElementById('empFE')?.addEventListener('change',e=>{empStatusFilter=e.target.value;document.querySelectorAll('#empStatusTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.status===empStatusFilter));filterEmp();});
-  ['empFA','empFC'].forEach(id=>document.getElementById(id)?.addEventListener('change',filterEmp));
-  document.getElementById('empStatusTabs')?.addEventListener('click',e=>{const b=e.target.closest('.tab-btn');if(!b)return;empStatusFilter=b.dataset.status;document.querySelectorAll('#empStatusTabs .tab-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');const sel=document.getElementById('empFE');if(sel)sel.value=empStatusFilter;filterEmp();});
+  const resetFilter=()=>{empVisibleLimit=PAGE_SIZE;filterEmp();};
+  document.getElementById('empS')?.addEventListener('input',resetFilter);
+  document.getElementById('empFE')?.addEventListener('change',e=>{empStatusFilter=e.target.value;document.querySelectorAll('#empStatusTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.status===empStatusFilter));resetFilter();});
+  ['empFA','empFC'].forEach(id=>document.getElementById(id)?.addEventListener('change',resetFilter));
+  document.getElementById('empVerMas')?.addEventListener('click',()=>{empVisibleLimit+=PAGE_SIZE;filterEmp();});
+  document.getElementById('empStatusTabs')?.addEventListener('click',e=>{const b=e.target.closest('.tab-btn');if(!b)return;empStatusFilter=b.dataset.status;document.querySelectorAll('#empStatusTabs .tab-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');const sel=document.getElementById('empFE');if(sel)sel.value=empStatusFilter;resetFilter();});
   document.getElementById('btnNewEmp')?.addEventListener('click',openNewEmp);
   document.getElementById('btnImpEmp')?.addEventListener('click',()=>{
     window.location.hash='importar';window.dispatchEvent(new PopStateEvent('popstate',{state:{v:'importar'}}));

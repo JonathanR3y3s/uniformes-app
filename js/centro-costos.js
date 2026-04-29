@@ -1,5 +1,7 @@
 import{getStore}from'./storage.js';import{getAreaNames}from'./areas-config.js';import{esc,fmt,fmtMoney,fmtDate}from'./utils.js';import{createChart}from'./ui.js';import{getMovimientos,getProductos}from'./almacen-api.js';
 let currentYear=new Date().getFullYear().toString();
+const PAGE_SIZE=50;
+let ccVisibleLimit=PAGE_SIZE;
 
 // ── Data helpers ─────────────────────────────────────────────────────────────
 function getGastos(){
@@ -216,17 +218,18 @@ function legacyRender(){
 
   // ── Historial ─────────────────────────────────────────────────────────────
   h+='<div class="card"><div class="card-head"><h3><i class="fas fa-list mr-2" style="color:#64748b"></i>Historial Completo</h3><span class="text-sm text-muted" id="ccCount">'+g.length+' registros</span></div>';
-  h+='<div class="table-wrap"><table class="dt"><thead><tr><th>Fecha</th><th>Tipo</th><th>Artículo / Prenda</th><th>Categoría</th><th>Proveedor</th><th style="text-align:center">Cant.</th><th style="text-align:right">P. Unit.</th><th style="text-align:right">Total</th></tr></thead><tbody id="ccTB"></tbody></table></div></div>';
+  h+='<div class="table-wrap"><table class="dt"><thead><tr><th>Fecha</th><th>Tipo</th><th>Artículo / Prenda</th><th>Categoría</th><th>Proveedor</th><th style="text-align:center">Cant.</th><th style="text-align:right">P. Unit.</th><th style="text-align:right">Total</th></tr></thead><tbody id="ccTB"></tbody></table></div><div class="text-center mt-2 mb-3"><button class="btn btn-ghost btn-sm" id="ccVerMas" style="display:none">Ver más</button></div></div>';
   return h;
 }
 
 // ── Row render ───────────────────────────────────────────────────────────────
 function renderRows(g){
   const tb=document.getElementById('ccTB');if(!tb)return;
-  const cc=document.getElementById('ccCount');if(cc)cc.textContent=g.length+' registros';
+  const cc=document.getElementById('ccCount');if(cc)cc.textContent=Math.min(ccVisibleLimit,g.length)+' de '+g.length+' registros';
   if(!g.length){tb.innerHTML='<tr><td colspan="8" class="empty-state"><i class="fas fa-chart-line"></i><p>Sin registros de gasto para este período</p></td></tr>';return;}
   const TM={UNIFORME:{c:'#1d4ed8',bg:'#dbeafe',l:'Uniforme'},ALMACEN:{c:'#7c3aed',bg:'#ede9fe',l:'Almacén'}};
-  tb.innerHTML=g.map(x=>{const t=TM[x.tipo]||{c:'#64748b',bg:'#f3f4f6',l:x.tipo};return'<tr><td class="text-xs font-mono">'+fmtDate(x.fecha)+'</td><td><span style="background:'+t.bg+';color:'+t.c+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">'+t.l+'</span></td><td class="font-bold">'+esc(x.descripcion)+'</td><td class="text-xs text-muted">'+esc(x.categoria)+'</td><td class="text-xs">'+esc(x.proveedor)+'</td><td style="text-align:center">'+fmt(x.cantidad)+'</td><td style="text-align:right">'+fmtMoney(x.precioUnitario)+'</td><td style="text-align:right;font-weight:700;color:var(--success)">'+fmtMoney(x.total)+'</td></tr>';}).join('');
+  tb.innerHTML=g.slice(0,ccVisibleLimit).map(x=>{const t=TM[x.tipo]||{c:'#64748b',bg:'#f3f4f6',l:x.tipo};return'<tr><td class="text-xs font-mono">'+fmtDate(x.fecha)+'</td><td><span style="background:'+t.bg+';color:'+t.c+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">'+t.l+'</span></td><td class="font-bold">'+esc(x.descripcion)+'</td><td class="text-xs text-muted">'+esc(x.categoria)+'</td><td class="text-xs">'+esc(x.proveedor)+'</td><td style="text-align:center">'+fmt(x.cantidad)+'</td><td style="text-align:right">'+fmtMoney(x.precioUnitario)+'</td><td style="text-align:right;font-weight:700;color:var(--success)">'+fmtMoney(x.total)+'</td></tr>';}).join('');
+  const more=document.getElementById('ccVerMas');if(more)more.style.display=g.length>ccVisibleLimit?'inline-flex':'none';
 }
 
 // ── Charts ───────────────────────────────────────────────────────────────────
@@ -257,9 +260,11 @@ function legacyInit(){
   renderRows(g);buildCharts(g,all,yrs);
   document.getElementById('ccYear')?.addEventListener('change',function(){
     currentYear=this.value;
+    ccVisibleLimit=PAGE_SIZE;
     const filtered=byYear(all,this.value);
     renderRows(filtered);buildCharts(filtered,all,yrs);
   });
+  document.getElementById('ccVerMas')?.addEventListener('click',()=>{ccVisibleLimit+=PAGE_SIZE;renderRows(byYear(all,currentYear));});
   document.getElementById('ccExportCostos')?.addEventListener('click',exportCostosCSV);
 }
 
@@ -275,6 +280,7 @@ const FIN_TYPE_LABELS={
 };
 let finFilters={desde:'',hasta:'',area:'',categoria:'',proveedor:''};
 let finDrill={type:'resumen',value:''};
+let finDetailVisibleLimit=PAGE_SIZE;
 
 function finDateValue(x){return String(x?.fecha_hora||x?.fecha||x?.fecha_creacion||'');}
 function finDateKey(x){return finDateValue(x).slice(0,10);}
@@ -443,7 +449,7 @@ function finSemaphore(data){
 }
 function finRowsTable(rows){
   if(!rows.length)return'<tr><td colspan="9" class="empty-state"><i class="fas fa-chart-line"></i><p>Sin datos</p></td></tr>';
-  return rows.slice(0,120).map(r=>'<tr><td class="text-xs">'+fmtDate(r.fecha)+'</td><td>'+esc(r.origen)+'</td><td>'+esc(r.area)+'</td><td>'+esc(r.empleado)+'</td><td><button class="fin-table-link" data-fin-drill="producto" data-fin-value="'+esc(r.producto_id||r.producto)+'">'+esc(r.producto)+'</button></td><td>'+esc(r.categoria)+'</td><td>'+esc(r.proveedor)+'</td><td class="text-right">'+fmt(r.cantidad)+'</td><td class="text-right">'+(r.total>0?fmtMoney(r.total):'No disponible')+'</td></tr>').join('');
+  return rows.slice(0,finDetailVisibleLimit).map(r=>'<tr><td class="text-xs">'+fmtDate(r.fecha)+'</td><td>'+esc(r.origen)+'</td><td>'+esc(r.area)+'</td><td>'+esc(r.empleado)+'</td><td><button class="fin-table-link" data-fin-drill="producto" data-fin-value="'+esc(r.producto_id||r.producto)+'">'+esc(r.producto)+'</button></td><td>'+esc(r.categoria)+'</td><td>'+esc(r.proveedor)+'</td><td class="text-right">'+fmt(r.cantidad)+'</td><td class="text-right">'+(r.total>0?fmtMoney(r.total):'No disponible')+'</td></tr>').join('');
 }
 function finDetailRows(data){
   const rows=data.filtered.combined.concat(data.filtered.mermas).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
@@ -460,7 +466,7 @@ function finRenderDetail(data){
   const titleMap={resumen:'Detalle financiero filtrado',merma:'Detalle de mermas',sinPrecio:'Productos sin precio configurado'};
   const title=titleMap[finDrill.type]||(finDrill.type.charAt(0).toUpperCase()+finDrill.type.slice(1)+' · '+finDrill.value);
   const rows=finDetailRows(data);
-  return'<div class="fin-panel fin-detail"><div class="fin-panel-head"><div><h3>'+esc(title)+'</h3><p>Compras reales y consumos valorizados con costos existentes</p></div><button class="btn btn-ghost btn-sm" data-fin-drill="resumen" data-fin-value=""><i class="fas fa-rotate-left"></i> Resumen</button></div><div class="table-wrap"><table class="dt"><thead><tr><th>Fecha</th><th>Origen</th><th>Área</th><th>Empleado</th><th>Producto</th><th>Categoría</th><th>Proveedor</th><th class="text-right">Cantidad</th><th class="text-right">Total</th></tr></thead><tbody>'+finRowsTable(rows)+'</tbody></table></div></div>';
+  return'<div class="fin-panel fin-detail"><div class="fin-panel-head"><div><h3>'+esc(title)+'</h3><p>Compras reales y consumos valorizados con costos existentes</p></div><button class="btn btn-ghost btn-sm" data-fin-drill="resumen" data-fin-value=""><i class="fas fa-rotate-left"></i> Resumen</button></div><div class="table-wrap"><table class="dt"><thead><tr><th>Fecha</th><th>Origen</th><th>Área</th><th>Empleado</th><th>Producto</th><th>Categoría</th><th>Proveedor</th><th class="text-right">Cantidad</th><th class="text-right">Total</th></tr></thead><tbody>'+finRowsTable(rows)+'</tbody></table></div>'+(rows.length>finDetailVisibleLimit?'<div class="text-center mt-2"><button class="btn btn-ghost btn-sm" id="finDetailVerMas">Ver más</button></div>':'')+'</div>';
 }
 function finRenderCharts(data){
   return'<div class="fin-chart-grid"><div class="fin-panel"><div class="fin-panel-head"><div><h3>Tendencia mensual</h3><p>Compras reales históricas</p></div></div><canvas id="finMonthly"></canvas></div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Ranking por área</h3><p>Consumo valorizado</p></div></div><canvas id="finAreas"></canvas></div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Pareto 80/20</h3><p>Concentración por producto</p></div></div><canvas id="finPareto"></canvas></div></div>';
@@ -542,17 +548,19 @@ function finBind(){
   finInitCharts(data);
   ['finDesde','finHasta','finArea','finCategoria','finProveedor'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el)el.onchange=()=>{finSyncFilters();finDrill={type:'resumen',value:''};finRefresh();};
+    if(el)el.onchange=()=>{finSyncFilters();finDrill={type:'resumen',value:''};finDetailVisibleLimit=PAGE_SIZE;finRefresh();};
   });
-  document.getElementById('finClear')?.addEventListener('click',()=>{finFilters={desde:'',hasta:'',area:'',categoria:'',proveedor:''};finDrill={type:'resumen',value:''};finRefresh();});
+  document.getElementById('finClear')?.addEventListener('click',()=>{finFilters={desde:'',hasta:'',area:'',categoria:'',proveedor:''};finDrill={type:'resumen',value:''};finDetailVisibleLimit=PAGE_SIZE;finRefresh();});
   document.getElementById('finExport')?.addEventListener('click',finExportCSV);
   const root=document.getElementById('finExecRoot');
   if(root)root.onclick=e=>{
+    if(e.target.closest('#finDetailVerMas')){finDetailVisibleLimit+=PAGE_SIZE;finRefresh();return;}
     const drill=e.target.closest('[data-fin-drill]');
     if(!drill)return;
     const type=drill.dataset.finDrill||'resumen';
     const value=drill.dataset.finValue||'';
     finDrill={type,value};
+    finDetailVisibleLimit=PAGE_SIZE;
     finRefresh();
   };
 }

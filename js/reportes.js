@@ -378,10 +378,10 @@ function openReporteConsumo() {
   });
 
   const datos = Object.values(consumoPorProducto)
-    .sort((a, b) => b.consumo - a.consumo)
-    .slice(0, 50);
+    .sort((a, b) => b.consumo - a.consumo);
+  let visibleConsumo = 50;
 
-  let body = `
+  const buildConsumoBody = () => `
     <div style="overflow-x:auto">
       <table class="data-table" style="font-size:11px">
         <thead>
@@ -396,7 +396,7 @@ function openReporteConsumo() {
           </tr>
         </thead>
         <tbody>
-          ${datos.map(d => `
+          ${datos.slice(0, visibleConsumo).map(d => `
             <tr>
               <td><small>${esc(d.nombre)}</small></td>
               <td><small>${esc(d.sku)}</small></td>
@@ -411,6 +411,7 @@ function openReporteConsumo() {
         </tbody>
       </table>
     </div>
+    ${datos.length > visibleConsumo ? '<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" id="reporteConsumoVerMas">Ver más</button></div>' : ''}
   `;
 
   let footer = `
@@ -418,10 +419,18 @@ function openReporteConsumo() {
     <button class="btn btn-success" id="btnExportarExcel" onclick="exportarConsumoExcel()"><i class="fas fa-file-excel"></i> Excel</button>
   `;
 
-  modal.open('Reporte de Consumo', body, footer, 'lg');
+  modal.open('Reporte de Consumo', buildConsumoBody(), footer, 'lg');
 
   window.modalClose = () => modal.close();
   window.exportarConsumoExcel = () => exportConsumoExcel(datos);
+  const bindVerMasConsumo = () => {
+    document.getElementById('reporteConsumoVerMas')?.addEventListener('click', () => {
+      visibleConsumo += 50;
+      document.getElementById('modalBody').innerHTML = buildConsumoBody();
+      bindVerMasConsumo();
+    });
+  };
+  bindVerMasConsumo();
 }
 
 function openReporteMovimientos() {
@@ -433,9 +442,10 @@ function openReporteMovimientos() {
 
   const admin = rol === 'admin';
   const nivel = filtroNivelControl();
-  const movimientos = getMovimientos().filter(m => movimientoCumpleNivel(m, nivel)).slice(-200).reverse();
+  const movimientos = getMovimientos().filter(m => movimientoCumpleNivel(m, nivel)).slice().reverse();
+  let visibleMovimientos = 50;
 
-  let body = `
+  const buildMovimientosBody = () => `
     <div style="overflow-x:auto">
       <table class="data-table" style="font-size:11px">
         <thead>
@@ -449,7 +459,7 @@ function openReporteMovimientos() {
           </tr>
         </thead>
         <tbody>
-          ${movimientos.map(m => {
+          ${movimientos.slice(0, visibleMovimientos).map(m => {
             const p = getStore().productos.find(x => x.id === m.producto_id);
             const tipoLabel = labelTipo(m, true);
             return `
@@ -466,6 +476,7 @@ function openReporteMovimientos() {
         </tbody>
       </table>
     </div>
+    ${movimientos.length > visibleMovimientos ? '<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" id="reporteMovimientosVerMas">Ver más</button></div>' : ''}
   `;
 
   let footer = `
@@ -473,10 +484,18 @@ function openReporteMovimientos() {
     <button class="btn btn-success" id="btnExportarExcel" onclick="exportarMovimientosExcel()"><i class="fas fa-file-excel"></i> Excel</button>
   `;
 
-  modal.open('Últimos Movimientos', body, footer, 'lg');
+  modal.open('Últimos Movimientos', buildMovimientosBody(), footer, 'lg');
 
   window.modalClose = () => modal.close();
   window.exportarMovimientosExcel = () => exportMovimientosExcel(movimientos, admin);
+  const bindVerMasMovimientos = () => {
+    document.getElementById('reporteMovimientosVerMas')?.addEventListener('click', () => {
+      visibleMovimientos += 50;
+      document.getElementById('modalBody').innerHTML = buildMovimientosBody();
+      bindVerMasMovimientos();
+    });
+  };
+  bindVerMasMovimientos();
 }
 
 // Exportar a CSV (Excel simple)
