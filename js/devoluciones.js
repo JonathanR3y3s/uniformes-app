@@ -313,23 +313,37 @@ function openNuevaDevolucion() {
 
       renderLineas();
     } else if (paso === 4) {
+      // Canvas para firma — trazo continuo con soporte touch
       const canvas = document.getElementById('signaturePad');
       if (canvas) {
+        canvas.width = 900;
+        canvas.height = 300;
         const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         let isDrawing = false;
-
-        canvas.addEventListener('mousedown', () => isDrawing = true);
-        canvas.addEventListener('mouseup', () => isDrawing = false);
-        canvas.addEventListener('mousemove', (e) => {
+        let lastX = 0, lastY = 0;
+        function toCanvasPos(clientX, clientY) {
+          const r = canvas.getBoundingClientRect();
+          return { x: (clientX - r.left) * (canvas.width / r.width), y: (clientY - r.top) * (canvas.height / r.height) };
+        }
+        function onDown(clientX, clientY) { isDrawing = true; const p = toCanvasPos(clientX, clientY); lastX = p.x; lastY = p.y; }
+        function onMove(clientX, clientY) {
           if (!isDrawing) return;
-          const rect = canvas.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          ctx.fillStyle = '#fff';
-          ctx.beginPath();
-          ctx.arc(x, y, 3, 0, Math.PI * 2);
-          ctx.fill();
-        });
+          const p = toCanvasPos(clientX, clientY);
+          ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+          lastX = p.x; lastY = p.y;
+        }
+        function onUp() { isDrawing = false; }
+        canvas.addEventListener('mousedown', e => onDown(e.clientX, e.clientY));
+        canvas.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+        canvas.addEventListener('mouseup', onUp);
+        canvas.addEventListener('mouseleave', onUp);
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); if (e.touches[0]) onDown(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+        canvas.addEventListener('touchend', e => { e.preventDefault(); onUp(); }, { passive: false });
 
         document.getElementById('btnLimpiarFirma')?.addEventListener('click', () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
