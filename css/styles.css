@@ -278,7 +278,7 @@ label:has(input[type="checkbox"]),label:has(input[type="radio"]){min-height:44px
 
 /* v8.6f — dashboard jerarquía visual */
 .kpi-primary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:32px}
-.kpi-primary{background:var(--surface);border-radius:var(--radius);padding:32px 28px;border:1px solid rgba(255,255,255,.06);transition:all .2s;min-height:144px}
+.kpi-primary{background:var(--surface);border-radius:var(--radius);padding:32px 28px;border:1px solid rgba(255,255,255,.06);transition:all .2s;min-height:144px;cursor:pointer}
 .kpi-primary:hover{border-color:rgba(255,255,255,.1);box-shadow:0 8px 24px rgba(0,0,0,.3)}
 .kpi-primary .kpi-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px}
 .kpi-primary .kpi-value{font-size:2.5rem;font-weight:900;letter-spacing:-.04em;line-height:1;color:#f1f5f9}
@@ -395,3 +395,15 @@ table.dt .btn:active,.data-table .btn:active{transform:scale(0.96)!important}
   }
   .nav-item.active::before{background:#1e6baf}
 }
+
+/* ── Drawer lateral ── */
+.drawer{position:fixed;inset:0;display:none;z-index:9999}
+.drawer.active{display:block}
+.drawer-overlay{position:absolute;inset:0;background:rgba(0,0,0,.4)}
+.drawer-panel{position:absolute;top:0;right:0;width:380px;max-width:90%;height:100%;background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.2);transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column}
+.drawer.active .drawer-panel{transform:translateX(0)}
+.drawer-header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #e5e7eb;flex-shrink:0}
+.drawer-header h3{margin:0;font-size:16px;font-weight:700;color:#1e293b}
+.drawer-header button{background:none;border:none;font-size:18px;cursor:pointer;color:#64748b;line-height:1;padding:4px 8px;border-radius:6px}
+.drawer-header button:hover{background:#f1f5f9;color:#1e293b}
+.drawer-body{padding:16px 20px;overflow-y:auto;flex:1}

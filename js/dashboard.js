@@ -1,4 +1,4 @@
-import{VERSION}from'./config.js';import{getStore}from'./storage.js';import{calcStats,calcStatsArea}from'./rules.js';import{buildAreaBadge,createChart}from'./ui.js';import{getAreaNames}from'./areas-config.js';import{fmt,fmtMoney,esc,fmtDate}from'./utils.js';
+import{VERSION}from'./config.js';import{getStore}from'./storage.js';import{calcStats,calcStatsArea}from'./rules.js';import{buildAreaBadge,createChart,openDrawer}from'./ui.js';import{getAreaNames}from'./areas-config.js';import{fmt,fmtMoney,esc,fmtDate}from'./utils.js';
 import{getUserRole}from'./user-roles.js';
 import{getProductos,getMovimientos,getEntregasNuevas,getDevolucionesNuevas,getSalidas as getSalidasNuevas}from'./almacen-api.js';
 
@@ -624,7 +624,14 @@ function execBind(){
     const product=e.target.closest('[data-product]');
     if(product&&product.dataset.product){execActiveProduct=product.dataset.product;execActiveDetail='producto';execRefresh();return;}
     const drill=e.target.closest('[data-drill]');
-    if(drill&&drill.dataset.drill){execActiveDetail=drill.dataset.drill;execActiveProduct='';execRefresh();}
+    if(drill&&drill.dataset.drill){execActiveDetail=drill.dataset.drill;execActiveProduct='';execRefresh();return;}
+    const kpiPrimary=e.target.closest('.kpi-primary');
+    if(kpiPrimary){
+      const label=kpiPrimary.querySelector('.kpi-label')?.textContent||'KPI';
+      const value=kpiPrimary.querySelector('.kpi-value')?.textContent||'—';
+      const sub=kpiPrimary.querySelector('.kpi-sub')?.textContent||'';
+      openDrawer('<div style="text-align:center;padding:24px 0"><div style="font-size:13px;color:#64748b;margin-bottom:8px">'+esc(label)+'</div><div style="font-size:40px;font-weight:900;color:#1e293b;margin-bottom:6px">'+esc(value)+'</div><div style="font-size:13px;color:#94a3b8">'+esc(sub)+'</div></div>',label);
+    }
   };
 }
 export function render(){

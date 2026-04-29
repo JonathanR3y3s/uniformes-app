@@ -78,6 +78,8 @@ export function buildNav(currentView){
 }
 export function buildAreaBadge(area){return'<span class="area-badge">'+esc(area)+'</span>';}
 export function buildStatusBadge(emp){const baja=['baja','movimiento','incapacidad'].includes(emp.estado);if(baja)return'<span class="badge badge-neutral">'+emp.estado.toUpperCase()+'</span>';return verificarCaptura(emp)?'<span class="badge badge-success"><i class="fas fa-check"></i> Completo</span>':'<span class="badge badge-warning">Pendiente</span>';}
+export function openDrawer(html,title){const d=document.getElementById('drawer');if(!d)return;const t=document.getElementById('drawerTitle');if(t)t.textContent=title||'Detalle';document.getElementById('drawerContent').innerHTML=html;d.classList.add('active');}
+export function closeDrawer(){const d=document.getElementById('drawer');if(d)d.classList.remove('active');}
 export function setupEvents(navigate){
   document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this)modal.close();});
   document.getElementById('modalClose').addEventListener('click',()=>modal.close());
@@ -97,4 +99,7 @@ export function setupEvents(navigate){
     if(tab&&tab.dataset.view){navigate(tab.dataset.view);}
   });
   document.getElementById('logoutBtn')?.addEventListener('click',()=>{if(confirm('¿Cerrar sesión?'))import('./mod-auth.js').then(m=>m.logout());});
+  document.addEventListener('click',function(e){
+    if(e.target.id==='drawerClose'||e.target.closest('#drawerClose')||e.target.classList.contains('drawer-overlay'))closeDrawer();
+  });
 }
