@@ -251,3 +251,27 @@ label:has(input[type="checkbox"]),label:has(input[type="radio"]){min-height:44px
   .notif{min-width:0;width:100%}
   .signature-panel canvas,#signaturePad,#entSigCanvas{min-height:240px}
 }
+
+/* v8.6d — ajustes finos iPad sin scroll lateral */
+@media(max-width:1024px){
+  html,body,#app,.main,.page,.content{max-width:100%;overflow-x:hidden}
+  .main,.page,.content{min-width:0}
+  .page{margin:0 auto;padding:12px;width:100%}
+  .card,.card-body,.page-head,.page-actions,.filters-section,.kpi,.kpi-card,.chart-box,.exec-dashboard,.fin-exec,.exec-panel,.fin-panel,.products-grid{min-width:0;max-width:100%}
+  .grid-2,.form-row.c2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .form-row.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .form-row.c4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .chart-grid,.exec-two-col,.fin-two-col{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .exec-chart-grid,.fin-chart-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,.9fr)}
+  .kpi-grid,.exec-kpi-grid,.fin-kpi-grid,.products-grid,.fin-semaphore-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr))}
+  .exec-filterbar,.fin-filterbar{grid-template-columns:repeat(auto-fit,minmax(min(100%,132px),1fr))}
+  .btn,button{min-height:48px;padding:10px 16px;font-size:15px}
+  .btn-sm{min-height:44px}
+  .btn-icon{min-height:48px}
+  .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .table-wrap .data-table,.table-wrap table.dt{max-width:none}
+}
+
+@media(max-width:768px){
+  .grid-2,.form-row.c2,.form-row.c3,.form-row.c4,.chart-grid,.exec-two-col,.fin-two-col,.exec-chart-grid,.fin-chart-grid{grid-template-columns:minmax(0,1fr)}
+}
