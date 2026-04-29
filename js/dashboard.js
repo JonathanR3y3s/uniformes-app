@@ -568,16 +568,19 @@ function execRenderDashboardContent(){
   let html='<div class="exec-dashboard"><div class="exec-hero"><div><span class="exec-eyebrow">Dashboard Ejecutivo Operativo</span><h1>Lectura directiva de inventario y movimientos</h1><p>'+esc(mesLabel||'Mes')+' '+esc(execFilters.year||'')+' · KPIs accionables con datos existentes del almacén.</p></div><div class="exec-hero-meta"><strong>'+fmt(data.productos.length)+'</strong><span>productos filtrados</span></div></div>';
   html+=execRenderFilters(data);
   html+='<div class="exec-kpi-grid">';
+  html+='<div class="exec-kpi-section-head"><i class="fas fa-warehouse"></i> Inventario</div>';
   html+=execKpi({label:'Valor total de inventario',value:fmtMoney(data.valorInventario),available:data.hasInventoryCost,sub:'Stock actual x costo configurado',note:data.hasInventoryCost?'':'Requiere costos configurados en productos/variantes',status:data.hasInventoryCost?'success':'warning',drill:'inventario',icon:'fa-coins'});
   html+=execKpi({label:'Stock total',value:fmt(data.totalStock),sub:'Distribuido por nivel de control',status:data.totalStock>0?'info':'warning',drill:'inventario',icon:'fa-boxes-stacked'});
   html+=execKpi({label:'Productos bajo stock',value:fmt(data.bajoStock.length),sub:data.bajoStock.length?'Requieren reposición':'Sin alertas bajo los filtros',status:data.bajoStock.length?'danger':'success',drill:'bajoStock',icon:'fa-triangle-exclamation'});
   html+=execKpi({label:'Sin costo configurado',value:fmt(data.sinCosto.length),sub:'Productos sin precio/costo usable',status:data.sinCosto.length?'warning':'success',drill:'sinCosto',icon:'fa-tag'});
+  html+='<div class="exec-kpi-section-head"><i class="fas fa-arrows-left-right"></i> Movimientos del mes</div>';
   html+=execKpi({label:'Entradas del mes',value:fmt(k.entradas),sub:execDelta(k.entradas,k.entradasPrev),status:'success',drill:'entradas',icon:'fa-arrow-down'});
   html+=execKpi({label:'Salidas del mes',value:fmt(k.salidas),sub:execDelta(k.salidas,k.salidasPrev),status:k.salidas?'info':'warning',drill:'salidas',icon:'fa-arrow-up'});
   html+=execKpi({label:'Entregas del mes',value:fmt(k.entregas),sub:execDelta(k.entregas,k.entregasPrev),status:k.entregas?'success':'warning',drill:'entregas',icon:'fa-hand-holding'});
   html+=execKpi({label:'Devoluciones del mes',value:fmt(k.devoluciones),sub:execDelta(k.devoluciones,k.devolucionesPrev),status:k.devoluciones?'info':'success',drill:'devoluciones',icon:'fa-rotate-left'});
   html+=execKpi({label:'Mermas del mes',value:fmt(k.mermas),sub:execDelta(k.mermas,k.mermasPrev),status:k.mermas?'danger':'success',drill:'mermas',icon:'fa-circle-minus'});
   html+=execKpi({label:'Costo estimado de mermas',value:fmtMoney(k.mermasCost),available:k.mermasCostAvailable,sub:k.mermas?'Calculado con costo unitario disponible':'Sin mermas en el periodo',note:k.mermasCostAvailable?'':'Requiere datos de costo en productos/variantes',status:k.mermasCost>0?'danger':'success',drill:'mermas',icon:'fa-money-bill-trend-up'});
+  html+='<div class="exec-kpi-section-head"><i class="fas fa-users"></i> Dotación</div>';
   if(dot.available){
     html+=execKpi({label:'Cobertura dotación',value:dot.cobertura+'%',sub:dot.conTipo+' de '+dot.activos+' empleados con tipo asignado',status:dot.cobertura>=80?'success':dot.cobertura>=50?'warning':'danger',icon:'fa-clipboard-check'});
     html+=execKpi({label:'Avance entrega dotación',value:dot.avance+'%',sub:dot.entregados+' de '+dot.activos+' empleados · '+dot.nombre,status:dot.avance>=80?'success':dot.avance>=50?'warning':'danger',icon:'fa-box-open'});
