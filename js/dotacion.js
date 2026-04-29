@@ -1,7 +1,7 @@
 import{esc,fmtMoney,genId}from'./utils.js';
 import{getDotaciones,saveDotaciones,getDotacionTipos,saveDotacionTipos,getDotacionKits,saveDotacionKits,getDotacionTallas,saveDotacionTallas,getDotacionConfig,saveDotacionConfig,getDotacionEntregas,saveDotacionEntregas,getStore,saveEmployees,log}from'./storage.js';
 import{notify,modal,confirm as confirmDialog,buildNav}from'./ui.js';
-import{getProductos,registrarEntregaNueva}from'./almacen-api.js';
+import{getProductos,registrarEntregaNueva,getStockDisponible}from'./almacen-api.js';
 import{getAreaNames}from'./areas-config.js';
 import{saveEvidence,getEvidenceSrc}from'./evidence-storage.js';
 
@@ -1798,10 +1798,10 @@ function resolverStockEntrega(producto,talla){
   const variantes=Array.isArray(producto?.variantes)?producto.variantes:[];
   if(variantes.length){
     const v=variantes.find(x=>tallaKey(x.talla)===tallaKey(talla)||tallaKey(x.nombre)===tallaKey(talla));
-    if(v)return{stock:Number(v.stock_actual)||0,variante_id:v.id};
+    if(v)return{stock:getStockDisponible(producto.id,v.id),variante_id:v.id};
     return{stock:0,variante_id:null};
   }
-  return{stock:Number(producto?.stock_actual)||0,variante_id:null};
+  return{stock:producto?getStockDisponible(producto.id,null):0,variante_id:null};
 }
 
 function validarStockEntrega(lineas){
@@ -1813,8 +1813,7 @@ function validarStockEntrega(lineas){
   });
   const faltantes=[];
   acc.forEach(l=>{
-    const prod=getProductos().find(p=>p.id===l.producto_id);
-    const stock=resolverStockEntrega(prod,l.talla).stock;
+    const stock=getStockDisponible(l.producto_id,l.variante_id||l.talla||null);
     if(stock<l.cantidad)faltantes.push({...l,stock_disp:stock,faltante:l.cantidad-stock});
   });
   return faltantes;

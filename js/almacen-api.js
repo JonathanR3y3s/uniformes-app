@@ -80,6 +80,49 @@ function _aplicarStock(producto, delta, variante_id = null, costo_unitario = 0) 
   return { ok: true, stock_antes, stock_despues };
 }
 
+function _findVarianteByStockKey(producto, stockKey = null) {
+  const variantes = Array.isArray(producto?.variantes) ? producto.variantes : [];
+  if (!stockKey || !variantes.length) return null;
+  const key = String(stockKey).trim().toLowerCase();
+  return variantes.find(v =>
+    String(v.id || '').toLowerCase() === key ||
+    String(v.talla || '').trim().toLowerCase() === key ||
+    String(v.nombre || '').trim().toLowerCase() === key
+  ) || null;
+}
+
+function _getStockDesdeMovimientos(producto_id, variante_id = null) {
+  const movs = (getStore().movimientos || [])
+    .filter(m => m.producto_id === producto_id && String(m.variante_id || '') === String(variante_id || ''))
+    .sort((a, b) => String(b.fecha_hora || '').localeCompare(String(a.fecha_hora || '')));
+  if (!movs.length) return null;
+  return Number(movs[0].stock_despues) || 0;
+}
+
+export function getStockDisponible(producto_id, talla = null) {
+  const producto = getStore().productos.find(p => p.id === producto_id);
+  if (!producto) return 0;
+
+  const variantes = Array.isArray(producto.variantes) ? producto.variantes : [];
+  if (variantes.length) {
+    const variante = _findVarianteByStockKey(producto, talla);
+    if (variante) {
+      const desdeMovimientos = _getStockDesdeMovimientos(producto.id, variante.id);
+      return desdeMovimientos ?? (Number(variante.stock_actual) || 0);
+    }
+    if (!talla) {
+      return variantes.reduce((total, v) => {
+        const desdeMovimientos = _getStockDesdeMovimientos(producto.id, v.id);
+        return total + (desdeMovimientos ?? (Number(v.stock_actual) || 0));
+      }, 0);
+    }
+    return 0;
+  }
+
+  const desdeMovimientos = _getStockDesdeMovimientos(producto.id, null);
+  return desdeMovimientos ?? (Number(producto.stock_actual) || 0);
+}
+
 /**
  * ─────────────────────────────────────────────────────────────
  * CATEGORÍAS
@@ -459,15 +502,11 @@ export function registrarEntregaNueva({ id: idOverride, empleado_id, empleado_no
     const prod = store.productos.find(p => p.id === linea.producto_id);
     if (!prod) return { ok: false, error: 'Producto no encontrado' };
 
-    let stock_disponible = 0;
-    if (linea.variante_id) {
-      const var_obj = (prod.variantes || []).find(v => v.id === linea.variante_id);
-      if (!var_obj) return { ok: false, error: 'Variante no encontrada' };
-      stock_disponible = var_obj.stock_actual || 0;
-    } else {
-      stock_disponible = prod.stock_actual || 0;
+    if (linea.variante_id && !(prod.variantes || []).some(v => v.id === linea.variante_id)) {
+      return { ok: false, error: 'Variante no encontrada' };
     }
 
+    const stock_disponible = getStockDisponible(linea.producto_id, linea.variante_id || null);
     if (stock_disponible < linea.cantidad) {
       return { ok: false, error: `Stock insuficiente en ${prod.nombre}` };
     }

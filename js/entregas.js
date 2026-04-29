@@ -7,7 +7,7 @@ import { getStore, saveEntregasNuevas } from './storage.js';
 import { esc, fmtDate } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
-import { getEntregasNuevas, registrarEntregaNueva, getProductos, createProducto } from './almacen-api.js';
+import { getEntregasNuevas, registrarEntregaNueva, getProductos, createProducto, getStockDisponible as getStockDisponibleOficial } from './almacen-api.js';
 import { saveEvidence, getEvidenceSrc } from './evidence-storage.js';
 
 let _entregasWizardHandler = null;
@@ -169,13 +169,7 @@ function openNuevaEntrega() {
   };
 
   function getStockDisponible(producto, varianteId = null) {
-    if (!producto) return 0;
-    if (varianteId) {
-      const variante = (producto.variantes || []).find(v => v.id === varianteId);
-      return variante ? Number(variante.stock_actual) || 0 : 0;
-    }
-    if (producto.es_por_variante) return (producto.variantes || []).reduce((s, v) => s + (Number(v.stock_actual) || 0), 0);
-    return Number(producto.stock_actual) || 0;
+    return producto ? getStockDisponibleOficial(producto.id, varianteId) : 0;
   }
 
   function getTallaLinea(producto, linea) {
@@ -393,7 +387,7 @@ function openNuevaEntrega() {
         let extra = '';
         if (tipo !== 'consumible') {
           if (selectedProd.es_por_variante && (selectedProd.variantes || []).length) {
-            extra = `<label>Talla</label><select id="varianteProd" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-top:4px">${selectedProd.variantes.map(v => `<option value="${v.id}">${esc(v.talla || v.nombre || 'Sin talla')} — ${Number(v.stock_actual) || 0} disp.</option>`).join('')}</select>`;
+            extra = `<label>Talla</label><select id="varianteProd" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-top:4px">${selectedProd.variantes.map(v => `<option value="${v.id}">${esc(v.talla || v.nombre || 'Sin talla')} — ${getStockDisponible(selectedProd, v.id)} disp.</option>`).join('')}</select>`;
           } else {
             extra = '<label>Talla</label><input type="text" id="tallaManual" placeholder="Talla" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-top:4px">';
           }
