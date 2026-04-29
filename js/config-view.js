@@ -58,6 +58,12 @@ function renderPage(){
   h+='<button class="btn btn-ghost" style="width:100%" id="cfgPull"><i class="fas fa-cloud-download-alt mr-2"></i>Traer datos actualizados de Supabase</button>';
   h+='<div id="migrationLog" style="margin-top:12px"></div>';
   h+='</div></div>';
+  // Actualización PWA
+  h+='<div class="card mb-4"><div class="card-head"><h3><i class="fas fa-sync-alt mr-2" style="color:#0891b2"></i>Actualización de App</h3></div><div class="card-body">';
+  h+='<p class="text-sm text-sec mb-3">Si la aplicación no muestra los últimos cambios después de un deploy, usa este botón para forzar la actualización del caché.</p>';
+  h+='<button class="btn btn-primary" style="width:100%" id="cfgUpdatePWA"><i class="fas fa-sync-alt mr-2"></i>Actualizar app</button>';
+  h+='<p class="text-xs text-muted mt-2"><i class="fas fa-info-circle mr-1"></i>No borra datos. Solo actualiza archivos de la aplicación.</p>';
+  h+='</div></div>';
   // Zona peligrosa
   h+='<div class="card" style="border-color:#dc2626"><div class="card-head" style="background:#fef2f2"><h3 style="color:#dc2626"><i class="fas fa-exclamation-triangle mr-2"></i>Zona de Riesgo</h3></div><div class="card-body"><div class="flex gap-3 flex-wrap">';
   h+='<button class="btn btn-ghost" id="cfgLog"><i class="fas fa-eraser mr-1"></i> Limpiar bitácora</button>';
@@ -105,7 +111,30 @@ function showRestorePreview(bk){
   });
 }
 
+async function updatePWA(){
+  notify('Actualizando aplicación…','info');
+  try{
+    if('serviceWorker'in navigator){
+      const reg=await navigator.serviceWorker.getRegistration('./sw.js');
+      if(reg){
+        await reg.update();
+        if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'});}
+      }
+    }
+    if('caches'in window){
+      const keys=await caches.keys();
+      await Promise.all(keys.filter(k=>!k.includes('icons')).map(k=>caches.delete(k)));
+    }
+    notify('Caché limpiado. Recargando…','success');
+    setTimeout(()=>location.reload(),800);
+  }catch(err){
+    notify('Error al actualizar: '+err.message,'error');
+    console.error('[PWA Update]',err);
+  }
+}
+
 function handleConfigClick(e){
+  if(e.target.closest('#cfgUpdatePWA')){updatePWA();return;}
   if(e.target.closest('#cfgClear')){
     if(!confirm('¿Borrar TODOS los datos?\nNo se puede deshacer.\nExporta un respaldo primero.'))return;
     if(window.prompt('Escribe CONFIRMAR para continuar')!=='CONFIRMAR'){notify('Cancelado','info');return;}
