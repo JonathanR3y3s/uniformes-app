@@ -7,6 +7,36 @@ export function registerChart(chart){if(chart)window._charts.push(chart);return 
 export function destroyCharts(){Object.keys(charts).forEach(k=>{try{charts[k].destroy();}catch(e){}});charts={};if(!window._charts)return;window._charts.forEach(c=>{try{c.destroy();}catch(e){}});window._charts=[];}
 export function createChart(id,cfg){if(charts[id])try{charts[id].destroy();}catch(e){}const el=document.getElementById(id);if(!el)return null;charts[id]=new Chart(el,cfg);registerChart(charts[id]);return charts[id];}
 export function confirm(msg){return window.confirm(msg);}
+function tabMatches(tab,view){return tab.view===view||(tab.aliases||[]).includes(view);}
+function isTabVisible(tab,store,role,user){if(tab.roles&&!tab.roles.includes(role))return false;if(typeof tab.condition==='function'&&!tab.condition(store,role,user))return false;return true;}
+function getVisibleTabs(group,store,role,user){return(group.tabs||[]).filter(tab=>isTabVisible(tab,store,role,user));}
+function getActiveGroup(currentView,store,role,user){
+  return NAV.find(group=>getVisibleTabs(group,store,role,user).some(tab=>tabMatches(tab,currentView)))||NAV.find(group=>getVisibleTabs(group,store,role,user).length);
+}
+function getPrimaryView(group,store,role,user){
+  const tabs=getVisibleTabs(group,store,role,user);
+  if(!tabs.length)return'dashboard';
+  return(tabs.find(tab=>tabMatches(tab,group.defaultView))||tabs[0]).view;
+}
+function ensureWorkspaceTabs(){
+  const main=document.getElementById('main');
+  const content=document.getElementById('mainContent');
+  if(!main||!content)return null;
+  let tabs=document.getElementById('workspaceTabs');
+  if(!tabs){tabs=document.createElement('div');tabs.id='workspaceTabs';tabs.className='workspace-tabs';main.insertBefore(tabs,content);}
+  return tabs;
+}
+function renderWorkspaceTabs(currentView,activeGroup,store,role,user){
+  const wrap=ensureWorkspaceTabs();
+  if(!wrap)return;
+  const tabs=activeGroup?getVisibleTabs(activeGroup,store,role,user):[];
+  if(!tabs.length){wrap.hidden=true;wrap.innerHTML='';return;}
+  wrap.hidden=false;
+  wrap.innerHTML='<div class="workspace-tabs-inner" role="tablist" aria-label="'+esc(activeGroup.label)+'">'+tabs.map(tab=>{
+    const active=tabMatches(tab,currentView);
+    return'<button type="button" class="workspace-tab'+(active?' active':'')+'" data-view="'+esc(tab.view)+'" role="tab" aria-selected="'+(active?'true':'false')+'"><i class="fas '+esc(tab.icon||'fa-circle')+'"></i><span>'+esc(tab.label)+'</span></button>';
+  }).join('')+'</div>';
+}
 export function buildNav(currentView){
   const nav=document.getElementById('sidebarNav');
   const role=getUserRole();
@@ -14,30 +44,19 @@ export function buildNav(currentView){
   const store=getStore();
   // Clear context action buttons on view change
   const ta=document.getElementById('topbarActions');if(ta)ta.innerHTML='';
-  const hiddenForOperador=['config','importar','usuarios','bitacora'];
-  const hiddenForConsulta=['importar','usuarios','config','bitacora'];
-  const isVisibleNavItem=n=>{
-    if(n.section)return false;
-    if(typeof n.condition==='function'&&!n.condition(store,role,user))return false;
-    if(role==='operador'&&hiddenForOperador.includes(n.id))return false;
-    if(role==='consulta'&&hiddenForConsulta.includes(n.id))return false;
-    return true;
-  };
-  const sectionHasVisibleItems=i=>{
-    for(let j=i+1;j<NAV.length;j++){if(NAV[j].section)return false;if(isVisibleNavItem(NAV[j]))return true;}
-    return false;
-  };
-  let html='';let activeLabel='Dashboard';
-  NAV.forEach((n,i)=>{
-    if(n.section){if(sectionHasVisibleItems(i))html+='<div class="nav-section">'+n.section+'</div>';return;}
-    if(!isVisibleNavItem(n))return;
-    const active=currentView===n.id?' active':'';
-    if(active)activeLabel=n.label;
+  const activeGroup=getActiveGroup(currentView,store,role,user);
+  let html='';let activeLabel=activeGroup?activeGroup.label:'Inicio';
+  NAV.forEach(n=>{
+    const visibleTabs=getVisibleTabs(n,store,role,user);
+    if(!visibleTabs.length)return;
+    const active=activeGroup&&activeGroup.id===n.id?' active':'';
+    const target=getPrimaryView(n,store,role,user);
     let badge='';
-    if(n.id==='inventario'){try{const bajos=getProductos({bajoStock:true});if(bajos.length)badge='<span style="background:#dc2626;color:#fff;border-radius:999px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:auto;flex-shrink:0">'+bajos.length+'</span>';}catch(e){}}
-    html+='<div class="nav-item'+active+'" data-view="'+n.id+'"><i class="fas '+n.icon+'"></i><span class="sidebar-label" style="display:flex;align-items:center;gap:4px;flex:1">'+n.label+badge+'</span></div>';
+    if(n.id==='almacen'){try{const bajos=getProductos({bajoStock:true});if(bajos.length)badge='<span class="nav-badge">'+bajos.length+'</span>';}catch(e){}}
+    html+='<div class="nav-item'+active+'" data-view="'+esc(target)+'" data-group="'+esc(n.id)+'"><i class="fas '+esc(n.icon)+'"></i><span class="sidebar-label">'+esc(n.label)+badge+'</span></div>';
   });
   nav.innerHTML=html;
+  renderWorkspaceTabs(currentView,activeGroup,store,role,user);
   if(role==='operador')nav.classList.add('operador-nav');else nav.classList.remove('operador-nav');
   const topTitle=document.getElementById('topbarTitle');
   if(topTitle)topTitle.textContent=activeLabel;
@@ -72,6 +91,10 @@ export function setupEvents(navigate){
   document.getElementById('sidebarNav').addEventListener('click',function(e){
     const item=e.target.closest('.nav-item');
     if(item&&item.dataset.view){navigate(item.dataset.view);document.getElementById('sidebar').classList.remove('mobile-open');const ov=document.querySelector('.mobile-overlay');if(ov)ov.style.display='none';}
+  });
+  document.addEventListener('click',function(e){
+    const tab=e.target.closest('.workspace-tab');
+    if(tab&&tab.dataset.view){navigate(tab.dataset.view);}
   });
   document.getElementById('logoutBtn')?.addEventListener('click',()=>{if(confirm('¿Cerrar sesión?'))import('./mod-auth.js').then(m=>m.logout());});
 }

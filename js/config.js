@@ -18,26 +18,43 @@ export const PERFILES={
 'PUERTAS_NO_SINDICALIZADO':null
 };
 export const CATEGORIAS={'BOTA':'CALZADO','CHOCLO':'CALZADO','ZAPATO ESPECIAL':'CALZADO','TENIS':'CALZADO','SANDALIAS':'CALZADO','PLAYERA POLO TIPO A':'ROPA','PLAYERA POLO TIPO B':'ROPA','PLAYERA PANTS':'ROPA','PANTALON':'ROPA','PANTS':'ROPA','CAMISOLA':'ROPA','CHALECO':'ROPA','CHAMARRA':'ROPA','GORRA':'ACCESORIOS','TERMO':'ACCESORIOS','TOALLA':'ACCESORIOS','SOMBRILLA':'ACCESORIOS'};
+const dotacionVisible=(store,role)=>{if(role==='admin')return true;try{const cfg=JSON.parse(localStorage.getItem('uniformes_assa_abloy_2026_v4_config')||'{}');return cfg.dotacionVisible!==false;}catch(e){return true;}};
 export const NAV=[
-{section:'OPERACIÓN'},
-{id:'dashboard',icon:'fa-chart-pie',label:'Dashboard'},
-{id:'recepcion',icon:'fa-arrow-down',label:'Recepción'},
-{id:'entregas-personal',icon:'fa-people-carry',label:'Entregas'},
-{id:'devoluciones',icon:'fa-undo',label:'Devoluciones'},
-{id:'salidas-almacen',icon:'fa-sign-out-alt',label:'Salidas'},
-{id:'inventario',icon:'fa-boxes',label:'Inventario'},
-{section:'GESTIÓN'},
-{id:'empleados',icon:'fa-users',label:'Empleados'},
-{id:'categorias',icon:'fa-tags',label:'Categorías'},
-{id:'proveedores',icon:'fa-truck',label:'Proveedores'},
-{section:'Dotación'},
-{id:'dotacion',icon:'fa-box-open',label:'Dotación',condition:(store,role)=>{if(role==='admin')return true;try{const cfg=JSON.parse(localStorage.getItem('uniformes_assa_abloy_2026_v4_config')||'{}');return cfg.dotacionVisible!==false;}catch(e){return true;}}},
-{section:'REPORTES'},
-{id:'reportes',icon:'fa-chart-bar',label:'Reportes'},
-{section:'ADMINISTRACIÓN'},
-{id:'importar',icon:'fa-file-import',label:'Importar'},
-{id:'usuarios',icon:'fa-users-gear',label:'Usuarios'},
-{id:'areas',icon:'fa-sitemap',label:'Áreas'},
-{id:'bitacora',icon:'fa-clock-rotate-left',label:'Bitácora'},
-{id:'config',icon:'fa-gear',label:'Configuración'}
+{id:'inicio',icon:'fa-house',label:'Inicio',defaultView:'dashboard',tabs:[
+  {view:'dashboard',icon:'fa-chart-pie',label:'Dashboard'}
+]},
+{id:'almacen',icon:'fa-warehouse',label:'Almacén',defaultView:'inventario',tabs:[
+  {view:'stock-uniformes',icon:'fa-chart-simple',label:'Resumen'},
+  {view:'inventario',icon:'fa-boxes',label:'Inventario'},
+  {view:'recepcion',icon:'fa-arrow-down',label:'Recepción'},
+  {view:'salidas-almacen',icon:'fa-arrow-up-from-bracket',label:'Salidas'},
+  {view:'categorias',icon:'fa-tags',label:'Categorías'},
+  {view:'proveedores',icon:'fa-truck',label:'Proveedores'},
+  {view:'inventario-sku',icon:'fa-barcode',label:'SKUs'}
+]},
+{id:'entregas',icon:'fa-people-carry-box',label:'Entregas',defaultView:'entregas-personal',tabs:[
+  {view:'entregas',icon:'fa-list-check',label:'Resumen'},
+  {view:'entregas-personal',icon:'fa-hand-holding-hand',label:'Nueva entrega'},
+  {view:'devoluciones',icon:'fa-rotate-left',label:'Devoluciones'},
+  {view:'dotacion',icon:'fa-box-open',label:'Dotación',condition:dotacionVisible},
+  {view:'entrega-sku',icon:'fa-barcode',label:'Entrega SKU'},
+  {view:'devolucion-sku',icon:'fa-right-left',label:'Devolución SKU'}
+]},
+{id:'personal',icon:'fa-users',label:'Personal',defaultView:'empleados',tabs:[
+  {view:'empleados',icon:'fa-id-badge',label:'Empleados'},
+  {view:'areas',icon:'fa-sitemap',label:'Áreas'},
+  {view:'usuarios',icon:'fa-users-gear',label:'Usuarios',roles:['admin']}
+]},
+{id:'reportes',icon:'fa-chart-bar',label:'Reportes',defaultView:'reportes',tabs:[
+  {view:'reportes',icon:'fa-chart-line',label:'General'},
+  {view:'advanced-reports',icon:'fa-chart-column',label:'Avanzados'},
+  {view:'centro-costos',icon:'fa-coins',label:'Centro de Costos'},
+  {view:'export-auditoria',icon:'fa-file-export',label:'Auditoría',roles:['admin']},
+  {view:'bitacora',icon:'fa-clock-rotate-left',label:'Bitácora',roles:['admin']}
+]},
+{id:'configuracion',icon:'fa-gear',label:'Configuración',defaultView:'config',tabs:[
+  {view:'config',icon:'fa-sliders',label:'General',roles:['admin']},
+  {view:'importar',icon:'fa-file-import',label:'Importar',roles:['admin']},
+  {view:'admin-dashboard',aliases:['admin'],icon:'fa-gauge-high',label:'Sistema',roles:['admin']}
+]}
 ];
