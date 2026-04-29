@@ -17,7 +17,9 @@ import {
   getProductosBajoStock,
   getCategorias,
   registrarMovimiento,
+  registrarMerma,
   getMovimientos,
+  getStockDisponible,
   generateSKU,
 } from './almacen-api.js';
 import { saveEvidence, getEvidenceSrc } from './evidence-storage.js';
@@ -187,6 +189,31 @@ function renderProductoFotoThumb(producto, size = 64) {
   return `<button type="button" class="producto-foto-view" data-product-id="${producto.id}" title="Ver foto" style="width:${size}px;height:${size}px;border:0;padding:0;background:transparent;cursor:pointer"><img src="${esc(src)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #444"></button>`;
 }
 
+function getVarianteLabel(variante) {
+  if (!variante) return '—';
+  const partes = [variante.talla, variante.modelo, variante.color].filter(Boolean);
+  return partes.length ? partes.join(' / ') : (variante.nombre || variante.id || 'Variante');
+}
+
+function getMovimientoTipoLabel(tipo) {
+  const labels = {
+    merma: 'Merma',
+    entrada_compra: 'Entrada compra',
+    salida_entrega: 'Salida entrega',
+    entrada_devolucion: 'Entrada devolución',
+    ajuste_positivo: 'Ajuste positivo',
+    ajuste_negativo: 'Ajuste negativo',
+    salida_merma: 'Salida merma',
+  };
+  return labels[tipo] || tipo || '—';
+}
+
+function renderMovimientoEvidencia(movimiento) {
+  const src = getEvidenceSrc(movimiento?.evidencia);
+  if (!src) return '<small style="color:#999">Sin evidencia</small>';
+  return `<button type="button" class="mov-evidencia-view" data-mov-id="${movimiento.id}" title="Ver evidencia" style="width:44px;height:44px;border:0;padding:0;background:transparent;cursor:zoom-in"><img src="${esc(src)}" style="width:44px;height:44px;object-fit:cover;border-radius:4px;border:1px solid #444"></button>`;
+}
+
 function readFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -261,6 +288,7 @@ function renderProductos() {
               ${nivelControlBadge(nivel)}
             </div>
             ${isAdmin ? `<div style="font-size:12px;color:#999;margin-top:4px">${fmtMoney((p.costo_promedio || 0) * stockNum)}</div>` : ''}
+            ${role === 'admin' ? `<button type="button" class="btn btn-warning btn-merma" data-product-id="${p.id}" style="width:100%;margin-top:10px"><i class="fas fa-minus-circle"></i> Ajustar merma</button>` : ''}
           </div>
         </div>
       `;
@@ -312,7 +340,8 @@ function renderProductos() {
               ${isAdmin ? `<td style="text-align:right">${fmtMoney(v.ultimo_costo || 0)}</td><td style="text-align:right">${fmtMoney(valor)}</td>` : ''}
               <td>${estado}</td>
               <td style="text-align:center">
-                ${role === 'admin' ? `<button class="btn-icon btn-ajuste" data-product-id="${p.id}" data-variante-id="${v.id}" title="Ajustar"><i class="fas fa-balance-scale"></i></button>` : ''}
+                ${role === 'admin' ? `<button class="btn-icon btn-ajuste" data-product-id="${p.id}" data-variante-id="${v.id}" title="Ajustar"><i class="fas fa-balance-scale"></i></button>
+                <button class="btn btn-warning btn-merma" data-product-id="${p.id}" data-variante-id="${v.id}" title="Ajustar merma" style="padding:4px 8px;font-size:12px"><i class="fas fa-minus-circle"></i> Merma</button>` : ''}
               </td>
             </tr>
           `;
@@ -338,7 +367,8 @@ function renderProductos() {
             ${isAdmin ? `<td style="text-align:right">${fmtMoney(p.costo_promedio || 0)}</td><td style="text-align:right">${fmtMoney(valor)}</td>` : ''}
             <td>${estado}</td>
             <td style="text-align:center">
-              ${role === 'admin' ? `<button class="btn-icon btn-ajuste" data-product-id="${p.id}" title="Ajustar"><i class="fas fa-balance-scale"></i></button>` : ''}
+              ${role === 'admin' ? `<button class="btn-icon btn-ajuste" data-product-id="${p.id}" title="Ajustar"><i class="fas fa-balance-scale"></i></button>
+              <button class="btn btn-warning btn-merma" data-product-id="${p.id}" title="Ajustar merma" style="padding:4px 8px;font-size:12px"><i class="fas fa-minus-circle"></i> Merma</button>` : ''}
             </td>
           </tr>
         `;
@@ -360,6 +390,28 @@ function renderProductos() {
       return;
     }
 
+    const merma = e.target.closest('.btn-merma');
+    if (merma) {
+      e.stopPropagation();
+      const id = merma.dataset.productId;
+      const varId = merma.dataset.varianteId || null;
+      if (role === 'admin') {
+        openMermaProducto(id, varId);
+      }
+      return;
+    }
+
+    const ajuste = e.target.closest('.btn-ajuste');
+    if (ajuste) {
+      e.stopPropagation();
+      const id = ajuste.dataset.productId;
+      const varId = ajuste.dataset.varianteId || null;
+      if (role === 'admin') {
+        openAjusteStock(id, varId);
+      }
+      return;
+    }
+
     const card = e.target.closest('.product-card');
     if (card) {
       const id = card.dataset.productId;
@@ -368,19 +420,9 @@ function renderProductos() {
     }
 
     const row = e.target.closest('tr[data-product-id]');
-    if (row && !e.target.closest('.btn-ajuste')) {
+    if (row) {
       const id = row.dataset.productId;
       openDetalleProducto(id);
-      return;
-    }
-
-    const ajuste = e.target.closest('.btn-ajuste');
-    if (ajuste) {
-      const id = ajuste.dataset.productId;
-      const varId = ajuste.dataset.varianteId || null;
-      if (role === 'admin') {
-        openAjusteStock(id, varId);
-      }
     }
   };
 }
@@ -658,6 +700,9 @@ function openDetalleProducto(id) {
   movimientos = movimientos.slice(0, 10);
 
   const foto = getProductoFotoSrc(prod);
+  const stockDisponibleDetalle = prod.es_por_variante
+    ? (prod.variantes || []).reduce((total, v) => total + getStockDisponible(prod.id, v.id), 0)
+    : getStockDisponible(prod.id, null);
 
   let variantesHtml = '';
   if (prod.es_por_variante && prod.variantes && prod.variantes.length) {
@@ -709,7 +754,7 @@ function openDetalleProducto(id) {
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${tipoProductoBadge(tipo)}${nivelControlBadge(nivel)}</div>
         <div style="margin-top:16px">
           <div style="color:#999">Stock Actual:</div>
-          <div style="font-size:24px;font-weight:bold;color:#4ade80">${prod.stock_actual || 0}</div>
+          <div style="font-size:24px;font-weight:bold;color:#4ade80">${stockDisponibleDetalle}</div>
           <div style="font-size:12px;color:#666">Mínimo: ${prod.stock_minimo}</div>
         </div>
         ${isAdmin ? `<div style="margin-top:12px">
@@ -729,7 +774,7 @@ function openDetalleProducto(id) {
     <h4 style="margin-top:12px">Últimos Movimientos:</h4>
     <table class="data-table">
       <thead>
-        <tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Stock</th><th>Usuario</th></tr>
+        <tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Stock</th><th>Motivo</th><th>Usuario</th><th>Evidencia</th></tr>
       </thead>
       <tbody>
         ${movimientos
@@ -737,10 +782,12 @@ function openDetalleProducto(id) {
             m => `
           <tr>
             <td>${fmtDate(m.fecha_hora)} ${new Date(m.fecha_hora).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</td>
-            <td><small>${m.tipo}</small></td>
+            <td><small>${esc(getMovimientoTipoLabel(m.tipo))}</small></td>
             <td style="text-align:center;color:${m.cantidad > 0 ? '#4ade80' : '#dc2626'}">${m.cantidad > 0 ? '+' : ''}${m.cantidad}</td>
             <td style="text-align:center">${m.stock_despues}</td>
-            <td><small>${esc(m.creado_por)}</small></td>
+            <td><small>${esc(m.motivo || m.observaciones || '—')}</small></td>
+            <td><small>${esc(m.usuario || m.creado_por)}</small></td>
+            <td>${renderMovimientoEvidencia(m)}</td>
           </tr>
         `
           )
@@ -753,6 +800,7 @@ function openDetalleProducto(id) {
   if (role === 'admin') {
     footer += `<button class="btn btn-warning" id="btnEditar">Editar</button>`;
     footer += `<button class="btn btn-danger" id="btnAjuste">Ajustar Stock</button>`;
+    footer += `<button class="btn btn-warning" id="btnMerma"><i class="fas fa-minus-circle"></i> Ajustar merma</button>`;
   }
 
   modal.open(`Detalle: ${prod.nombre}`, body, footer, 'lg');
@@ -797,7 +845,26 @@ function openDetalleProducto(id) {
       modal.close();
       openAjusteStock(id, null);
     });
+
+    document.getElementById('btnMerma')?.addEventListener('click', () => {
+      modal.close();
+      openMermaProducto(id, null);
+    });
   }
+
+  document.querySelectorAll('.mov-evidencia-view').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mov = movimientos.find(m => m.id === btn.dataset.movId);
+      const src = getEvidenceSrc(mov?.evidencia);
+      if (!src) return;
+      modal.open('Evidencia de merma', `
+        <div style="text-align:center">
+          <img src="${esc(src)}" style="max-width:100%;max-height:70vh;border-radius:8px;object-fit:contain">
+        </div>
+      `, '<button class="btn btn-secondary" onclick="window.modalClose()">Cerrar</button>', 'lg');
+      window.modalClose = () => modal.close();
+    });
+  });
 }
 
 function openEditarNivelControl(id) {
@@ -844,6 +911,187 @@ function openEditarNivelControl(id) {
     modal.close();
     renderProductos();
   });
+}
+
+function openMermaProducto(id, variante_id = null) {
+  const prod = getProductoById(id);
+  if (!prod) return;
+
+  const variantes = Array.isArray(prod.variantes) ? prod.variantes : [];
+  const usaVariantes = prod.es_por_variante && variantes.length > 0;
+  const user = getUser();
+
+  const varianteOptions = usaVariantes
+    ? variantes.map(v => {
+      const stock = getStockDisponible(prod.id, v.id);
+      const selected = variante_id === v.id ? 'selected' : '';
+      return `<option value="${esc(v.id)}" ${selected}>${esc(getVarianteLabel(v))} - Stock ${stock}</option>`;
+    }).join('')
+    : '';
+
+  const stockInicial = usaVariantes && variante_id
+    ? getStockDisponible(prod.id, variante_id)
+    : usaVariantes
+      ? 0
+      : getStockDisponible(prod.id, null);
+
+  const body = `
+    <div style="display:grid;gap:12px">
+      <div>
+        <label>Producto</label>
+        <input type="text" value="${esc(prod.nombre)}" readonly style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#111;color:#fff">
+      </div>
+
+      ${usaVariantes ? `<div>
+        <label>Talla / variante *</label>
+        <select id="mermaVariante" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          <option value="">Seleccionar variante...</option>
+          ${varianteOptions}
+        </select>
+      </div>` : ''}
+
+      <div style="padding:8px;background:#111;border-radius:4px">
+        <div style="color:#999;font-size:13px">Stock disponible actual</div>
+        <div id="mermaStockDisponible" style="font-size:22px;font-weight:bold;color:#4ade80">${stockInicial}</div>
+      </div>
+
+      <div>
+        <label>Cantidad a descontar *</label>
+        <input type="number" id="mermaCantidad" min="1" step="1" value="1" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+      </div>
+
+      <div>
+        <label>Motivo *</label>
+        <select id="mermaMotivo" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          <option value="">Seleccionar...</option>
+          <option value="Daño">Daño</option>
+          <option value="Caducidad">Caducidad</option>
+          <option value="Pérdida">Pérdida</option>
+          <option value="Robo interno">Robo interno</option>
+          <option value="Error operativo">Error operativo</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Descripción / observaciones</label>
+        <textarea id="mermaDescripcion" placeholder="Describe la causa o contexto de la merma..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;min-height:80px"></textarea>
+      </div>
+
+      <div>
+        <label>Evidencia opcional</label>
+        <input type="file" id="mermaEvidencia" accept="image/*" capture="environment" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+        <div id="mermaEvidenciaPreview" style="margin-top:8px;color:#999;font-size:13px">Sin evidencia</div>
+      </div>
+    </div>
+  `;
+
+  modal.open('Ajuste por merma', body, `
+    <button class="btn btn-secondary" onclick="window.modalClose()">Cancelar</button>
+    <button class="btn btn-primary" id="mermaSubmit">Registrar merma</button>
+  `, 'md');
+
+  window.modalClose = () => modal.close();
+
+  const varianteSelect = document.getElementById('mermaVariante');
+  const cantidadInput = document.getElementById('mermaCantidad');
+  const evidenciaInput = document.getElementById('mermaEvidencia');
+
+  function selectedVarianteId() {
+    return usaVariantes ? (varianteSelect?.value || '') : null;
+  }
+
+  function selectedStock() {
+    const selected = selectedVarianteId();
+    if (usaVariantes && !selected) return 0;
+    return getStockDisponible(prod.id, selected || null);
+  }
+
+  function syncStockDisponible() {
+    const stock = selectedStock();
+    const stockEl = document.getElementById('mermaStockDisponible');
+    if (stockEl) stockEl.textContent = stock;
+  }
+
+  varianteSelect?.addEventListener('change', syncStockDisponible);
+  cantidadInput?.addEventListener('input', syncStockDisponible);
+
+  evidenciaInput?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    const preview = document.getElementById('mermaEvidenciaPreview');
+    if (!file) {
+      delete evidenciaInput.dataset.base64;
+      if (preview) preview.textContent = 'Sin evidencia';
+      return;
+    }
+    try {
+      const dataUrl = await readFileAsDataURL(file);
+      evidenciaInput.dataset.base64 = dataUrl;
+      if (preview) {
+        preview.innerHTML = `<img src="${esc(dataUrl)}" style="width:84px;height:84px;object-fit:cover;border-radius:4px;border:1px solid #444">`;
+      }
+    } catch (err) {
+      notify(err.message || 'No se pudo leer la evidencia', 'error');
+    }
+  });
+
+  document.getElementById('mermaSubmit')?.addEventListener('click', async () => {
+    const cantidad = Number(cantidadInput?.value || 0);
+    const motivo = document.getElementById('mermaMotivo')?.value || '';
+    const descripcion = document.getElementById('mermaDescripcion')?.value.trim() || '';
+    const varianteSeleccionada = selectedVarianteId();
+    const stock = selectedStock();
+
+    if (!Number.isFinite(cantidad) || cantidad <= 0) {
+      notify('Cantidad inválida', 'error');
+      return;
+    }
+    if (!motivo) {
+      notify('El motivo es obligatorio', 'error');
+      return;
+    }
+    if (usaVariantes && !varianteSeleccionada) {
+      notify('Selecciona una talla/variante', 'error');
+      return;
+    }
+    if (cantidad > stock) {
+      notify('Stock insuficiente para registrar merma', 'error');
+      return;
+    }
+
+    let evidencia = null;
+    if (evidenciaInput?.dataset.base64) {
+      evidencia = await saveEvidence({
+        base64: evidenciaInput.dataset.base64,
+        tipo: 'merma',
+        entidad: 'inventario',
+        entidadId: prod.id,
+        filename: evidenciaInput.files?.[0]?.name || 'merma.jpg',
+      });
+    }
+
+    const resultado = registrarMerma({
+      producto_id: prod.id,
+      producto_nombre: prod.nombre,
+      cantidad,
+      talla: varianteSeleccionada,
+      motivo,
+      descripcion,
+      evidencia,
+      usuario: user?.name || 'Sistema',
+    });
+
+    if (!resultado.ok) {
+      notify(resultado.error || 'No se pudo registrar merma', 'error');
+      return;
+    }
+
+    notify('Merma registrada correctamente', 'success');
+    modal.close();
+    renderProductos();
+  });
+
+  syncStockDisponible();
 }
 
 function openAjusteStock(id, variante_id) {

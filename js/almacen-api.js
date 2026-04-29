@@ -794,6 +794,63 @@ export function registrarDevolucionNueva({ entrega_original_id, empleado_id, emp
 
 /**
  * ─────────────────────────────────────────────────────────────
+ * MERMAS
+ * ─────────────────────────────────────────────────────────────
+ */
+
+export function registrarMerma({ producto_id, producto_nombre, cantidad, talla, motivo, descripcion, evidencia, usuario } = {}) {
+  const store = getStore();
+  const prod = store.productos.find(p => p.id === producto_id);
+  if (!prod) return { ok: false, error: 'Producto no encontrado' };
+
+  const cantidadNum = Number(cantidad);
+  if (!Number.isFinite(cantidadNum) || cantidadNum <= 0) {
+    return { ok: false, error: 'Cantidad inválida' };
+  }
+  if (!motivo) return { ok: false, error: 'El motivo es obligatorio' };
+
+  let variante_id = null;
+  let tallaMovimiento = talla || null;
+  const variantes = Array.isArray(prod.variantes) ? prod.variantes : [];
+  if (variantes.length) {
+    const variante = _findVarianteByStockKey(prod, talla);
+    if (!variante) return { ok: false, error: 'Variante no encontrada' };
+    variante_id = variante.id;
+    tallaMovimiento = variante.talla || variante.nombre || variante.id;
+  }
+
+  const stockDisponible = getStockDisponible(producto_id, variante_id || null);
+  if (stockDisponible < cantidadNum) {
+    return { ok: false, error: 'Stock insuficiente para registrar merma' };
+  }
+
+  const timestamp = Date.now();
+  const documento_id = 'merma-' + timestamp;
+  const mov_resultado = registrarMovimiento({
+    tipo: 'merma',
+    producto_id,
+    producto_nombre: producto_nombre || prod.nombre,
+    variante_id,
+    talla: tallaMovimiento,
+    cantidad: -cantidadNum,
+    documento_id,
+    documento_tipo: 'merma',
+    motivo,
+    descripcion: descripcion || '',
+    evidencia: evidencia || null,
+    usuario: usuario || getUser()?.name || 'Sistema',
+    observaciones: descripcion || motivo,
+  });
+
+  if (!mov_resultado.ok) {
+    return { ok: false, error: mov_resultado.error || 'No se pudo registrar merma' };
+  }
+
+  return { ok: true, movimiento: mov_resultado.movimiento };
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────
  * MOVIMIENTOS
  * ─────────────────────────────────────────────────────────────
  */
@@ -821,7 +878,7 @@ export function getMovimientos(filtros = {}) {
   return result.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
 }
 
-export function registrarMovimiento({ tipo, producto_id, variante_id, cantidad, documento_id, documento_tipo, costo_unitario, observaciones }) {
+export function registrarMovimiento({ tipo, producto_id, producto_nombre, variante_id, talla, cantidad, documento_id, documento_tipo, costo_unitario, observaciones, motivo, descripcion, evidencia, usuario }) {
   const store = getStore();
   const user = getUser();
   const delta = Number(cantidad) || 0;
@@ -848,7 +905,9 @@ export function registrarMovimiento({ tipo, producto_id, variante_id, cantidad, 
     fecha_hora: new Date().toISOString(),
     tipo,
     producto_id,
+    producto_nombre: producto_nombre || prod.nombre || '',
     variante_id: variante_id || null,
+    talla: talla || '',
     cantidad: delta,
     stock_antes,
     stock_despues,
@@ -856,6 +915,10 @@ export function registrarMovimiento({ tipo, producto_id, variante_id, cantidad, 
     documento_tipo: documento_tipo || '',
     costo_unitario: costo_unitario || 0,
     observaciones: observaciones || '',
+    motivo: motivo || '',
+    descripcion: descripcion || '',
+    evidencia: evidencia || null,
+    usuario: usuario || user?.name || 'Sistema',
     creado_por: user?.name || 'Sistema',
     fecha_creacion: new Date().toISOString(),
   };
