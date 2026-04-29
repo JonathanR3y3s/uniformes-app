@@ -115,3 +115,139 @@
   .workspace-tab{min-height:46px;font-size:14px;padding:0 14px}
   .workspace-tab i{font-size:14px}
 }
+
+/* v8.6c — Fase 2: ergonomía iPad y operación táctil en planta */
+:root{
+  --primary:#1e6baf;
+  --aa-blue:#1e6baf;
+  --aa-blue-light:#3b82c4;
+  --accent:#1e6baf;
+  --text:#f8fafc;
+  --text-sec:#cbd5e1;
+  --text-muted:#64748b;
+  --border:rgba(148,163,184,.22);
+  --border-2:rgba(148,163,184,.34);
+}
+
+.btn{min-height:44px;height:auto;padding:10px 20px;justify-content:center;gap:9px;font-size:14px;line-height:1.2;border-radius:8px;touch-action:manipulation}
+.btn-primary{background:#1e6baf;color:#fff;border-color:#1e6baf;box-shadow:0 2px 7px rgba(30,107,175,.24)}
+.btn-primary:hover{background:#185f9e;border-color:#185f9e}
+.btn-primary:active{background:#145184}
+.btn-success{background:#15803d;color:#fff;border-color:#15803d}
+.btn-success:hover{background:#166534}
+.btn-warning{background:#f59e0b;color:#111827;border-color:#d97706}
+.btn-warning:hover{background:#d97706;color:#111827}
+.btn-danger{background:#dc2626;color:#fff;border-color:#dc2626}
+.btn-danger:hover{background:#b91c1c}
+.btn-info{background:#0284c7;color:#fff;border-color:#0284c7}
+.btn-secondary,.btn-ghost,.btn-accent{background:#fff;color:#1e3a5f;border:1px solid #9fb5c9;box-shadow:none}
+.btn-secondary:hover,.btn-ghost:hover,.btn-accent:hover{background:#eaf3fb;color:#123f66;border-color:#1e6baf}
+.btn-sm{min-height:44px;height:auto;padding:9px 14px;font-size:13px;border-radius:8px}
+.btn-icon{width:44px;min-width:44px;height:44px;border-radius:8px;background:#fff;color:#1e3a5f;border:1px solid #9fb5c9;box-shadow:none;touch-action:manipulation}
+.btn-icon:hover{background:#eaf3fb;border-color:#1e6baf;color:#123f66}
+.btn-icon.btn-danger,.btn.btn-danger{background:#dc2626;color:#fff;border-color:#dc2626}
+
+button,input,select,textarea,label{touch-action:manipulation}
+input[type="checkbox"],input[type="radio"]{width:22px!important;height:22px!important;min-width:22px;accent-color:#1e6baf}
+label:has(input[type="checkbox"]),label:has(input[type="radio"]){min-height:44px;gap:10px!important;align-items:center}
+.form-label,label{font-size:13px;font-weight:700;color:#dbeafe}
+.form-group{gap:8px}
+.form-row{gap:16px}
+.form-input,.form-select,.form-textarea,input:not([type="checkbox"]):not([type="radio"]),select,textarea{
+  min-height:44px;
+  font-size:15px;
+  border-radius:8px;
+  border-color:#9fb5c9;
+}
+.form-textarea,textarea{min-height:96px;padding-top:12px!important;padding-bottom:12px!important}
+.form-input:focus,.form-select:focus,.form-textarea:focus,input:focus,select:focus,textarea:focus{border-color:#1e6baf!important;box-shadow:0 0 0 4px rgba(30,107,175,.16)!important}
+
+.tabs,.tab-list,.filters-section,.page-actions,.modal-foot{gap:10px}
+.tabs{display:flex;flex-wrap:wrap}
+.tab,.tab-btn{min-height:44px;padding:10px 16px;border-radius:8px;border:1px solid #9fb5c9;background:#fff;color:#1e3a5f;font-weight:700;touch-action:manipulation}
+.tab.active,.tab-btn.active{background:#1e6baf;color:#fff;border-color:#1e6baf}
+.workspace-tab{border-radius:8px 8px 0 0}
+.workspace-tab.active{box-shadow:inset 0 -4px 0 #1e6baf,0 6px 16px rgba(0,0,0,.18)}
+.workspace-tabs{scrollbar-color:#1e6baf transparent}
+
+.table-wrap,.data-table,.report-table{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.data-table,table.dt{min-width:680px;border-collapse:separate;border-spacing:0}
+.data-table th,table.dt th{padding:14px 16px;font-size:12px;color:#dbeafe;background:#13263a;border-bottom:1px solid rgba(148,163,184,.32)}
+.data-table td,table.dt td{padding:16px;min-height:52px;font-size:14px;border-bottom:1px solid rgba(148,163,184,.18)}
+.data-table .btn,.data-table .btn-sm,table.dt .btn,table.dt .btn-sm{min-height:44px}
+.data-table .btn-icon,table.dt .btn-icon{width:44px;height:44px;min-width:44px}
+
+.notif-wrap{right:18px;bottom:18px;left:auto;gap:10px}
+.notif{min-width:320px;max-width:min(460px,calc(100vw - 36px));padding:16px 18px;border-radius:8px;font-size:15px;line-height:1.35;background:#fff;color:#111827;border:1px solid #cbd5e1;box-shadow:0 12px 30px rgba(15,23,42,.18)}
+.notif.success{border-left:6px solid #15803d}
+.notif.warning{border-left:6px solid #f59e0b}
+.notif.error{border-left:6px solid #dc2626}
+.notif.info{border-left:6px solid #1e6baf}
+
+.signature-panel,.evidence-panel{background:#f8fafc!important;border:1px solid #9fc6e7!important;border-radius:8px!important;padding:14px!important;color:#111827}
+.signature-panel label,.signature-title{font-size:16px!important;font-weight:800!important;color:#123f66!important}
+.signature-panel p,.signature-hint{font-size:14px!important;color:#475569!important}
+.signature-panel canvas,#signaturePad,#entSigCanvas{min-height:220px;background:#fff!important;border-radius:8px}
+.signature-canvas-wrap{border:2px dashed #1e6baf!important;border-radius:8px!important;background:#fff!important;overflow:hidden}
+.evidence-thumb,img.evidence-thumb{width:112px!important;height:112px!important;object-fit:cover;border-radius:8px!important;border:2px solid #9fb5c9!important;cursor:zoom-in}
+.empty-evidence,.empty-signature{display:inline-flex;align-items:center;min-height:34px;padding:6px 10px;border-radius:8px;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;font-size:13px;font-weight:700}
+
+.product-card{background:#fff;color:#111827;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.08)}
+.product-card:hover{border-color:#1e6baf;box-shadow:0 6px 18px rgba(15,23,42,.12)}
+.products-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.product-image{height:150px;background:#eef5fb;overflow:hidden}
+
+@media(max-width:1024px){
+  body{font-size:16px;background:#f3f7fb;color:#111827}
+  .main{background:#f3f7fb}
+  .topbar{background:#fff;border-bottom:1px solid #cbd5e1;min-height:64px}
+  .topbar-title{font-size:17px;color:#111827}
+  .topbar-user{color:#334155}
+  .page{padding:20px;max-width:100%}
+  .page-title,.page-title h1{font-size:24px;color:#111827}
+  .page-title p{font-size:15px;color:#475569}
+  .card,.kpi,.kpi-card,.chart-box,.exec-panel,.fin-panel{background:#fff;color:#111827;border-color:#cbd5e1;border-radius:8px;box-shadow:0 2px 8px rgba(15,23,42,.06)}
+  .card-head{border-bottom-color:#dbe4ef}
+  .card-body{padding:20px}
+  .kpi-label,.kpi-sub,.text-muted,.text-sec{color:#475569}
+  .kpi-value,.kpi-card .kpi-value{color:#111827}
+  .filters-section{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:end}
+  .filters-section input,.filters-section select,.filters-section .btn,.filters-section label{width:100%;min-width:0}
+  .data-table,.report-table,table.dt{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;max-width:100%}
+  .modal-overlay{align-items:flex-end;padding:12px;background:rgba(15,23,42,.52)}
+  .modal-box,.modal-box.md,.modal-box.lg,.modal-box.xl{max-width:960px;max-height:92vh;background:#fff;color:#111827;border-color:#cbd5e1;border-radius:12px}
+  .modal-head{padding:18px 20px;border-bottom-color:#dbe4ef}
+  .modal-head h2{font-size:19px;color:#111827}
+  .modal-body{padding:20px;font-size:16px}
+  .modal-foot{padding:14px 20px;border-top-color:#dbe4ef;position:sticky;bottom:0;background:#fff;flex-wrap:wrap}
+  .modal-foot .btn{flex:1 1 150px}
+  .modal-body input:not([type="checkbox"]):not([type="radio"]),.modal-body select,.modal-body textarea,
+  .filters-section input,.filters-section select{
+    min-height:48px!important;
+    padding:10px 14px!important;
+    background:#fff!important;
+    color:#111827!important;
+    border:1px solid #9fb5c9!important;
+    border-radius:8px!important;
+    font-size:16px!important;
+  }
+  .modal-body label,.filters-section label{color:#123f66!important;font-size:14px!important;font-weight:800!important}
+  .modal-body [style*="background:#111"],.modal-body [style*="background:#1f1f1f"]{background:#f8fafc!important;color:#111827!important;border-color:#cbd5e1!important}
+  .form-row.c3,.form-row.c4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dot-row{grid-template-columns:1fr 88px 88px 44px!important}
+}
+
+@media(max-width:768px){
+  body{font-size:16px}
+  .page{padding:14px}
+  .card-body{padding:16px}
+  .filters-section,.form-row.c2,.form-row.c3,.form-row.c4,.grid-2{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:1fr}
+  .page-actions,.modal-foot{flex-direction:column;align-items:stretch}
+  .page-actions .btn,.page-head .btn,.modal-foot .btn{width:100%}
+  .workspace-tab{min-height:48px}
+  .data-table,table.dt{min-width:620px}
+  .notif-wrap{left:12px;right:12px;bottom:12px}
+  .notif{min-width:0;width:100%}
+  .signature-panel canvas,#signaturePad,#entSigCanvas{min-height:240px}
+}

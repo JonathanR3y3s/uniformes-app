@@ -225,8 +225,8 @@ function getMovimientoTipoLabel(tipo) {
 
 function renderMovimientoEvidencia(movimiento) {
   const src = getEvidenceSrc(movimiento?.evidencia);
-  if (!src) return '<small style="color:#999">Sin evidencia</small>';
-  return `<button type="button" class="mov-evidencia-view" data-mov-id="${movimiento.id}" title="Ver evidencia" style="width:44px;height:44px;border:0;padding:0;background:transparent;cursor:zoom-in"><img src="${esc(src)}" style="width:44px;height:44px;object-fit:cover;border-radius:4px;border:1px solid #444"></button>`;
+  if (!src) return '<span class="empty-evidence">Sin evidencia</span>';
+  return `<button type="button" class="mov-evidencia-view" data-mov-id="${movimiento.id}" title="Ver evidencia" style="width:56px;height:56px;border:0;padding:0;background:transparent;cursor:zoom-in"><img class="evidence-thumb" src="${esc(src)}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #444"></button>`;
 }
 
 function readFileAsDataURL(file) {
@@ -1016,7 +1016,7 @@ function openMermaProducto(id, variante_id = null) {
       <div>
         <label>Evidencia opcional</label>
         <input type="file" id="mermaEvidencia" accept="image/*" capture="environment" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
-        <div id="mermaEvidenciaPreview" style="margin-top:8px;color:#999;font-size:13px">Sin evidencia</div>
+        <div id="mermaEvidenciaPreview" style="margin-top:8px;color:#999;font-size:13px"><span class="empty-evidence">Sin evidencia</span></div>
       </div>
     </div>
   `;
@@ -1056,20 +1056,20 @@ function openMermaProducto(id, variante_id = null) {
     const preview = document.getElementById('mermaEvidenciaPreview');
     if (!file) {
       delete evidenciaInput.dataset.base64;
-      if (preview) preview.textContent = 'Sin evidencia';
+      if (preview) preview.innerHTML = '<span class="empty-evidence">Sin evidencia</span>';
       return;
     }
     if (!validateImage(file)) {
       e.target.value = '';
       delete evidenciaInput.dataset.base64;
-      if (preview) preview.textContent = 'Sin evidencia';
+      if (preview) preview.innerHTML = '<span class="empty-evidence">Sin evidencia</span>';
       return;
     }
     try {
       const dataUrl = await readFileAsDataURL(file);
       evidenciaInput.dataset.base64 = dataUrl;
       if (preview) {
-        preview.innerHTML = `<img src="${esc(dataUrl)}" style="width:84px;height:84px;object-fit:cover;border-radius:4px;border:1px solid #444">`;
+        preview.innerHTML = `<img class="evidence-thumb" src="${esc(dataUrl)}" style="width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid #444">`;
       }
     } catch (err) {
       notify(err.message || 'No se pudo leer la evidencia', 'error');

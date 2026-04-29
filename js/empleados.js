@@ -56,7 +56,8 @@ function bajaDetalleHTML(emp){
   h+=checklist.map(it=>'<tr><td>'+esc(it.item||'—')+'</td><td style="text-align:center">'+(it.devuelto?'<span class="badge badge-success">Sí</span>':'<span class="badge badge-warning">No</span>')+'</td></tr>').join('');
   h+='</tbody></table></div>';
   h+='<p class="text-sm mt-2"><strong>Pendientes:</strong> '+esc((baja.pendientes||'').trim()||'Sin pendientes capturados')+'</p>';
-  if(src)h+='<div class="mt-2"><p class="text-xs text-muted">Evidencia</p><img src="'+esc(src)+'" style="width:96px;height:96px;object-fit:cover;border:1px solid var(--border);border-radius:6px"></div>';
+  if(src)h+='<div class="mt-2"><p class="text-xs text-muted">Evidencia</p><img class="evidence-thumb" src="'+esc(src)+'" style="width:96px;height:96px;object-fit:cover;border:1px solid var(--border);border-radius:6px"></div>';
+  else h+='<p class="mt-2"><span class="empty-evidence">Sin evidencia</span></p>';
   h+='</div>';
   return h;
 }
@@ -446,19 +447,19 @@ function openBajaEmp(id){
   body+='<div class="form-group mt-2"><textarea class="form-input" id="bajaPendientes" rows="3" placeholder="Notas o pendientes de devolución">'+esc(pendientes)+'</textarea></div>';
   body+='<div class="divider-label">Evidencia opcional</div>';
   body+='<div class="form-group mt-2"><input class="form-input" type="file" id="bajaEvidencia" accept="image/*" capture="environment"></div>';
-  body+='<div id="bajaEvidenciaPreview" class="mt-2">'+(evidenciaSrc?'<img src="'+esc(evidenciaSrc)+'" style="width:96px;height:96px;object-fit:cover;border:1px solid var(--border);border-radius:6px">':'<p class="text-xs text-muted">Sin evidencia</p>')+'</div>';
+  body+='<div id="bajaEvidenciaPreview" class="mt-2">'+(evidenciaSrc?'<img class="evidence-thumb" src="'+esc(evidenciaSrc)+'" style="width:96px;height:96px;object-fit:cover;border:1px solid var(--border);border-radius:6px">':'<p><span class="empty-evidence">Sin evidencia</span></p>')+'</div>';
   modal.open('Baja de empleado',body,'<button class="btn btn-ghost" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSaveBaja"><i class="fas fa-save"></i> Guardar baja</button>','lg');
   document.getElementById('mCancel')?.addEventListener('click',()=>modal.close());
   const evidenciaInput=document.getElementById('bajaEvidencia');
   evidenciaInput?.addEventListener('change',async e=>{
     const file=e.target.files?.[0];
     const preview=document.getElementById('bajaEvidenciaPreview');
-    if(!file){delete evidenciaInput.dataset.base64;if(preview)preview.innerHTML='<p class="text-xs text-muted">Sin evidencia</p>';return;}
-    if(!validateImage(file)){e.target.value='';delete evidenciaInput.dataset.base64;if(preview)preview.innerHTML='<p class="text-xs text-muted">Sin evidencia</p>';return;}
+    if(!file){delete evidenciaInput.dataset.base64;if(preview)preview.innerHTML='<p><span class="empty-evidence">Sin evidencia</span></p>';return;}
+    if(!validateImage(file)){e.target.value='';delete evidenciaInput.dataset.base64;if(preview)preview.innerHTML='<p><span class="empty-evidence">Sin evidencia</span></p>';return;}
     try{
       const dataUrl=await readFileAsDataURL(file);
       evidenciaInput.dataset.base64=dataUrl;
-      if(preview)preview.innerHTML='<img src="'+esc(dataUrl)+'" style="width:96px;height:96px;object-fit:cover;border:1px solid var(--border);border-radius:6px">';
+      if(preview)preview.innerHTML='<img class="evidence-thumb" src="'+esc(dataUrl)+'" style="width:96px;height:96px;object-fit:cover;border:1px solid var(--border);border-radius:6px">';
     }catch(err){notify(err.message||'No se pudo leer la evidencia','error');}
   });
   document.getElementById('mSaveBaja')?.addEventListener('click',()=>saveBajaEmp(id,items));

@@ -44,10 +44,10 @@ function getBase64Bytes(base64) {
 
 function renderEvidencePreviewHtml(evidence, label = 'Foto guardada') {
   const src = getEvidenceSrc(evidence);
-  if (!src) return '';
+  if (!src) return '<span class="empty-evidence">Sin evidencia</span>';
   const kb = typeof evidence === 'string' || evidence?.base64 ? Math.round(getBase64Bytes(evidence.base64 || evidence) / 1024) : null;
   const text = evidence?.storage === 'supabase' ? 'Foto guardada en Supabase' : `${label}${kb ? ` (${kb}KB)` : ''}`;
-  return `<div style="display:flex;align-items:center;gap:10px"><img src="${esc(src)}" style="max-width:120px;max-height:120px;border-radius:4px;object-fit:cover"><small style="color:#999">${esc(text)}</small></div>`;
+  return `<div class="evidence-panel" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><img class="evidence-thumb" src="${esc(src)}" style="max-width:120px;max-height:120px;border-radius:4px;object-fit:cover"><small style="color:#475569;font-size:13px">${esc(text)}</small></div>`;
 }
 
 function loadImage(dataUrl) {

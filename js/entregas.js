@@ -314,10 +314,10 @@ function openNuevaEntrega() {
             </tbody>
           </table>
         </div>
-        <div>
-          <label style="font-size:15px;font-weight:600;display:block;margin-bottom:4px"><i class="fas fa-pen-fancy"></i> Firma del empleado</label>
-          <p style="font-size:12px;color:#94a3b8;margin:0 0 10px">Use el dedo o Apple Pencil para firmar en el área de abajo</p>
-          <div style="border:2px dashed #4b5563;border-radius:8px;overflow:hidden">
+        <div class="signature-panel">
+          <label class="signature-title" style="font-size:15px;font-weight:600;display:block;margin-bottom:4px"><i class="fas fa-pen-fancy"></i> Firma del empleado</label>
+          <p class="signature-hint" style="font-size:12px;color:#94a3b8;margin:0 0 10px">Use el dedo o Apple Pencil</p>
+          <div class="signature-canvas-wrap" style="border:2px dashed #4b5563;border-radius:8px;overflow:hidden">
             <canvas id="signaturePad" style="display:block;width:100%;height:180px;cursor:crosshair;touch-action:none;background:#fff"></canvas>
           </div>
           <button class="btn btn-ghost" id="btnLimpiarFirma" style="margin-top:10px;width:100%"><i class="fas fa-eraser"></i> Limpiar firma</button>
@@ -779,10 +779,10 @@ function openDetalleEntrega(id) {
     <p><strong>Área:</strong> ${esc(entrega.area)}</p>
     <p><strong>Motivo:</strong> ${esc(entrega.motivo)}</p>
     <p><strong>Observaciones:</strong> ${esc(entrega.observaciones || '—')}</p>
-    ${!(entrega.firma_recibe || entrega.firma) ? '<p><span style="background:#7f1d1d;color:#fecaca;font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px">ENTREGA SIN FIRMA</span></p>' : ''}
+    ${!(entrega.firma_recibe || entrega.firma) ? '<p><span class="empty-signature">Sin firma registrada</span></p>' : ''}
     <p><strong>Fecha:</strong> ${fmtDate(entrega.fecha_hora)}</p>
     <p><strong>Entregado por:</strong> ${esc(entrega.entregado_por)}</p>
-    ${firmaSrc ? `<p><strong>Firma:</strong><br><img src="${esc(firmaSrc)}" style="max-width:260px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;margin-top:4px" onclick="window.open(this.src,'_blank')" title="Tap para ver grande" style="cursor:pointer"></p>` : '<p><strong>Firma:</strong> <span style="background:#7f1d1d;color:#fecaca;font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px">Sin firma registrada</span></p>'}
+    ${firmaSrc ? `<p><strong>Firma:</strong><br><img class="evidence-thumb" src="${esc(firmaSrc)}" style="max-width:260px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;margin-top:4px" onclick="window.open(this.src,'_blank')" title="Tap para ver grande" style="cursor:pointer"></p>` : '<p><strong>Firma:</strong> <span class="empty-signature">Sin firma registrada</span></p>'}
 
     <h4 style="margin-top:12px">Productos</h4>
     <table class="data-table">
