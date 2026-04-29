@@ -20,6 +20,7 @@ import {
   getMovimientos,
   generateSKU,
 } from './almacen-api.js';
+import { saveEvidence, getEvidenceSrc } from './evidence-storage.js';
 
 let currentPage = 1;
 let currentView = 'grid'; // 'grid' o 'tabla'
@@ -174,6 +175,39 @@ function tipoProductoBadge(tipo = 'personal') {
   return `<span style="display:inline-block;padding:2px 8px;background:${color}22;border:1px solid ${color};border-radius:4px;font-size:11px;color:${color}">${label}</span>`;
 }
 
+function getProductoFotoSrc(producto) {
+  return getEvidenceSrc(producto?.foto_producto || producto?.foto);
+}
+
+function renderProductoFotoThumb(producto, size = 64) {
+  const src = getProductoFotoSrc(producto);
+  if (!src) {
+    return `<div style="width:${size}px;height:${size}px;border:1px dashed #555;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;text-align:center;line-height:1.2">Sin foto</div>`;
+  }
+  return `<button type="button" class="producto-foto-view" data-product-id="${producto.id}" title="Ver foto" style="width:${size}px;height:${size}px;border:0;padding:0;background:transparent;cursor:pointer"><img src="${esc(src)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #444"></button>`;
+}
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = ev => resolve(ev.target.result);
+    reader.onerror = () => reject(new Error('No se pudo leer la imagen'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function openFotoProducto(id) {
+  const prod = getProductoById(id);
+  const src = getProductoFotoSrc(prod);
+  if (!prod || !src) return;
+  modal.open(`Foto: ${prod.nombre}`, `
+    <div style="text-align:center">
+      <img src="${esc(src)}" style="max-width:100%;max-height:70vh;border-radius:8px;object-fit:contain">
+    </div>
+  `, '<button class="btn btn-secondary" onclick="window.modalClose()">Cerrar</button>', 'lg');
+  window.modalClose = () => modal.close();
+}
+
 function renderProductos() {
   const filtros = getFilterros();
   const productos = getProductos(filtros);
@@ -192,7 +226,7 @@ function renderProductos() {
     html = `<div class="products-grid">`;
     productos.forEach(p => {
       const cat = catMap[p.categoria_id];
-      const foto = p.foto ? `data:image/png;base64,${p.foto}` : null;
+      const foto = getProductoFotoSrc(p);
       const bgColor = cat?.color || '#666';
       const tipo = p.tipo || 'personal';
       const nivel = nivelControl(p);
@@ -212,7 +246,7 @@ function renderProductos() {
       html += `
         <div class="product-card" style="cursor:pointer" data-product-id="${p.id}">
           <div class="product-image" style="background:${foto ? '' : bgColor + '33'}">
-            ${foto ? `<img src="${foto}" style="width:100%;height:100%;object-fit:cover">` : `<i class="fas fa-box" style="font-size:48px;color:${bgColor}"></i>`}
+            ${foto ? `<button type="button" class="producto-foto-view" data-product-id="${p.id}" title="Ver foto" style="width:100%;height:100%;border:0;padding:0;background:transparent;cursor:zoom-in"><img src="${esc(foto)}" style="width:100%;height:100%;object-fit:cover"></button>` : `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:#999;font-size:13px">Sin foto</div>`}
           </div>
           <div style="padding:12px">
             <div style="font-weight:bold;font-size:14px">${esc(p.nombre)}</div>
@@ -237,6 +271,7 @@ function renderProductos() {
     html = `<table class="data-table">
       <thead>
         <tr>
+          <th>Foto</th>
           <th>SKU</th>
           <th>Producto</th>
           <th>Categoría</th>
@@ -267,6 +302,7 @@ function renderProductos() {
 
           html += `
             <tr data-product-id="${p.id}" data-variante-id="${v.id}" class="cursor-pointer">
+              <td>${renderProductoFotoThumb(p, 48)}</td>
               <td>${esc(v.sku_variante)}</td>
               <td>${esc(p.nombre)} (${esc(v.nombre)})</td>
               <td>${esc(cat?.nombre || '—')}</td>
@@ -292,6 +328,7 @@ function renderProductos() {
 
         html += `
           <tr data-product-id="${p.id}" class="cursor-pointer">
+            <td>${renderProductoFotoThumb(p, 48)}</td>
             <td>${esc(p.sku)}</td>
             <td>${esc(p.nombre)}</td>
             <td>${esc(cat?.nombre || '—')}</td>
@@ -316,6 +353,13 @@ function renderProductos() {
 
   // Delegación de eventos (onclick evita acumulación de listeners por cada render)
   container.onclick = e => {
+    const fotoBtn = e.target.closest('.producto-foto-view');
+    if (fotoBtn) {
+      e.stopPropagation();
+      openFotoProducto(fotoBtn.dataset.productId);
+      return;
+    }
+
     const card = e.target.closest('.product-card');
     if (card) {
       const id = card.dataset.productId;
@@ -416,8 +460,8 @@ function openNuevoProducto() {
       </div>
 
       <div>
-        <label>Foto (Base64)</label>
-        <input type="file" id="formFoto" accept="image/*" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+        <label>Foto de producto</label>
+        <input type="file" id="formFoto" accept="image/*" capture="environment" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
         <div id="fotoPreview" style="margin-top:8px"></div>
       </div>
 
@@ -488,9 +532,8 @@ function openNuevoProducto() {
     if (file) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        const base64 = ev.target.result.split(',')[1];
-        document.getElementById('fotoPreview').innerHTML = `<img src="data:image/png;base64,${base64}" style="max-width:100px;max-height:100px;border-radius:4px">`;
-        fotoInput.dataset.base64 = base64;
+        document.getElementById('fotoPreview').innerHTML = `<img src="${esc(ev.target.result)}" style="max-width:100px;max-height:100px;border-radius:4px;object-fit:cover">`;
+        fotoInput.dataset.base64 = ev.target.result;
       };
       reader.readAsDataURL(file);
     }
@@ -523,7 +566,7 @@ function openNuevoProducto() {
     const varianteVal = tipoVal === 'personal' && document.getElementById('formVariante').checked;
     const proveedorVal = document.getElementById('formProveedor').value.trim();
     const descripcionVal = document.getElementById('formDescripcion').value.trim();
-    const fotoVal = fotoInput.dataset.base64 || null;
+    let fotoVal = fotoInput.dataset.base64 || null;
 
     if (!nombreVal || !categoriaVal) {
       notify('Nombre y categoría son obligatorios', 'error');
@@ -534,13 +577,23 @@ function openNuevoProducto() {
       return;
     }
 
+    if (fotoVal) {
+      fotoVal = await saveEvidence({
+        base64: fotoVal,
+        tipo: 'foto',
+        entidad: 'producto',
+        entidadId: nombreVal,
+        filename: 'producto.jpg',
+      });
+    }
+
     // Crear producto
     const producto = createProducto({
       nombre: nombreVal,
       categoria_id: categoriaVal,
       descripcion: descripcionVal,
       unidad: unidadVal,
-      foto: fotoVal,
+      foto_producto: fotoVal,
       tipo: tipoVal,
       es_entregable: entregableVal,
       es_por_variante: varianteVal,
@@ -604,7 +657,7 @@ function openDetalleProducto(id) {
   let movimientos = getMovimientos({ producto_id: id });
   movimientos = movimientos.slice(0, 10);
 
-  const foto = prod.foto ? `data:image/png;base64,${prod.foto}` : null;
+  const foto = getProductoFotoSrc(prod);
 
   let variantesHtml = '';
   if (prod.es_por_variante && prod.variantes && prod.variantes.length) {
@@ -637,7 +690,15 @@ function openDetalleProducto(id) {
   const body = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
       <div>
-        ${foto ? `<img src="${foto}" style="width:100%;max-height:300px;border-radius:8px;object-fit:cover">` : `<div style="width:100%;height:200px;background:#222;border-radius:8px;display:flex;align-items:center;justify-content:center"><i class="fas fa-box" style="font-size:48px;color:#666"></i></div>`}
+        <div id="detalleFotoProducto">
+          ${foto ? `<button type="button" class="producto-foto-view" data-product-id="${prod.id}" title="Ver foto" style="width:100%;border:0;padding:0;background:transparent;cursor:zoom-in"><img src="${esc(foto)}" style="width:100%;max-height:300px;border-radius:8px;object-fit:cover"></button>` : `<div style="width:100%;height:200px;background:#222;border:1px dashed #555;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999">Sin foto</div>`}
+        </div>
+        ${isAdmin ? `<div style="margin-top:10px">
+          <label class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+            <i class="fas fa-camera"></i> Tomar / cambiar foto
+            <input type="file" id="detalleFotoInput" accept="image/*" capture="environment" style="display:none">
+          </label>
+        </div>` : ''}
       </div>
       <div>
         <div style="font-size:20px;font-weight:bold">${esc(prod.nombre)}</div>
@@ -698,7 +759,36 @@ function openDetalleProducto(id) {
 
   window.modalClose = () => modal.close();
 
+  document.querySelector('#detalleFotoProducto .producto-foto-view')?.addEventListener('click', () => {
+    openFotoProducto(id);
+  });
+
   if (role === 'admin') {
+    document.getElementById('detalleFotoInput')?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const dataUrl = await readFileAsDataURL(file);
+        const preview = document.getElementById('detalleFotoProducto');
+        if (preview) {
+          preview.innerHTML = `<button type="button" class="producto-foto-view" data-product-id="${prod.id}" title="Ver foto" style="width:100%;border:0;padding:0;background:transparent;cursor:zoom-in"><img src="${esc(dataUrl)}" style="width:100%;max-height:300px;border-radius:8px;object-fit:cover"></button>`;
+          preview.querySelector('.producto-foto-view')?.addEventListener('click', () => openFotoProducto(id));
+        }
+        const evidencia = await saveEvidence({
+          base64: dataUrl,
+          tipo: 'foto',
+          entidad: 'producto',
+          entidadId: prod.id,
+          filename: 'producto.jpg',
+        });
+        updateProducto(id, { foto_producto: evidencia });
+        notify('Foto de producto actualizada', 'success');
+        renderProductos();
+      } catch (err) {
+        notify(err.message || 'No se pudo guardar la foto', 'error');
+      }
+    });
+
     document.getElementById('btnEditar')?.addEventListener('click', () => {
       openEditarNivelControl(id);
     });

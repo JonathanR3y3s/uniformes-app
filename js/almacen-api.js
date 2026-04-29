@@ -231,7 +231,7 @@ export function getProductoById(id) {
   return store.productos.find(p => p.id === id);
 }
 
-export function createProducto({ nombre, categoria_id, descripcion, unidad, foto, tipo, es_entregable, es_por_variante, stock_minimo, proveedor_frecuente, nivel_control }) {
+export function createProducto({ nombre, categoria_id, descripcion, unidad, foto, foto_producto, tipo, es_entregable, es_por_variante, stock_minimo, proveedor_frecuente, nivel_control }) {
   const store = getStore();
   const user = getUser();
 
@@ -245,6 +245,7 @@ export function createProducto({ nombre, categoria_id, descripcion, unidad, foto
     descripcion: descripcion || '',
     unidad: unidad || 'pieza',
     foto: foto || null,
+    foto_producto: foto_producto || foto || null,
     sku,
     stock_actual: es_por_variante ? 0 : 0,
     stock_minimo: Number.isFinite(Number(stock_minimo)) ? Number(stock_minimo) : 5,

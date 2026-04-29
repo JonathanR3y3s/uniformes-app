@@ -7,7 +7,7 @@ import { getStore } from './storage.js';
 import { esc, fmtMoney } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
-import { getEntradas, registrarEntrada, completarFactura, getProductos, getCategorias } from './almacen-api.js';
+import { getEntradas, registrarEntrada, completarFactura, getProductos, getCategorias, updateProducto } from './almacen-api.js';
 import { saveEvidence, getEvidenceSrc } from './evidence-storage.js';
 
 let currentStep = 1;
@@ -628,7 +628,24 @@ function _attachRecepcionWizardListener() {
         return;
       }
 
+      let fotosAsignadas = 0;
+      let fotosExistentes = 0;
+      lineas.forEach(linea => {
+        if (!linea.foto_producto) return;
+        const prod = getStore().productos.find(p => p.id === linea.producto_id);
+        if (!prod) return;
+        if (!prod.foto_producto) {
+          updateProducto(prod.id, { foto_producto: linea.foto_producto });
+          fotosAsignadas++;
+        } else {
+          fotosExistentes++;
+          console.info('[RECEPCION] Producto ya tiene foto principal; no se sobrescribe:', prod.id);
+        }
+      });
+
       notify('Recepción registrada correctamente', 'success');
+      if (fotosAsignadas) notify(`${fotosAsignadas} foto(s) asignada(s) como foto principal`, 'success');
+      if (fotosExistentes) notify('Producto con foto existente: no se sobrescribió', 'info');
       modal.close();
       if (_recepcionWizardHandler) {
         document.removeEventListener('click', _recepcionWizardHandler, true);
