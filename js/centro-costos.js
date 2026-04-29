@@ -1,4 +1,4 @@
-import{getStore}from'./storage.js';import{getAreaNames}from'./areas-config.js';import{esc,fmt,fmtMoney,fmtDate}from'./utils.js';import{createChart}from'./ui.js';
+import{getStore}from'./storage.js';import{getAreaNames}from'./areas-config.js';import{esc,fmt,fmtMoney,fmtDate}from'./utils.js';import{createChart}from'./ui.js';import{getMovimientos,getProductos}from'./almacen-api.js';
 let currentYear=new Date().getFullYear().toString();
 
 // ── Data helpers ─────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ function exportCostosCSV(){
 }
 
 // ── Render ───────────────────────────────────────────────────────────────────
-export function render(){
+function legacyRender(){
   const all=getGastos();const yrs=years(all);
   if(yrs.length&&!yrs.includes(currentYear))currentYear=yrs[0];
   const g=byYear(all,currentYear);
@@ -251,7 +251,7 @@ function buildCharts(g,all,yrs){
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-export function init(){
+function legacyInit(){
   const all=getGastos();const yrs=years(all);
   let g=byYear(all,currentYear);
   renderRows(g);buildCharts(g,all,yrs);
@@ -261,4 +261,303 @@ export function init(){
     renderRows(filtered);buildCharts(filtered,all,yrs);
   });
   document.getElementById('ccExportCostos')?.addEventListener('click',exportCostosCSV);
+}
+
+const FIN_NOW=new Date();
+const FIN_MERMA_TYPES=new Set(['merma','salida_merma']);
+const FIN_OUTPUT_TYPES=new Set(['salida_entrega','entrega','salida_colocacion','salida_uso_interno','salida','salida_merma','merma','salida_ajuste','ajuste_negativo']);
+const FIN_TYPE_LABELS={
+  compra:'Compra',
+  entrega:'Entrega',
+  salida:'Salida',
+  merma:'Merma',
+  legacy:'Compra legacy'
+};
+let finFilters={desde:'',hasta:'',area:'',categoria:'',proveedor:''};
+let finDrill={type:'resumen',value:''};
+
+function finDateValue(x){return String(x?.fecha_hora||x?.fecha||x?.fecha_creacion||'');}
+function finDateKey(x){return finDateValue(x).slice(0,10);}
+function finMonthKey(x){return finDateValue(x).slice(0,7);}
+function finCurrentMonth(){return FIN_NOW.getFullYear()+'-'+String(FIN_NOW.getMonth()+1).padStart(2,'0');}
+function finPrevMonth(){const d=new Date(FIN_NOW.getFullYear(),FIN_NOW.getMonth()-1,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function finAbsQty(x){return Math.abs(Number(x?.cantidad)||0);}
+function finStock(p){return p?.es_por_variante?(p.variantes||[]).reduce((s,v)=>s+(Number(v.stock_actual)||0),0):(Number(p?.stock_actual)||0);}
+function finUnitCost(p,varianteId=null){
+  const variante=(p?.variantes||[]).find(v=>v.id===varianteId);
+  return Number(variante?.ultimo_costo||variante?.costo_promedio||p?.costo_promedio||p?.ultimo_costo||0);
+}
+function finInventoryValue(p){
+  if(!p)return 0;
+  if(p.es_por_variante)return(p.variantes||[]).reduce((s,v)=>s+(Number(v.stock_actual)||0)*finUnitCost(p,v.id),0);
+  return finStock(p)*finUnitCost(p);
+}
+function finHasCost(p){return finUnitCost(p)>0||(p?.variantes||[]).some(v=>finUnitCost(p,v.id)>0);}
+function finCategoryName(p,categorias){return categorias.get(p?.categoria_id)?.nombre||p?.categoria_nombre||p?.categoria||'Sin categoría';}
+function finProviderName(p){return(p?.proveedor_frecuente||p?.proveedor||p?.proveedor_nombre||'').trim();}
+function finLowStock(p){
+  if(!p)return false;
+  if(p.es_por_variante&&(p.variantes||[]).length)return p.variantes.some(v=>Number(v.stock_minimo||p.stock_minimo)>0&&(Number(v.stock_actual)||0)<=Number(v.stock_minimo||p.stock_minimo));
+  return Number(p.stock_minimo)>0&&finStock(p)<=Number(p.stock_minimo);
+}
+function finEmployee(store,id){return(store.employees||[]).find(e=>String(e.id)===String(id));}
+function finDocArea(store,doc){return doc?.area||finEmployee(store,doc?.empleado_id||doc?.empleadoId)?.area||'';}
+function finDocSitio(store,doc){return doc?.sitio||finEmployee(store,doc?.empleado_id||doc?.empleadoId)?.sitio||'';}
+function finSafeProvider(v){return(v&&v!=='—')?v:'No disponible';}
+function finPush(map,key,label,total,extra={}){
+  if(!key)return;
+  const item=map.get(key)||{key,label,total:0,cantidad:0,count:0,...extra};
+  item.total+=Number(total)||0;
+  item.cantidad+=Number(extra.cantidad)||0;
+  item.count+=1;
+  map.set(key,item);
+}
+function finBuildRows(){
+  const store=getStore();
+  const productos=getProductos();
+  const productosMap=new Map(productos.map(p=>[p.id,p]));
+  const categorias=new Map((store.categorias||[]).map(c=>[c.id,c]));
+  const purchaseRows=[];
+  const consumptionRows=[];
+  (store.entradas||[]).forEach(doc=>{
+    (store.lineasEntrada||[]).filter(l=>l.entrada_id===doc.id).forEach(l=>{
+      const p=productosMap.get(l.producto_id);
+      const total=Number(l.costo_total)||((Number(l.cantidad)||0)*(Number(l.costo_unitario)||0));
+      purchaseRows.push({fecha:finDateKey(doc),mes:finMonthKey(doc),origen:'Compra',tipo:'compra',documento:doc.numero||doc.id,area:'No disponible',empleado:'No disponible',producto:p?.nombre||l.producto_id,producto_id:l.producto_id,categoria:finCategoryName(p,categorias),categoria_id:p?.categoria_id||'',proveedor:finSafeProvider(doc.proveedor||finProviderName(p)),cantidad:Number(l.cantidad)||0,unitario:Number(l.costo_unitario)||0,total});
+    });
+  });
+  (store.proveedores||[]).forEach(p=>{
+    const total=(Number(p.cantidad)||0)*(Number(p.precioUnitario)||0);
+    purchaseRows.push({fecha:p.fecha||'',mes:String(p.fecha||'').slice(0,7),origen:'Compra legacy',tipo:'legacy',documento:p.referencia||p.id,area:'No disponible',empleado:'No disponible',producto:[p.prenda,p.talla].filter(Boolean).join(' '),producto_id:'',categoria:'Uniformes',categoria_id:'Uniformes',proveedor:finSafeProvider(p.proveedor),cantidad:Number(p.cantidad)||0,unitario:Number(p.precioUnitario)||0,total});
+  });
+  (store.comprasAlmacen||[]).forEach(c=>{
+    const total=(Number(c.cantidad)||0)*(Number(c.precioUnitario)||0);
+    purchaseRows.push({fecha:c.fecha||'',mes:String(c.fecha||'').slice(0,7),origen:'Compra almacén',tipo:'legacy',documento:c.referencia||c.id,area:'No disponible',empleado:'No disponible',producto:c.articulo||'Artículo',producto_id:'',categoria:c.categoria||'Almacén',categoria_id:c.categoria||'Almacén',proveedor:finSafeProvider(c.proveedor),cantidad:Number(c.cantidad)||0,unitario:Number(c.precioUnitario)||0,total});
+  });
+  (store.entregasNuevas||[]).forEach(doc=>{
+    (store.lineasEntrega||[]).filter(l=>l.entrega_id===doc.id).forEach(l=>{
+      const p=productosMap.get(l.producto_id);
+      const unit=finUnitCost(p,l.variante_id||null);
+      consumptionRows.push({fecha:finDateKey(doc),mes:finMonthKey(doc),origen:'Entrega',tipo:'entrega',documento:doc.numero||doc.id,area:finDocArea(store,doc)||'No disponible',empleado:doc.quien_recibe||doc.empleado_nombre||'No disponible',producto:p?.nombre||l.producto_id,producto_id:l.producto_id,categoria:finCategoryName(p,categorias),categoria_id:p?.categoria_id||'',proveedor:finSafeProvider(finProviderName(p)),cantidad:Number(l.cantidad)||0,unitario:unit,total:(Number(l.cantidad)||0)*unit});
+    });
+  });
+  const salidaTipo={colocacion:'Salida colocación',merma:'Merma',ajuste:'Salida ajuste',devolucion_proveedor:'Devolución proveedor',uso_interno:'Uso interno'};
+  (store.salidasNuevas||[]).forEach(doc=>{
+    (store.lineasSalida||[]).filter(l=>l.salida_id===doc.id).forEach(l=>{
+      const p=productosMap.get(l.producto_id);
+      const unit=finUnitCost(p,l.variante_id||null);
+      consumptionRows.push({fecha:finDateKey(doc),mes:finMonthKey(doc),origen:salidaTipo[doc.tipo]||'Salida',tipo:doc.tipo==='merma'?'merma':'salida',documento:doc.numero||doc.id,area:'No disponible',empleado:doc.autorizado_por||'No disponible',producto:p?.nombre||l.producto_id,producto_id:l.producto_id,categoria:finCategoryName(p,categorias),categoria_id:p?.categoria_id||'',proveedor:finSafeProvider(finProviderName(p)),cantidad:Number(l.cantidad)||0,unitario:unit,total:(Number(l.cantidad)||0)*unit});
+    });
+  });
+  const mermaMovs=getMovimientos().filter(m=>FIN_MERMA_TYPES.has(m.tipo));
+  const movementMermaRows=mermaMovs.map(m=>{
+    const p=productosMap.get(m.producto_id);
+    const unit=Number(m.costo_unitario)||finUnitCost(p,m.variante_id||null);
+    return{fecha:finDateKey(m),mes:finMonthKey(m),origen:'Merma',tipo:'merma',documento:m.documento_id||m.id,area:'No disponible',empleado:m.usuario||'No disponible',producto:p?.nombre||m.producto_nombre||m.producto_id,producto_id:m.producto_id,categoria:finCategoryName(p,categorias),categoria_id:p?.categoria_id||'',proveedor:finSafeProvider(finProviderName(p)),cantidad:finAbsQty(m),unitario:unit,total:finAbsQty(m)*unit};
+  });
+  const mermaRows=movementMermaRows.length?movementMermaRows:consumptionRows.filter(r=>r.tipo==='merma');
+  const movimientoRows=getMovimientos().filter(m=>FIN_OUTPUT_TYPES.has(m.tipo)).map(m=>{
+    const p=productosMap.get(m.producto_id);
+    const unit=Number(m.costo_unitario)||finUnitCost(p,m.variante_id||null);
+    return{fecha:finDateKey(m),mes:finMonthKey(m),origen:FIN_MERMA_TYPES.has(m.tipo)?'Merma':'Movimiento',tipo:FIN_MERMA_TYPES.has(m.tipo)?'merma':'salida',documento:m.documento_id||m.id,area:'No disponible',empleado:m.usuario||'No disponible',producto:p?.nombre||m.producto_nombre||m.producto_id,producto_id:m.producto_id,categoria:finCategoryName(p,categorias),categoria_id:p?.categoria_id||'',proveedor:finSafeProvider(finProviderName(p)),cantidad:finAbsQty(m),unitario:unit,total:finAbsQty(m)*unit};
+  });
+  return{store,productos,productosMap,categorias,purchaseRows,consumptionRows,mermaRows,movimientoRows};
+}
+function finRowMatches(row,filters=finFilters){
+  if(filters.desde&&row.fecha&&row.fecha<filters.desde)return false;
+  if(filters.hasta&&row.fecha&&row.fecha>filters.hasta)return false;
+  if(filters.area&&row.area!==filters.area)return false;
+  if(filters.categoria&&String(row.categoria_id)!==String(filters.categoria)&&row.categoria!==filters.categoria)return false;
+  if(filters.proveedor&&row.proveedor!==filters.proveedor)return false;
+  return true;
+}
+function finFilteredRows(data){
+  const purchases=data.purchaseRows.filter(r=>finRowMatches(r));
+  const consumption=data.consumptionRows.filter(r=>finRowMatches(r));
+  const mermas=data.mermaRows.filter(r=>finRowMatches(r));
+  const movimientos=data.movimientoRows.filter(r=>finRowMatches(r));
+  return{purchases,consumption,mermas,movimientos,combined:purchases.concat(consumption).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))};
+}
+function finTotal(rows){return rows.reduce((s,r)=>s+(Number(r.total)||0),0);}
+function finTop(rows,keyFn,labelFn,limit=5){
+  const map=new Map();
+  rows.forEach(r=>finPush(map,keyFn(r),labelFn(r),r.total,{cantidad:r.cantidad}));
+  return Array.from(map.values()).sort((a,b)=>b.total-a.total).slice(0,limit);
+}
+function finVariation(rows){
+  const cur=finTotal(rows.filter(r=>r.mes===finCurrentMonth()));
+  const prev=finTotal(rows.filter(r=>r.mes===finPrevMonth()));
+  if(!prev)return{available:false,cur,prev,pct:0};
+  return{available:true,cur,prev,pct:Math.round(((cur-prev)/prev)*100)};
+}
+function finPareto(rows){
+  const top=finTop(rows,r=>r.producto_id||r.producto,r=>r.producto,50);
+  const total=top.reduce((s,x)=>s+x.total,0);
+  let acc=0,count=0;
+  for(const item of top){if(total&&acc/total>=.8)break;acc+=item.total;count++;}
+  return{items:top,total,count,share:total?Math.round(acc/total*100):0};
+}
+function finBuildData(){
+  const data=finBuildRows();
+  const filtered=finFilteredRows(data);
+  const activeEmployees=(data.store.employees||[]).filter(e=>e.estado==='activo').length;
+  const employeesWithCost=new Set(filtered.consumption.filter(r=>r.empleado!=='No disponible'&&r.total>0).map(r=>r.empleado));
+  const entregaDocs=new Set(filtered.consumption.filter(r=>r.tipo==='entrega').map(r=>r.documento));
+  const monthlyVariation=finVariation(data.purchaseRows);
+  const productsNoCost=data.productos.filter(p=>!finHasCost(p));
+  const inventoryValue=data.productos.reduce((s,p)=>s+finInventoryValue(p),0);
+  const lowStockHighCost=data.productos.filter(p=>finLowStock(p)&&finInventoryValue(p)>0).sort((a,b)=>finInventoryValue(b)-finInventoryValue(a)).slice(0,10);
+  const pareto=finPareto(filtered.consumption.concat(filtered.mermas));
+  return{...data,filtered,activeEmployees,employeesWithCost,entregaDocs,monthlyVariation,productsNoCost,inventoryValue,lowStockHighCost,pareto,topAreas:finTop(filtered.consumption,r=>r.area,r=>r.area,7).filter(x=>x.key!=='No disponible'),topEmployees:finTop(filtered.consumption,r=>r.empleado,r=>r.empleado,7).filter(x=>x.key!=='No disponible'),topCategories:finTop(filtered.purchases,r=>r.categoria_id||r.categoria,r=>r.categoria,7),topProviders:finTop(filtered.purchases,r=>r.proveedor,r=>r.proveedor,7).filter(x=>x.key!=='No disponible'),topProducts:finTop(filtered.consumption.concat(filtered.mermas),r=>r.producto_id||r.producto,r=>r.producto,8)};
+}
+function finOptions(values,selected){return values.map(v=>'<option value="'+esc(v.value)+'"'+(String(v.value)===String(selected)?' selected':'')+'>'+esc(v.label)+'</option>').join('');}
+function finFilterOptions(data){
+  const areas=Array.from(new Set(getAreaNames().concat(data.consumptionRows.map(r=>r.area)).filter(x=>x&&x!=='No disponible'))).sort();
+  const categorias=(data.store.categorias||[]).map(c=>({value:c.id,label:c.nombre}));
+  const proveedores=Array.from(new Set(data.purchaseRows.map(r=>r.proveedor).concat(data.consumptionRows.map(r=>r.proveedor)).filter(x=>x&&x!=='No disponible'))).sort();
+  return{areas,categorias,proveedores};
+}
+function finKpi({label,value,available=true,sub,note,status='info',drill,icon='fa-chart-line'}){
+  const cls=status==='danger'?'badge-danger':status==='warning'?'badge-warning':status==='success'?'badge-success':'badge-info';
+  const tag=status==='danger'?'Alerta':status==='warning'?'Atención':status==='success'?'OK':'Info';
+  return'<div class="fin-kpi '+(drill?'is-clickable':'')+'" '+(drill?'data-fin-drill="'+esc(drill.type)+'" data-fin-value="'+esc(drill.value||'')+'"':'')+'><div class="fin-kpi-top"><span class="fin-kpi-icon '+status+'"><i class="fas '+icon+'"></i></span><span class="badge '+cls+'">'+tag+'</span></div><div class="fin-kpi-label">'+esc(label)+'</div><div class="fin-kpi-value '+(!available?'is-na':'')+'">'+(available?value:'No disponible')+'</div><div class="fin-kpi-sub">'+esc(sub||'')+'</div><div class="fin-note">Qué significa: '+esc(note?.meaning||'Indicador calculado con datos reales disponibles')+'</div><div class="fin-note">Por qué importa: '+esc(note?.why||'Ayuda a priorizar decisiones financieras y operativas')+'</div></div>';
+}
+function finRenderFilters(data){
+  const opts=finFilterOptions(data);
+  return'<div class="fin-filterbar"><div class="form-group"><label class="form-label">Desde</label><input type="date" class="form-input" id="finDesde" value="'+esc(finFilters.desde)+'"></div><div class="form-group"><label class="form-label">Hasta</label><input type="date" class="form-input" id="finHasta" value="'+esc(finFilters.hasta)+'"></div><div class="form-group"><label class="form-label">Área</label><select class="form-select" id="finArea"><option value="">Todas</option>'+finOptions(opts.areas.map(a=>({value:a,label:a})),finFilters.area)+'</select></div><div class="form-group"><label class="form-label">Categoría</label><select class="form-select" id="finCategoria"><option value="">Todas</option>'+finOptions(opts.categorias,finFilters.categoria)+'</select></div><div class="form-group"><label class="form-label">Proveedor</label><select class="form-select" id="finProveedor"><option value="">Todos</option>'+finOptions(opts.proveedores.map(p=>({value:p,label:p})),finFilters.proveedor)+'</select></div><button class="btn btn-ghost" id="finClear"><i class="fas fa-filter-circle-xmark"></i> Limpiar</button><button class="btn btn-primary" id="finExport"><i class="fas fa-file-csv"></i> CSV</button></div>';
+}
+function finRankRows(items,type){
+  if(!items.length)return'<div class="fin-empty-inline">Sin datos</div>';
+  const max=Math.max(...items.map(i=>i.total),1);
+  return items.map((x,i)=>'<button class="fin-rank-row" data-fin-drill="'+esc(type)+'" data-fin-value="'+esc(x.key)+'"><span class="fin-rank-pos">'+(i+1)+'</span><span class="fin-rank-main"><strong>'+esc(x.label)+'</strong><span>'+fmtMoney(x.total)+'</span></span><span class="fin-rank-bar"><i style="width:'+Math.max(4,Math.round(x.total/max*100))+'%"></i></span></button>').join('');
+}
+function finSemaphore(data){
+  const spend=data.monthlyVariation;
+  const mermaCost=finTotal(data.filtered.mermas);
+  const monthSpend=finTotal(data.purchaseRows.filter(r=>r.mes===finCurrentMonth()));
+  const mermaPct=monthSpend?Math.round(mermaCost/monthSpend*100):0;
+  const highSpendStatus=spend.available?(spend.pct>20?'danger':spend.pct>5?'warning':'success'):'warning';
+  const mermaStatus=mermaCost>0?(mermaPct>10?'danger':'warning'):'success';
+  return'<div class="fin-panel"><div class="fin-panel-head"><div><h3>Semáforo financiero</h3><p>Alertas de lectura rápida</p></div></div><div class="fin-semaphore-grid"><div class="fin-semaphore"><span class="fin-dot '+highSpendStatus+'"></span><div><strong>Alto gasto</strong><span>'+(spend.available?((spend.pct>=0?'+':'')+spend.pct+'% vs mes anterior'):'No disponible: requiere histórico mensual')+'</span></div></div><div class="fin-semaphore"><span class="fin-dot '+(data.productsNoCost.length?'warning':'success')+'"></span><div><strong>Sin precio</strong><span>'+data.productsNoCost.length+' productos sin costo configurado</span></div></div><div class="fin-semaphore"><span class="fin-dot '+(data.lowStockHighCost.length?'danger':'success')+'"></span><div><strong>Bajo stock con alto costo</strong><span>'+data.lowStockHighCost.length+' productos con valor financiero en riesgo</span></div></div><div class="fin-semaphore"><span class="fin-dot '+mermaStatus+'"></span><div><strong>Merma relevante</strong><span>'+(mermaCost>0?fmtMoney(mermaCost)+' · '+mermaPct+'% del gasto mensual':'Sin costo de merma en el filtro')+'</span></div></div></div></div>';
+}
+function finRowsTable(rows){
+  if(!rows.length)return'<tr><td colspan="9" class="empty-state"><i class="fas fa-chart-line"></i><p>Sin datos</p></td></tr>';
+  return rows.slice(0,120).map(r=>'<tr><td class="text-xs">'+fmtDate(r.fecha)+'</td><td>'+esc(r.origen)+'</td><td>'+esc(r.area)+'</td><td>'+esc(r.empleado)+'</td><td><button class="fin-table-link" data-fin-drill="producto" data-fin-value="'+esc(r.producto_id||r.producto)+'">'+esc(r.producto)+'</button></td><td>'+esc(r.categoria)+'</td><td>'+esc(r.proveedor)+'</td><td class="text-right">'+fmt(r.cantidad)+'</td><td class="text-right">'+(r.total>0?fmtMoney(r.total):'No disponible')+'</td></tr>').join('');
+}
+function finDetailRows(data){
+  const rows=data.filtered.combined.concat(data.filtered.mermas).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+  if(finDrill.type==='area')return rows.filter(r=>r.area===finDrill.value);
+  if(finDrill.type==='proveedor')return rows.filter(r=>r.proveedor===finDrill.value);
+  if(finDrill.type==='producto')return rows.filter(r=>String(r.producto_id||r.producto)===String(finDrill.value));
+  if(finDrill.type==='categoria')return rows.filter(r=>String(r.categoria_id||r.categoria)===String(finDrill.value));
+  if(finDrill.type==='empleado')return rows.filter(r=>r.empleado===finDrill.value);
+  if(finDrill.type==='merma')return data.filtered.mermas;
+  if(finDrill.type==='sinPrecio')return data.productsNoCost.map(p=>({fecha:'',origen:'Producto sin precio',area:'No disponible',empleado:'No disponible',producto:p.nombre,producto_id:p.id,categoria:finCategoryName(p,data.categorias),categoria_id:p.categoria_id||'',proveedor:finSafeProvider(finProviderName(p)),cantidad:finStock(p),unitario:0,total:0}));
+  return rows;
+}
+function finRenderDetail(data){
+  const titleMap={resumen:'Detalle financiero filtrado',merma:'Detalle de mermas',sinPrecio:'Productos sin precio configurado'};
+  const title=titleMap[finDrill.type]||(finDrill.type.charAt(0).toUpperCase()+finDrill.type.slice(1)+' · '+finDrill.value);
+  const rows=finDetailRows(data);
+  return'<div class="fin-panel fin-detail"><div class="fin-panel-head"><div><h3>'+esc(title)+'</h3><p>Compras reales y consumos valorizados con costos existentes</p></div><button class="btn btn-ghost btn-sm" data-fin-drill="resumen" data-fin-value=""><i class="fas fa-rotate-left"></i> Resumen</button></div><div class="table-wrap"><table class="dt"><thead><tr><th>Fecha</th><th>Origen</th><th>Área</th><th>Empleado</th><th>Producto</th><th>Categoría</th><th>Proveedor</th><th class="text-right">Cantidad</th><th class="text-right">Total</th></tr></thead><tbody>'+finRowsTable(rows)+'</tbody></table></div></div>';
+}
+function finRenderCharts(data){
+  return'<div class="fin-chart-grid"><div class="fin-panel"><div class="fin-panel-head"><div><h3>Tendencia mensual</h3><p>Compras reales históricas</p></div></div><canvas id="finMonthly"></canvas></div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Ranking por área</h3><p>Consumo valorizado</p></div></div><canvas id="finAreas"></canvas></div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Pareto 80/20</h3><p>Concentración por producto</p></div></div><canvas id="finPareto"></canvas></div></div>';
+}
+function finRenderContent(){
+  const data=finBuildData();
+  const purchaseTotal=finTotal(data.purchaseRows);
+  const monthSpend=finTotal(data.purchaseRows.filter(r=>r.mes===finCurrentMonth()));
+  const filteredPurchases=finTotal(data.filtered.purchases);
+  const areaTop=data.topAreas[0];
+  const empTop=data.topEmployees[0];
+  const catTop=data.topCategories[0];
+  const provTop=data.topProviders[0];
+  const avgEmployee=data.employeesWithCost.size?finTotal(data.filtered.consumption)/data.employeesWithCost.size:0;
+  const avgDelivery=data.entregaDocs.size?finTotal(data.filtered.consumption.filter(r=>r.tipo==='entrega'))/data.entregaDocs.size:0;
+  const mermaCost=finTotal(data.filtered.mermas);
+  const variation=data.monthlyVariation;
+  let h='<div class="fin-exec"><div class="fin-hero"><div><span class="fin-eyebrow">Reporte Financiero Ejecutivo</span><h1>Gasto, consumo e impacto financiero</h1><p>Compras, entregas, mermas, proveedores y productos calculados con datos reales existentes.</p></div><div class="fin-hero-meta"><strong>'+fmt(data.filtered.combined.length)+'</strong><span>registros filtrados</span></div></div>';
+  h+=finRenderFilters(data);
+  h+='<div class="fin-kpi-grid">';
+  h+=finKpi({label:'Gasto total histórico',value:fmtMoney(purchaseTotal),available:purchaseTotal>0,sub:'Compras registradas en entradas y compras legacy',status:purchaseTotal>0?'success':'warning',icon:'fa-sack-dollar',note:{meaning:'Total acumulado de compras con importe disponible.',why:'Mide el desembolso histórico real capturado.'}});
+  h+=finKpi({label:'Gasto del mes',value:fmtMoney(monthSpend),available:monthSpend>0,sub:'Mes calendario actual',status:monthSpend>0?'info':'warning',icon:'fa-calendar-days',note:{meaning:'Compras registradas durante el mes actual.',why:'Permite vigilar presión de gasto reciente.'}});
+  h+=finKpi({label:'Gasto filtrado',value:fmtMoney(filteredPurchases),available:filteredPurchases>0,sub:'Compras bajo filtros activos',status:filteredPurchases>0?'info':'warning',icon:'fa-filter',note:{meaning:'Importe de compras que coincide con fecha/categoría/proveedor.',why:'Aísla una vista ejecutiva para análisis puntual.'}});
+  h+=finKpi({label:'Gasto por área',value:areaTop?fmtMoney(areaTop.total):'',available:!!areaTop,sub:areaTop?areaTop.label:'Sin datos de área',status:areaTop?'info':'warning',drill:areaTop?{type:'area',value:areaTop.key}:null,icon:'fa-layer-group',note:{meaning:'Área con mayor consumo valorizado.',why:'Ayuda a priorizar revisión por centro de costo.'}});
+  h+=finKpi({label:'Gasto por empleado',value:empTop?fmtMoney(empTop.total):'',available:!!empTop,sub:empTop?empTop.label:'Sin empleado asociado',status:empTop?'info':'warning',icon:'fa-user-tie',note:{meaning:'Empleado con mayor consumo valorizado.',why:'Detecta concentración de costo individual.'}});
+  h+=finKpi({label:'Gasto por categoría',value:catTop?fmtMoney(catTop.total):'',available:!!catTop,sub:catTop?catTop.label:'Sin categoría',status:catTop?'info':'warning',drill:catTop?{type:'categoria',value:catTop.key}:null,icon:'fa-tags',note:{meaning:'Categoría con mayor compra capturada.',why:'Ordena decisiones de abastecimiento por familia.'}});
+  h+=finKpi({label:'Gasto por proveedor',value:provTop?fmtMoney(provTop.total):'',available:!!provTop,sub:provTop?provTop.label:'Sin proveedor capturado',status:provTop?'info':'warning',drill:provTop?{type:'proveedor',value:provTop.key}:null,icon:'fa-truck-field',note:{meaning:'Proveedor con mayor monto histórico filtrado.',why:'Revela concentración y dependencia de compra.'}});
+  h+=finKpi({label:'Costo promedio por empleado',value:fmtMoney(avgEmployee),available:avgEmployee>0,sub:data.employeesWithCost.size+' empleados con costo',status:avgEmployee>0?'success':'warning',icon:'fa-users',note:{meaning:'Consumo valorizado dividido entre empleados con registros.',why:'Normaliza gasto por persona atendida.'}});
+  h+=finKpi({label:'Costo promedio por entrega',value:fmtMoney(avgDelivery),available:avgDelivery>0,sub:data.entregaDocs.size+' entregas con costo',status:avgDelivery>0?'success':'warning',icon:'fa-hand-holding-dollar',note:{meaning:'Costo estimado por documento de entrega.',why:'Permite comparar eficiencia de entrega.'}});
+  h+=finKpi({label:'Costo de mermas',value:fmtMoney(mermaCost),available:mermaCost>0||!data.filtered.mermas.length,sub:data.filtered.mermas.length+' registros de merma',status:mermaCost>0?'danger':'success',drill:{type:'merma',value:''},icon:'fa-circle-minus',note:{meaning:'Costo valorizado de mermas con precios existentes.',why:'Cuantifica pérdida operativa.'}});
+  h+=finKpi({label:'Valor actual inventario',value:fmtMoney(data.inventoryValue),available:data.inventoryValue>0,sub:'Stock actual x costo configurado',status:data.inventoryValue>0?'success':'warning',icon:'fa-warehouse',note:{meaning:'Valor financiero del inventario disponible.',why:'Indica capital inmovilizado en almacén.'}});
+  h+=finKpi({label:'Variación mensual',value:(variation.pct>=0?'+':'')+variation.pct+'%',available:variation.available,sub:variation.available?fmtMoney(variation.cur)+' vs '+fmtMoney(variation.prev):'No disponible',status:variation.available?(variation.pct>20?'danger':variation.pct>5?'warning':'success'):'warning',icon:'fa-arrow-trend-up',note:{meaning:'Cambio del gasto actual contra mes anterior.',why:'Señala aceleraciones anormales de gasto.'}});
+  h+=finKpi({label:'Pareto 80/20',value:data.pareto.count+' productos',available:data.pareto.total>0,sub:data.pareto.share+'% del impacto valorizado',status:data.pareto.count?'info':'warning',icon:'fa-ranking-star',note:{meaning:'Cantidad de productos que explica cerca del 80% del costo.',why:'Enfoca acciones sobre pocos productos críticos.'}});
+  h+=finKpi({label:'Productos sin precio',value:fmt(data.productsNoCost.length),available:true,sub:'Requieren costo/precio configurado',status:data.productsNoCost.length?'warning':'success',drill:{type:'sinPrecio',value:''},icon:'fa-tag',note:{meaning:'Productos sin costo usable en el cálculo.',why:'Evita reportes financieros incompletos.'}});
+  h+='</div>';
+  h+='<div class="fin-two-col"><div class="fin-panel"><div class="fin-panel-head"><div><h3>Top áreas por gasto</h3><p>Click para detalle por empleado/producto</p></div></div>'+finRankRows(data.topAreas,'area')+'</div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Top proveedores</h3><p>Click para productos asociados</p></div></div>'+finRankRows(data.topProviders,'proveedor')+'</div></div>';
+  h+='<div class="fin-two-col"><div class="fin-panel"><div class="fin-panel-head"><div><h3>Top empleados por costo</h3><p>Consumo valorizado</p></div></div>'+finRankRows(data.topEmployees,'empleado')+'</div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Productos con mayor impacto financiero</h3><p>Click para movimientos y costo</p></div></div>'+finRankRows(data.topProducts,'producto')+'</div></div>';
+  h+=finSemaphore(data);
+  h+=finRenderCharts(data);
+  h+=finRenderDetail(data);
+  h+='</div>';
+  return h;
+}
+function finChartBase(){
+  return{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#cbd5e1',usePointStyle:true,font:{size:11}}}},scales:{x:{ticks:{color:'#94a3b8'},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#94a3b8',callback:v=>'$'+fmt(v)},grid:{color:'rgba(148,163,184,.14)'}}}};
+}
+function finInitCharts(data){
+  if(typeof Chart==='undefined')return;
+  const months={};
+  data.purchaseRows.forEach(r=>{if(!r.mes)return;months[r.mes]=(months[r.mes]||0)+r.total;});
+  const keys=Object.keys(months).sort().slice(-12);
+  createChart('finMonthly',{type:'line',data:{labels:keys.map(k=>new Date(Number(k.slice(0,4)),Number(k.slice(5,7))-1,1).toLocaleDateString('es-MX',{month:'short',year:'2-digit'})),datasets:[{label:'Compras',data:keys.map(k=>months[k]),borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,.12)',tension:.3,fill:true}]},options:finChartBase()});
+  createChart('finAreas',{type:'bar',data:{labels:data.topAreas.map(x=>x.label),datasets:[{label:'Costo',data:data.topAreas.map(x=>x.total),backgroundColor:'#22c55e',borderRadius:6,borderSkipped:false}]},options:{...finChartBase(),indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{color:'#94a3b8',callback:v=>'$'+fmt(v)},grid:{color:'rgba(148,163,184,.14)'}},y:{ticks:{color:'#cbd5e1'},grid:{display:false}}}}});
+  createChart('finPareto',{type:'bar',data:{labels:data.pareto.items.slice(0,8).map(x=>x.label),datasets:[{label:'Impacto',data:data.pareto.items.slice(0,8).map(x=>x.total),backgroundColor:'#818cf8',borderRadius:6,borderSkipped:false}]},options:{...finChartBase(),plugins:{legend:{display:false}}}});
+}
+function finSyncFilters(){
+  finFilters={desde:document.getElementById('finDesde')?.value||'',hasta:document.getElementById('finHasta')?.value||'',area:document.getElementById('finArea')?.value||'',categoria:document.getElementById('finCategoria')?.value||'',proveedor:document.getElementById('finProveedor')?.value||''};
+}
+function finRefresh(){
+  const root=document.getElementById('finExecRoot');
+  if(!root)return;
+  root.innerHTML=finRenderContent();
+  finBind();
+}
+function finExportCSV(){
+  const data=finBuildData();
+  const rows=finDetailRows(data);
+  const csv=[['Fecha','Origen','Area','Empleado','Producto','Categoria','Proveedor','Cantidad','Total']].concat(rows.map(r=>[r.fecha,r.origen,r.area,r.empleado,r.producto,r.categoria,r.proveedor,r.cantidad,r.total]));
+  const body=csv.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([body],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='reporte-financiero-ejecutivo.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function finBind(){
+  const data=finBuildData();
+  finInitCharts(data);
+  ['finDesde','finHasta','finArea','finCategoria','finProveedor'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.onchange=()=>{finSyncFilters();finDrill={type:'resumen',value:''};finRefresh();};
+  });
+  document.getElementById('finClear')?.addEventListener('click',()=>{finFilters={desde:'',hasta:'',area:'',categoria:'',proveedor:''};finDrill={type:'resumen',value:''};finRefresh();});
+  document.getElementById('finExport')?.addEventListener('click',finExportCSV);
+  const root=document.getElementById('finExecRoot');
+  if(root)root.onclick=e=>{
+    const drill=e.target.closest('[data-fin-drill]');
+    if(!drill)return;
+    const type=drill.dataset.finDrill||'resumen';
+    const value=drill.dataset.finValue||'';
+    finDrill={type,value};
+    finRefresh();
+  };
+}
+export function render(){
+  return'<div id="finExecRoot">'+finRenderContent()+'</div>';
+}
+export function init(){
+  finBind();
 }

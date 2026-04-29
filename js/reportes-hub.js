@@ -5,7 +5,7 @@ import * as centroCostos from './centro-costos.js';
 const tabs = [
   { id: 'general', label: 'General', module: reportesGeneral },
   { id: 'avanzados', label: 'Avanzados', module: reportesAvanzados },
-  { id: 'centro-costos', label: 'Centro de Costos', module: centroCostos },
+  { id: 'centro-costos', label: 'Financiero Ejecutivo', module: centroCostos },
 ];
 
 let activeTab = 'general';
@@ -35,7 +35,8 @@ export function render() {
   return `
     <div class="page-head">
       <div class="page-title">
-        <h1>📊 Reportes</h1>
+        <h1>Reportes</h1>
+        <p>Hub operativo, avanzado y financiero ejecutivo</p>
       </div>
     </div>
     <div class="tabs mb-4" id="reportesHubTabs" style="display:flex;gap:8px;flex-wrap:wrap">
