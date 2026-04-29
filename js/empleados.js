@@ -6,8 +6,10 @@ import{buildAreaBadge,buildStatusBadge,notify,modal,confirm}from'./ui.js';
 import{getUserRole,getUser}from'./user-roles.js';
 import{findUser}from'./users.js';
 import{getDocumentosEntregaByEmpleado,getDocumentosDevolucion}from'./sku-api.js';
+import{saveEvidence,getEvidenceSrc}from'./evidence-storage.js';
 
 let empStatusFilter='activo';
+const BAJA_DEFAULT_ITEMS=['Playera','Pantalón','Zapatos'];
 
 function normEstado(e){const v=(e||'activo').toLowerCase();if(v==='incapacidad')return'incapacitado';return v;}
 function estadoBadge(estado){const e=normEstado(estado);const cls=e==='activo'?'badge-success':e==='incapacitado'?'badge-warning':e==='vacaciones'?'badge-info':e==='baja'?'badge-danger':'badge-neutral';return'<span class="badge '+cls+'">'+e.toUpperCase()+'</span>';}
@@ -16,6 +18,9 @@ function entregaMatchesEmpleado(ent,emp){const id=String(emp.id||'');const nombr
 function fmtDateTime(v){if(!v)return'—';try{return new Date(v).toLocaleString('es-MX');}catch{return fmtDate(String(v).slice(0,10));}}
 function getEntregaLineas(ent){const s=getStore();if(ent._legacy)return(ent.prendas||[]).map(p=>({producto:p.prenda||p.nombre||p.producto||'Artículo',talla:p.talla||'',cantidad:p.cantidad||1,costo:0}));return(s.lineasEntrega||[]).filter(l=>l.entrega_id===ent.id).map(l=>{const p=(s.productos||[]).find(x=>x.id===l.producto_id);const variante=(p?.variantes||[]).find(v=>v.id===l.variante_id);const costo=Number(variante?.ultimo_costo||p?.ultimo_costo||p?.costo_promedio||0);return{producto:p?.nombre||l.producto_id||'Artículo',talla:variante?.talla||l.talla||'',cantidad:Number(l.cantidad)||0,costo};});}
 function getHistorialEmpleado(emp){const s=getStore();const actuales=(s.entregasNuevas||[]).filter(e=>entregaMatchesEmpleado(e,emp)).map(e=>({...e,_origen:'v7'}));const legacy=(s.entregas||[]).filter(e=>entregaMatchesEmpleado(e,emp)).map(e=>({...e,_legacy:true,_origen:'legacy',fecha_hora:e.fecha||e.fecha_hora}));const sku=getDocumentosEntregaByEmpleado(emp.id).map(d=>({...d,_sku:true,_origen:'sku',fecha_hora:d.fecha_hora||d.fecha}));return[...actuales,...legacy,...sku].sort((a,b)=>new Date(b.fecha_hora||b.fecha||0)-new Date(a.fecha_hora||a.fecha||0));}
+function bajaEstadoBadge(baja){if(!baja)return'';const complete=baja.estado==='completo';return'<span class="badge '+(complete?'badge-success':'badge-warning')+'"><i class="fas '+(complete?'fa-check-circle':'fa-exclamation-triangle')+'"></i> '+(complete?'Baja completa':'Baja con pendientes')+'</span>';}
+function bajaChecklistBase(emp){const actual=Array.isArray(emp.baja?.checklist)?emp.baja.checklist.filter(x=>x&&x.item):[];if(actual.length)return actual.map(x=>({item:String(x.item),devuelto:!!x.devuelto}));const seen=new Set();const items=[];getHistorialEmpleado(emp).forEach(ent=>{getEntregaLineas(ent).forEach(l=>{const item=String(l.producto||'').trim();const k=item.toLowerCase();if(item&&!seen.has(k)){seen.add(k);items.push({item,devuelto:false});}});});return(items.length?items:BAJA_DEFAULT_ITEMS.map(item=>({item,devuelto:false}))).slice(0,40);}
+function readFileAsDataURL(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=ev=>resolve(ev.target.result);reader.onerror=()=>reject(new Error('No se pudo leer la evidencia'));reader.readAsDataURL(file);});}
 
 function avatarHTML(emp,size){
   size=size||36;
@@ -25,6 +30,27 @@ function avatarHTML(emp,size){
   const ci=Math.abs((emp.id||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0))%colors.length;
   const fs=Math.round(size*.38);
   return'<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:'+colors[ci]+';display:flex;align-items:center;justify-content:center;font-size:'+fs+'px;font-weight:700;color:#fff;flex-shrink:0">'+initials+'</div>';
+}
+
+function bajaDetalleHTML(emp){
+  const baja=emp.baja;
+  if(!baja)return'';
+  const checklist=Array.isArray(baja.checklist)?baja.checklist:[];
+  const src=getEvidenceSrc(baja.evidencia);
+  let h='<div class="divider-label mt-4">Baja de empleado</div>';
+  h+='<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:10px">';
+  h+='<div class="flex items-center gap-2 flex-wrap" style="justify-content:space-between"><div>'+bajaEstadoBadge(baja)+'</div><div class="text-xs text-muted">Registró: '+esc(baja.usuario||'—')+'</div></div>';
+  h+='<div class="form-row c2" style="font-size:13px;margin-top:10px">';
+  h+='<p><strong>Fecha:</strong> '+fmtDateTime(baja.fecha)+'</p>';
+  h+='<p><strong>Estado:</strong> '+esc(baja.estado||'pendiente')+'</p>';
+  h+='</div>';
+  h+='<div class="table-wrap mt-2"><table class="dt" style="font-size:12px"><thead><tr><th>Prenda</th><th style="text-align:center">Devuelto</th></tr></thead><tbody>';
+  h+=checklist.map(it=>'<tr><td>'+esc(it.item||'—')+'</td><td style="text-align:center">'+(it.devuelto?'<span class="badge badge-success">Sí</span>':'<span class="badge badge-warning">No</span>')+'</td></tr>').join('');
+  h+='</tbody></table></div>';
+  h+='<p class="text-sm mt-2"><strong>Pendientes:</strong> '+esc((baja.pendientes||'').trim()||'Sin pendientes capturados')+'</p>';
+  if(src)h+='<div class="mt-2"><p class="text-xs text-muted">Evidencia</p><img src="'+esc(src)+'" style="width:96px;height:96px;object-fit:cover;border:1px solid var(--border);border-radius:6px"></div>';
+  h+='</div>';
+  return h;
 }
 
 export function render(){
@@ -72,7 +98,7 @@ function filterEmp(){
       +'<td class="font-mono text-xs">'+esc(e.id)+'</td>'
       +'<td><span class="font-bold">'+esc(e.nombre)+' '+esc(e.paterno||'')+' '+esc(e.materno||'')+'</span></td>'
       +'<td>'+buildAreaBadge(e.area)+'</td>'
-      +'<td>'+estadoBadge(e.estado)+'</td>'
+      +'<td><div class="flex gap-2 flex-wrap">'+estadoBadge(e.estado)+bajaEstadoBadge(e.baja)+'</div></td>'
       +'<td>'+buildStatusBadge(e)+'</td>'
       +'<td><div class="flex gap-2">'
       +'<button class="btn btn-ghost btn-sm view-emp" data-id="'+e.id+'" title="Ver ficha"><i class="fas fa-eye"></i></button>'
@@ -114,7 +140,7 @@ function saveNewEmp(){
     const t=getDotacionTipos().find(x=>x.id===tipoId);
     tipoHist.push({tipo_id:tipoId,tipo_nombre:t?t.nombre:tipoId,fecha:new Date().toISOString().slice(0,10),motivo:'Cambio manual'});
   }
-  getStore().employees.push({id,nombre:nom,paterno:(document.getElementById('nePat')?.value||'').trim(),materno:(document.getElementById('neMat')?.value||'').trim(),area:document.getElementById('neArea')?.value||'PLANTA',estado:document.getElementById('neEst')?.value||'activo',tallas:{},perfilDotacion:'AUTO',foto:null,tipo_dotacion:tipoId,tipo_historial:tipoHist});
+  getStore().employees.push({id,nombre:nom,paterno:(document.getElementById('nePat')?.value||'').trim(),materno:(document.getElementById('neMat')?.value||'').trim(),area:document.getElementById('neArea')?.value||'PLANTA',estado:document.getElementById('neEst')?.value||'activo',tallas:{},perfilDotacion:'AUTO',foto:null,tipo_dotacion:tipoId,tipo_historial:tipoHist,baja:null});
   saveEmployees();
   log('ALTA',nom+' (#'+id+')');
   modal.close();
@@ -276,6 +302,7 @@ function openFichaEmp(id){
   h+='<span class="badge badge-neutral" style="font-family:monospace"># '+esc(emp.id)+'</span>';
   h+='<span class="area-badge">'+esc(emp.area)+'</span>';
   h+=estadoBadge(emp.estado);
+  h+=bajaEstadoBadge(emp.baja);
   h+='</div>';
   h+='<div class="form-row c2" style="font-size:13px;margin-top:10px">';
   h+='<p><strong>Nombre:</strong> '+esc(emp.nombre||'—')+'</p>';
@@ -285,7 +312,7 @@ function openFichaEmp(id){
   h+='<p><strong>Puesto:</strong> '+esc(emp.puesto||emp.cargo||emp.perfilDotacion||'—')+'</p>';
   h+='<p><strong>Estatus:</strong> '+estadoBadge(emp.estado)+'</p>';
   h+='</div>';
-  h+='<div class="flex gap-2 flex-wrap" style="margin-top:12px"><button class="btn btn-primary" id="mQuickEntrega" data-id="'+esc(emp.id)+'"><i class="fas fa-handshake"></i> HACER ENTREGA</button></div>';
+  h+='<div class="flex gap-2 flex-wrap" style="margin-top:12px"><button class="btn btn-primary" id="mQuickEntrega" data-id="'+esc(emp.id)+'"><i class="fas fa-handshake"></i> HACER ENTREGA</button><button class="btn btn-warning" id="mProcesarBaja" data-id="'+esc(emp.id)+'"><i class="fas fa-user-slash"></i> Procesar baja</button></div>';
   h+='</div></div>';
 
   // ── Dotación ── (Fase 1.3C)
@@ -340,6 +367,8 @@ function openFichaEmp(id){
     h+='<div class="empty-state" style="padding:24px"><i class="fas fa-ruler"></i><p>Sin tallas capturadas todavía</p></div>';
   }
 
+  h+=bajaDetalleHTML(emp);
+
   h+='<div class="divider-label mt-4">Resumen de entregas</div>';
   h+='<div style="display:flex;gap:10px;margin:10px 0;flex-wrap:wrap">';
   h+='<div style="flex:1;min-width:130px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;text-align:center"><div class="text-xs text-muted">Entregas</div><div style="font-size:22px;font-weight:900">'+entregas.length+'</div></div>';
@@ -368,12 +397,100 @@ function openFichaEmp(id){
   }
 
   modal.open(esc((emp.nombre||'')+' '+(emp.paterno||'')),h,
-    '<button class="btn btn-ghost" id="mCancel">Cerrar</button><button class="btn btn-primary" id="mQuickEntregaFooter"><i class="fas fa-handshake"></i> HACER ENTREGA</button><button class="btn btn-accent" id="mFichaEdit"><i class="fas fa-edit"></i> Editar tallas</button>','lg');
+    '<button class="btn btn-ghost" id="mCancel">Cerrar</button><button class="btn btn-warning" id="mProcesarBajaFooter"><i class="fas fa-user-slash"></i> Procesar baja</button><button class="btn btn-primary" id="mQuickEntregaFooter"><i class="fas fa-handshake"></i> HACER ENTREGA</button><button class="btn btn-accent" id="mFichaEdit"><i class="fas fa-edit"></i> Editar tallas</button>','lg');
   document.getElementById('mCancel')?.addEventListener('click',()=>modal.close());
   const goEntrega=()=>{modal.close();window.location.hash='entregas?empleado_id='+encodeURIComponent(emp.id);window.dispatchEvent(new PopStateEvent('popstate',{state:{v:'entregas'}}));};
+  const goBaja=()=>openBajaEmp(id);
   document.getElementById('mQuickEntrega')?.addEventListener('click',goEntrega);
   document.getElementById('mQuickEntregaFooter')?.addEventListener('click',goEntrega);
+  document.getElementById('mProcesarBaja')?.addEventListener('click',goBaja);
+  document.getElementById('mProcesarBajaFooter')?.addEventListener('click',goBaja);
   document.getElementById('mFichaEdit')?.addEventListener('click',()=>{modal.close();openEditEmp(id);});
+}
+
+function openBajaEmp(id){
+  const emp=getStore().employees.find(e=>e.id===id);
+  if(!emp)return;
+  const items=bajaChecklistBase(emp);
+  const pendientes=(emp.baja?.pendientes||'').trim();
+  const evidenciaSrc=getEvidenceSrc(emp.baja?.evidencia);
+  let body='';
+  body+='<div class="divider-label">Datos del empleado</div>';
+  body+='<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px">';
+  body+='<p class="font-bold">'+esc(empFullName(emp)||emp.nombre||'Empleado')+'</p>';
+  body+='<p class="text-xs text-muted"># '+esc(emp.id)+' · '+esc(emp.area||'—')+' · '+esc(emp.estado||'—')+'</p>';
+  if(emp.baja)body+='<div class="mt-2">'+bajaEstadoBadge(emp.baja)+'</div>';
+  body+='</div>';
+  body+='<div class="divider-label">Checklist de devolución</div>';
+  body+='<div id="bajaChecklist" style="display:flex;flex-direction:column;gap:8px;margin:10px 0 14px">';
+  items.forEach((it,i)=>{
+    body+='<label style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer">';
+    body+='<input type="checkbox" class="baja-check-item" id="bajaItem_'+i+'" '+(it.devuelto?'checked':'')+' style="width:18px;height:18px">';
+    body+='<span class="font-bold">'+esc(it.item)+'</span>';
+    body+='</label>';
+  });
+  body+='</div>';
+  body+='<div class="divider-label">Pendientes</div>';
+  body+='<div class="form-group mt-2"><textarea class="form-input" id="bajaPendientes" rows="3" placeholder="Notas o pendientes de devolución">'+esc(pendientes)+'</textarea></div>';
+  body+='<div class="divider-label">Evidencia opcional</div>';
+  body+='<div class="form-group mt-2"><input class="form-input" type="file" id="bajaEvidencia" accept="image/*" capture="environment"></div>';
+  body+='<div id="bajaEvidenciaPreview" class="mt-2">'+(evidenciaSrc?'<img src="'+esc(evidenciaSrc)+'" style="width:96px;height:96px;object-fit:cover;border:1px solid var(--border);border-radius:6px">':'<p class="text-xs text-muted">Sin evidencia</p>')+'</div>';
+  modal.open('Baja de empleado',body,'<button class="btn btn-ghost" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSaveBaja"><i class="fas fa-save"></i> Guardar baja</button>','lg');
+  document.getElementById('mCancel')?.addEventListener('click',()=>modal.close());
+  const evidenciaInput=document.getElementById('bajaEvidencia');
+  evidenciaInput?.addEventListener('change',async e=>{
+    const file=e.target.files?.[0];
+    const preview=document.getElementById('bajaEvidenciaPreview');
+    if(!file){delete evidenciaInput.dataset.base64;if(preview)preview.innerHTML='<p class="text-xs text-muted">Sin evidencia</p>';return;}
+    try{
+      const dataUrl=await readFileAsDataURL(file);
+      evidenciaInput.dataset.base64=dataUrl;
+      if(preview)preview.innerHTML='<img src="'+esc(dataUrl)+'" style="width:96px;height:96px;object-fit:cover;border:1px solid var(--border);border-radius:6px">';
+    }catch(err){notify(err.message||'No se pudo leer la evidencia','error');}
+  });
+  document.getElementById('mSaveBaja')?.addEventListener('click',()=>saveBajaEmp(id,items));
+}
+
+async function saveBajaEmp(id,items){
+  const emp=getStore().employees.find(e=>e.id===id);
+  if(!emp)return;
+  const checks=[...document.querySelectorAll('.baja-check-item')];
+  const checklist=checks.map((chk,i)=>({item:items[i]?.item||'',devuelto:!!chk.checked})).filter(x=>x.item);
+  if(!checklist.length){notify('El checklist no puede quedar vacío','warning');return;}
+  const btn=document.getElementById('mSaveBaja');
+  if(btn)btn.disabled=true;
+  try{
+    const evidenciaInput=document.getElementById('bajaEvidencia');
+    let evidencia=emp.baja?.evidencia||null;
+    if(evidenciaInput?.dataset.base64){
+      evidencia=await saveEvidence({
+        base64:evidenciaInput.dataset.base64,
+        tipo:'baja',
+        entidad:'empleado',
+        entidadId:emp.id,
+        filename:evidenciaInput.files?.[0]?.name||'baja.jpg'
+      });
+    }
+    const estado=checklist.every(it=>it.devuelto)?'completo':'pendiente';
+    const user=getUser();
+    emp.baja={
+      fecha:new Date().toISOString(),
+      checklist,
+      pendientes:(document.getElementById('bajaPendientes')?.value||'').trim(),
+      evidencia,
+      estado,
+      usuario:user?.name||user?.id||'Sistema'
+    };
+    saveEmployees();
+    log('BAJA EMPLEADO',emp.nombre+' (#'+emp.id+') - '+estado,'EMPLEADOS');
+    notify('Baja guardada','success');
+    filterEmp();
+    openFichaEmp(id);
+  }catch(err){
+    notify(err?.message||'No se pudo guardar la baja','error');
+  }finally{
+    if(btn)btn.disabled=false;
+  }
 }
 
 function saveEditEmp(id,_foto,getFoto){
