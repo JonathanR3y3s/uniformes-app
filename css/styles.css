@@ -307,3 +307,91 @@ label:has(input[type="checkbox"]),label:has(input[type="radio"]){min-height:44px
   .kpi-primary .kpi-value{font-size:2rem}
   .kpi-secondary-grid{grid-template-columns:1fr 1fr;gap:10px}
 }
+
+/* v8.6g — interacción visual y sticky iPad */
+
+/* Parte 1: Sticky topbar + workspace-tabs en iPad
+   overflow-x:hidden en html/body (puesto en v8.6d) rompe position:sticky en iOS Safari.
+   Se reemplaza por overflow-x:clip que recorta sin crear scroll container. */
+@media(max-width:1024px){
+  html,body{overflow-x:clip}
+  .topbar{
+    position:-webkit-sticky;
+    position:sticky;
+    top:0;
+    z-index:50;
+  }
+  .workspace-tabs{
+    position:-webkit-sticky;
+    position:sticky;
+    top:var(--topbar-h);
+    z-index:49;
+  }
+}
+
+/* Parte 2: Feedback visual en botones — transición 120ms */
+.btn,.workspace-tab,.nav-item,.exec-link,.fin-link,.tab,.tab-btn{
+  transition:background .12s ease,color .12s ease,border-color .12s ease,
+             box-shadow .12s ease,transform .12s ease;
+}
+
+.btn:active{transform:scale(0.98)!important}
+.btn-primary:active{background:#145184!important}
+.btn-success:active{background:#14532d!important}
+.btn-danger:active{background:#991b1b!important}
+.btn-warning:active{background:#b45309!important}
+.btn-ghost:active,.btn-accent:active{opacity:.8}
+
+.workspace-tab:active{transform:scale(0.97)}
+.nav-item:active{opacity:.75;transform:scale(0.98)}
+.exec-link:active,.fin-link:active{transform:scale(0.95);opacity:.8}
+table.dt .btn:active,.data-table .btn:active{transform:scale(0.96)!important}
+
+.btn:focus-visible,.workspace-tab:focus-visible,.nav-item:focus-visible,
+.tab:focus-visible,.tab-btn:focus-visible,.exec-link:focus-visible{
+  outline:2px solid #1e6baf;
+  outline-offset:2px;
+}
+
+/* Parte 3: Microinteracciones en KPIs/cards */
+@media(hover:hover){
+  .kpi:hover,.kpi-card:hover,.kpi-primary:hover,.kpi-secondary:hover{
+    transform:translateY(-1px);
+  }
+  .card:hover{transform:translateY(-1px)}
+}
+
+.exec-kpi.is-clickable:active,.fin-kpi.is-clickable:active{
+  transform:scale(0.99)!important;
+}
+
+.kpi,.kpi-card,.kpi-primary,.kpi-secondary,
+.exec-kpi:not(.is-clickable),.fin-kpi:not(.is-clickable){cursor:default}
+.exec-kpi.is-clickable,.fin-kpi.is-clickable{cursor:pointer}
+
+/* Parte 4: Estado activo claro en tabs y filtros */
+.workspace-tab.active{
+  background:#1a2d4a;
+  color:#f0f7ff;
+  border-color:#2563eb;
+  font-weight:800;
+  box-shadow:inset 0 -4px 0 #2563eb,0 4px 14px rgba(37,99,235,.2);
+}
+
+.tab.active,.tab-btn.active{
+  background:#1e6baf!important;
+  color:#fff!important;
+  border-color:#1e6baf!important;
+  font-weight:800;
+  box-shadow:0 2px 8px rgba(30,107,175,.28);
+}
+
+.nav-item.active{font-weight:700}
+
+@media(max-width:1024px){
+  .nav-item.active{
+    background:#dbeafe!important;
+    color:#1e3a5f!important;
+  }
+  .nav-item.active::before{background:#1e6baf}
+}
