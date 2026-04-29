@@ -34,7 +34,6 @@ export const NAV=[
 {id:'dotacion',icon:'fa-box-open',label:'Dotación',condition:(store,role)=>{if(role==='admin')return true;try{const cfg=JSON.parse(localStorage.getItem('uniformes_assa_abloy_2026_v4_config')||'{}');return cfg.dotacionVisible!==false;}catch(e){return true;}}},
 {section:'REPORTES'},
 {id:'reportes',icon:'fa-chart-bar',label:'Reportes'},
-{id:'export-auditoria',icon:'fa-file-pdf',label:'Exportar Auditoría'},
 {section:'ADMINISTRACIÓN'},
 {id:'importar',icon:'fa-file-import',label:'Importar'},
 {id:'usuarios',icon:'fa-users-gear',label:'Usuarios'},
