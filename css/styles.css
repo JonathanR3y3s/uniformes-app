@@ -275,3 +275,65 @@ label:has(input[type="checkbox"]),label:has(input[type="radio"]){min-height:44px
 @media(max-width:768px){
   .grid-2,.form-row.c2,.form-row.c3,.form-row.c4,.chart-grid,.exec-two-col,.fin-two-col,.exec-chart-grid,.fin-chart-grid{grid-template-columns:minmax(0,1fr)}
 }
+
+/* v8.6e — diseño visual pro controlado */
+:root{--bg:#f5f7fa;--surface:#ffffff;--surface-2:#f0f4f8;--border:#e5e7eb;--border-2:#d1d5db;--text:#1f2937;--text-sec:#4b5563;--text-muted:#6b7280;--shadow:0 1px 3px rgba(0,0,0,.08);--shadow-lg:0 8px 24px rgba(0,0,0,.12);--shadow-modal:0 20px 60px rgba(0,0,0,.2);--sidebar-active:rgba(30,107,175,.22);--sidebar-active-text:#e0f2fe;--radius:12px}
+body{background:#f5f7fa;color:#1f2937}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,.12)}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.22)}
+.topbar{background:#ffffff;border-bottom:1px solid #e5e7eb}
+.topbar-title{color:#1f2937}
+.topbar-user{color:#4b5563}
+.topbar-badge{background:rgba(30,107,175,.08);color:#1e6baf;border-color:rgba(30,107,175,.2)}
+.topbar-hamburger{background:#f3f4f6;color:#374151}
+.card{background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card:hover{border-color:#d1d5db;box-shadow:0 4px 14px rgba(0,0,0,.09)}
+.card-head{border-bottom:1px solid #e5e7eb}
+.kpi,.kpi-card{background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.kpi:hover,.kpi-card:hover{border-color:#d1d5db;box-shadow:0 4px 14px rgba(0,0,0,.09)}
+.kpi-value,.kpi-card .kpi-value{color:#1f2937}
+.kpi-label{color:#6b7280}
+.kpi-sub{color:#6b7280}
+.workspace-tabs{background:#ffffff;border-bottom:1px solid #e5e7eb;scrollbar-color:#1e6baf transparent}
+.workspace-tab{background:#f3f7fb;color:#4b5563;border-color:#e5e7eb;border-bottom-color:transparent}
+.workspace-tab:hover{background:#eaf3fb;color:#1e3a5f;border-color:#d1d5db}
+.workspace-tab.active{background:#ffffff;color:#1e6baf;border-color:#e5e7eb;border-bottom-color:transparent;box-shadow:inset 0 -3px 0 #1e6baf,0 2px 6px rgba(0,0,0,.06);font-weight:800}
+.modal-box{background:#ffffff;border-color:#e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,.18)}
+.modal-head{border-bottom:1px solid #e5e7eb}
+.modal-head h2{color:#1f2937}
+.modal-body{color:#1f2937}
+.modal-foot{border-top:1px solid #e5e7eb;background:#fff}
+.modal-overlay{background:rgba(15,23,42,.45)}
+table.dt th,.data-table th{background:#f3f7fb;color:#6b7280;border-bottom:1px solid #e5e7eb}
+table.dt td,.data-table td{color:#1f2937;border-bottom:1px solid #f0f4f8}
+table.dt tr:hover td,.data-table tr:hover td{background:#f8fafc}
+.form-input,.form-select,.form-textarea,input:not([type="checkbox"]):not([type="radio"]),select,textarea{background:#ffffff;color:#1f2937;border-color:#d1d5db}
+.form-input::placeholder{color:#9ca3af}
+.form-label,label{color:#374151}
+.form-select option{background:#ffffff;color:#1f2937}
+.chart-box{background:#ffffff;border:1px solid #e5e7eb;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.chart-box:hover{border-color:#d1d5db;box-shadow:0 4px 14px rgba(0,0,0,.09)}
+.chart-box h3{color:#6b7280}
+.exec-kpi,.fin-kpi{background:#ffffff;border-color:#e5e7eb;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.exec-kpi:hover,.fin-kpi:hover{border-color:#1e6baf;box-shadow:0 6px 18px rgba(0,0,0,.1)}
+.exec-kpi-value,.fin-kpi-value{color:#1f2937}
+.exec-kpi-label,.fin-kpi-label{color:#6b7280}
+.exec-kpi-sub,.fin-kpi-sub{color:#4b5563}
+.exec-kpi-note,.fin-kpi-note{color:#9ca3af}
+.exec-panel,.fin-panel{background:#ffffff;border-color:#e5e7eb}
+.exec-panel-head h3,.fin-panel-head h3{color:#1f2937}
+.exec-hero,.fin-hero{background:linear-gradient(135deg,#1e3a5f,#1e6baf);border-color:rgba(30,107,175,.3)}
+.exec-filterbar,.fin-filterbar{background:rgba(255,255,255,.95);border-color:#e5e7eb;backdrop-filter:blur(8px)}
+.exec-rank-row,.fin-rank-row{border-bottom-color:#f0f4f8}
+.exec-rank-main strong,.fin-rank-main strong{color:#1f2937}
+.exec-rank-main span,.fin-rank-main span{color:#6b7280}
+.divider{background:#e5e7eb}
+.divider-label{color:#9ca3af}
+.divider-label::before,.divider-label::after{background:#e5e7eb}
+.text-sec{color:#4b5563}
+.text-muted{color:#6b7280}
+.empty-state{color:#9ca3af}
+.empty-state i{color:#d1d5db}
+.progress{background:#e5e7eb}
+.badge-dark{background:#f3f4f6;color:#374151}
+.area-badge{background:#f3f4f6;color:#374151;border-color:#e5e7eb}
