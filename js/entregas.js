@@ -8,6 +8,7 @@ import { esc, fmtDate } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getEntregasNuevas, registrarEntregaNueva, getProductos, createProducto } from './almacen-api.js';
+import { saveEvidence, getEvidenceSrc } from './evidence-storage.js';
 
 let _entregasWizardHandler = null;
 
@@ -594,7 +595,7 @@ function openNuevaEntrega() {
   };
 
   detachEntregasWizardHandler();
-  _entregasWizardHandler = (e) => {
+  _entregasWizardHandler = async (e) => {
     if (e.target.id === 'btnAnt') {
       if (paso > 1) paso--;
       showPaso();
@@ -648,21 +649,33 @@ function openNuevaEntrega() {
       showPaso();
     }
     if (e.target.id === 'btnGuardar') {
+      const btn = e.target;
       // Capturar firma obligatoria antes de registrar
       const signCanvas = document.getElementById('signaturePad');
       if (!signCanvas || !canvasTieneFirma(signCanvas)) {
         notify('La firma es obligatoria para confirmar la entrega.', 'error');
         return;
       }
-      datos.firma = signCanvas.toDataURL('image/png');
+      btn.disabled = true;
+      const entregaId = 'ent-nueva-' + Date.now();
+      datos.firma = await saveEvidence({
+        base64: signCanvas.toDataURL('image/png'),
+        tipo: 'firma',
+        entidad: 'entrega',
+        entidadId: entregaId,
+        filename: 'firma.png',
+      });
       if (datos.lineas.length === 0) {
+        btn.disabled = false;
         notify('Agrega al menos un artículo', 'warning');
         return;
       }
       if (!validarLineasStock()) {
+        btn.disabled = false;
         return;
       }
       const resultado = registrarEntregaNueva({
+        id: entregaId,
         empleado_id: datos.empleado_id,
         empleado_nombre: datos.empleado_nombre,
         area: datos.area,
@@ -678,6 +691,7 @@ function openNuevaEntrega() {
       });
 
       if (!resultado.ok) {
+        btn.disabled = false;
         notify(resultado.error || 'Error', 'error');
         return;
       }
@@ -707,6 +721,7 @@ function openDetalleEntrega(id) {
 
   const lineas = getStore().lineasEntrega.filter(l => l.entrega_id === id);
   const piezas = lineas.reduce((s, l) => s + l.cantidad, 0);
+  const firmaSrc = getEvidenceSrc(entrega.firma_recibe || entrega.firma);
 
   let body = `
     <p><strong>Número:</strong> ${esc(entrega.numero)}</p>
@@ -720,6 +735,7 @@ function openDetalleEntrega(id) {
     ${!(entrega.firma_recibe || entrega.firma) ? '<p><span style="background:#7f1d1d;color:#fecaca;font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px">ENTREGA SIN FIRMA</span></p>' : ''}
     <p><strong>Fecha:</strong> ${fmtDate(entrega.fecha_hora)}</p>
     <p><strong>Entregado por:</strong> ${esc(entrega.entregado_por)}</p>
+    ${firmaSrc ? `<p><strong>Firma:</strong><br><img src="${esc(firmaSrc)}" style="max-width:260px;border:1px solid #e5e7eb;border-radius:6px;background:#fff"></p>` : ''}
 
     <h4 style="margin-top:12px">Productos</h4>
     <table class="data-table">
@@ -745,6 +761,7 @@ function imprimirRecibo(id) {
 
   const lineas = getStore().lineasEntrega.filter(l => l.entrega_id === id);
   const piezas = lineas.reduce((s, l) => s + l.cantidad, 0);
+  const firmaSrc = getEvidenceSrc(entrega.firma_recibe || entrega.firma);
 
   let html = `
     <html>
@@ -787,6 +804,7 @@ function imprimirRecibo(id) {
         <tr class="total"><td>Total</td><td style="text-align: right;">${piezas}</td></tr>
       </table>
 
+      ${firmaSrc ? `<div style="margin-top: 10px; text-align:center"><img src="${esc(firmaSrc)}" style="max-width: 220px; max-height: 80px; border: 1px solid #ddd;"></div>` : ''}
       <div class="firma">
         <div style="display: flex; justify-content: space-between; font-size: 10px;">
           <span>Recibe: __________</span>

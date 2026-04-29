@@ -8,6 +8,7 @@ import { esc, fmtMoney } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getEntradas, registrarEntrada, completarFactura, getProductos, getCategorias } from './almacen-api.js';
+import { saveEvidence, getEvidenceSrc } from './evidence-storage.js';
 
 let currentStep = 1;
 let _recepcionWizardHandler = null;
@@ -18,12 +19,23 @@ let wizardData = {
   fecha_hora: new Date().toISOString(),
   observaciones: '',
   factura: { folio: '', fecha: '', subtotal: 0, iva: 0, total: 0, foto: null },
+  productoFoto: null,
   lineas: [],
 };
 
 function getBase64Bytes(base64) {
+  if (!base64 || typeof base64 !== 'string') return 0;
+  if (base64.startsWith('data:')) base64 = base64.split(',')[1] || '';
   const padding = (base64.match(/=+$/) || [''])[0].length;
   return Math.ceil((base64.length * 3) / 4) - padding;
+}
+
+function renderEvidencePreviewHtml(evidence, label = 'Foto guardada') {
+  const src = getEvidenceSrc(evidence);
+  if (!src) return '';
+  const kb = typeof evidence === 'string' || evidence?.base64 ? Math.round(getBase64Bytes(evidence.base64 || evidence) / 1024) : null;
+  const text = evidence?.storage === 'supabase' ? 'Foto guardada en Supabase' : `${label}${kb ? ` (${kb}KB)` : ''}`;
+  return `<div style="display:flex;align-items:center;gap:10px"><img src="${esc(src)}" style="max-width:120px;max-height:120px;border-radius:4px;object-fit:cover"><small style="color:#999">${esc(text)}</small></div>`;
 }
 
 function loadImage(dataUrl) {
@@ -74,10 +86,19 @@ async function resizeFacturaFile(file) {
 function renderFacturaPreview() {
   const preview = document.getElementById('fotoFactPreview');
   if (!preview) return;
-  const foto = wizardData.factura.foto;
-  preview.innerHTML = foto
-    ? `<div style="display:flex;align-items:center;gap:10px"><img src="data:image/jpeg;base64,${foto}" style="max-width:120px;max-height:120px;border-radius:4px;object-fit:cover"><small style="color:#999">Foto guardada (${Math.round(getBase64Bytes(foto) / 1024)}KB)</small></div>`
-    : '';
+  preview.innerHTML = renderEvidencePreviewHtml(wizardData.factura.foto, 'Foto guardada');
+}
+
+function renderProductoPreview() {
+  const preview = document.getElementById('fotoProdPreview');
+  if (!preview) return;
+  preview.innerHTML = renderEvidencePreviewHtml(wizardData.productoFoto, 'Foto de producto lista');
+}
+
+async function persistEvidence(value, { tipo, entidad, entidadId, filename }) {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  return saveEvidence({ base64: value, tipo, entidad, entidadId, filename });
 }
 
 function formatFechaSegura(value) {
@@ -228,6 +249,7 @@ function openNuevaRecepcion() {
     fecha_hora: new Date().toISOString(),
     observaciones: '',
     factura: { folio: '', fecha: '', subtotal: 0, iva: 0, total: 0, foto: null },
+    productoFoto: null,
     lineas: [],
   };
 
@@ -301,7 +323,7 @@ function showWizardStep() {
         <div style="margin-top:12px">
           <label>Foto Factura</label>
           <input type="file" id="fotoFact" accept="image/*" capture="environment" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
-          <div id="fotoFactPreview" style="margin-top:8px">${wizardData.factura.foto ? `<div style="display:flex;align-items:center;gap:10px"><img src="data:image/jpeg;base64,${wizardData.factura.foto}" style="max-width:120px;max-height:120px;border-radius:4px;object-fit:cover"><small style="color:#999">Foto guardada (${Math.round(getBase64Bytes(wizardData.factura.foto) / 1024)}KB)</small></div>` : ''}</div>
+          <div id="fotoFactPreview" style="margin-top:8px">${renderEvidencePreviewHtml(wizardData.factura.foto, 'Foto guardada')}</div>
         </div>
       </div>
     `;
@@ -335,6 +357,7 @@ function showWizardStep() {
       <div style="margin-bottom:12px">
         <label>Foto Producto (opcional)</label>
         <input type="file" id="fotoProd" accept="image/*" capture="environment" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+        <div id="fotoProdPreview" style="margin-top:8px">${renderEvidencePreviewHtml(wizardData.productoFoto, 'Foto de producto lista')}</div>
       </div>
 
       <h4 style="margin:12px 0 8px 0">Líneas agregadas:</h4>
@@ -433,6 +456,22 @@ function showWizardStep() {
       });
     });
 
+    document.getElementById('fotoProd')?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const result = await resizeFacturaFile(file);
+        wizardData.productoFoto = result.base64;
+        renderProductoPreview();
+        notify('Foto de producto cargada', 'success');
+      } catch (err) {
+        wizardData.productoFoto = null;
+        e.target.value = '';
+        renderProductoPreview();
+        notify(err.message || 'No se pudo cargar la foto del producto', 'error');
+      }
+    });
+
     document.getElementById('btnAgregar').addEventListener('click', () => {
       if (!selectedProduct) {
         notify('Selecciona un producto', 'warning');
@@ -451,11 +490,13 @@ function showWizardStep() {
         producto_id: selectedProduct.id,
         cantidad,
         costo_unitario: costo,
+        foto_producto: wizardData.productoFoto || null,
         observaciones: '',
       });
 
       notify('Producto agregado', 'success');
       selectedProduct = null;
+      wizardData.productoFoto = null;
       document.getElementById('searchProd').value = '';
       document.getElementById('cantidad').value = '1';
       document.getElementById('costoUnit').value = '';
@@ -513,7 +554,7 @@ function _attachRecepcionWizardListener() {
   if (_recepcionWizardHandler) {
     document.removeEventListener('click', _recepcionWizardHandler, true);
   }
-  _recepcionWizardHandler = (e) => {
+  _recepcionWizardHandler = async (e) => {
     if (e.target.id === 'btnAnterior') {
       if (currentStep > 1) currentStep--;
       showWizardStep();
@@ -547,15 +588,42 @@ function _attachRecepcionWizardListener() {
       }
     }
     if (e.target.id === 'btnConfirmar') {
+      const btn = e.target;
+      btn.disabled = true;
+      const entradaId = 'ent-' + Date.now();
+      const facturaData = document.getElementById('sinFactura')?.checked ? {} : { ...wizardData.factura };
+      if (facturaData.foto) {
+        facturaData.foto = await persistEvidence(facturaData.foto, {
+          tipo: 'foto',
+          entidad: 'recepcion',
+          entidadId: entradaId,
+          filename: 'factura.jpg',
+        });
+      }
+      const lineas = [];
+      for (let i = 0; i < wizardData.lineas.length; i++) {
+        const linea = { ...wizardData.lineas[i] };
+        if (linea.foto_producto) {
+          linea.foto_producto = await persistEvidence(linea.foto_producto, {
+            tipo: 'foto',
+            entidad: 'recepcion-producto',
+            entidadId: `${entradaId}-linea-${i + 1}`,
+            filename: 'producto.jpg',
+          });
+        }
+        lineas.push(linea);
+      }
       const resultado = registrarEntrada({
+        id: entradaId,
         proveedor: wizardData.proveedor,
         fecha_hora: wizardData.fecha_hora,
-        factura_data: document.getElementById('sinFactura')?.checked ? {} : wizardData.factura,
-        lineas: wizardData.lineas,
+        factura_data: facturaData,
+        lineas,
         observaciones: wizardData.observaciones,
       });
 
       if (!resultado.ok) {
+        btn.disabled = false;
         notify(resultado.error || 'Error al registrar', 'error');
         return;
       }

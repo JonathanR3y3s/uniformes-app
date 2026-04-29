@@ -3,6 +3,7 @@ import{getDotaciones,saveDotaciones,getDotacionTipos,saveDotacionTipos,getDotaci
 import{notify,modal,confirm as confirmDialog,buildNav}from'./ui.js';
 import{getProductos,registrarEntregaNueva}from'./almacen-api.js';
 import{getAreaNames}from'./areas-config.js';
+import{saveEvidence,getEvidenceSrc}from'./evidence-storage.js';
 
 function today(){return new Date().toISOString().slice(0,10);}
 function timestamp(){return Date.now();}
@@ -967,7 +968,7 @@ function validateCaptura(empleado, tallas, kit){
 }
 
 // ── Guardar tallas ──────────────────────────────────────────────────────
-function guardarTallas(){
+async function guardarTallas(){
   const emp=_capturaState.empleadoActual;
   const dot=dotacionSeleccionada();
   if(!emp||!dot){notify('Faltan datos','error');return;}
@@ -990,6 +991,13 @@ function guardarTallas(){
     if(!confirmDialog('No has seleccionado ninguna talla. ¿Guardar de todos modos?'))return;
   }
   const id='tal-'+emp.id+'-'+dot.id;
+  const firmaEvidence=await saveEvidence({
+    base64:firma,
+    tipo:'firma',
+    entidad:'dotacion-tallas',
+    entidadId:id,
+    filename:'firma-tallas.jpg'
+  });
   const nombreCompleto=[emp.nombre||'',emp.paterno||'',emp.materno||''].join(' ').replace(/\s+/g,' ').trim();
   const usuario=(()=>{try{const u=JSON.parse(localStorage.getItem('_user')||'{}');return u.name||u.id||'admin';}catch(e){return'admin';}})();
   const reg={
@@ -999,7 +1007,7 @@ function guardarTallas(){
     empleado_nombre:nombreCompleto,
     tipo_dotacion:emp.tipo_dotacion||'',
     tallas,
-    firma,
+    firma:firmaEvidence,
     fecha_captura:new Date().toISOString(),
     capturado_por:usuario
   };
@@ -1107,7 +1115,8 @@ function openListaCapturados(){
       html+='<td>'+esc(t.empleado_nombre||'')+'</td>';
       html+='<td>'+esc(tipo?.nombre||t.tipo_dotacion||'—')+'</td>';
       html+='<td class="text-xs">'+esc((t.fecha_captura||'').slice(0,16).replace('T',' '))+'</td>';
-      html+='<td>'+(t.firma?'<img src="'+t.firma+'" style="height:30px;border:1px solid #e5e7eb;border-radius:4px;background:#fff">':'—')+'</td>';
+      const firmaSrc=getEvidenceSrc(t.firma);
+      html+='<td>'+(firmaSrc?'<img src="'+esc(firmaSrc)+'" style="height:30px;border:1px solid #e5e7eb;border-radius:4px;background:#fff">':'—')+'</td>';
       html+='</tr>';
     });
     html+='</tbody></table>';
@@ -1824,7 +1833,7 @@ function getLineasEntregaSeleccionadas(parcial){
   }).filter(p=>p.cantidad>0);
 }
 
-function confirmarEntregaMasiva(parcial){
+async function confirmarEntregaMasiva(parcial){
   const emp=_entregaState.empleado;
   const dot=dotacionEntregaSeleccionada();
   if(!emp||!dot){notify('Busca un empleado primero','warning');return;}
@@ -1836,16 +1845,25 @@ function confirmarEntregaMasiva(parcial){
   if(faltantes.length&&!parcial){openStockInsuficiente(faltantes);return;}
   const firma=getEntregaFirmaJPEG();
   if(!firma){notify('No se pudo capturar la firma','error');return;}
+  const entregaNuevaId='ent-nueva-'+Date.now();
+  const firmaEvidence=await saveEvidence({
+    base64:firma,
+    tipo:'firma',
+    entidad:'dotacion-entrega',
+    entidadId:entregaNuevaId,
+    filename:'firma-entrega.jpg'
+  });
   const tipo=findTipo(emp.tipo_dotacion);
   const res=registrarEntregaNueva({
+    id:entregaNuevaId,
     empleado_id:emp.id,
     empleado_nombre:nombreEmpleado(emp),
     area:emp.area||'',
     motivo:'Dotación anual '+(dot.anio||''),
     autorizado_por:'',
-    firma,
-    firma_empleado:firma,
-    firma_recibe:firma,
+    firma:firmaEvidence,
+    firma_empleado:firmaEvidence,
+    firma_recibe:firmaEvidence,
     quien_recibe:nombreEmpleado(emp),
     tipo_entrega:'personal',
     lineas:lineas.map(l=>({producto_id:l.producto_id,variante_id:l.variante_id||null,cantidad:l.cantidad,observaciones:'Dotación '+(dot.nombre||dot.anio)+' · talla '+l.talla})),
@@ -1865,7 +1883,7 @@ function confirmarEntregaMasiva(parcial){
     empleado_nombre:nombreEmpleado(emp),
     tipo_dotacion:emp.tipo_dotacion,
     productos,
-    firma,
+    firma:firmaEvidence,
     fecha:today(),
     hora:now.toTimeString().slice(0,5),
     entregado_por:getEntregaUsuario(),
@@ -1934,7 +1952,8 @@ function openDetalleDotacionEntrega(id){
     h+='<tr><td>'+esc(p.nombre||'')+'</td><td>'+esc(p.talla||'Única')+'</td><td style="text-align:right">'+Number(p.cantidad||0)+'</td><td style="text-align:right">'+Number(p.surtido||0)+'</td></tr>';
   });
   h+='</tbody></table>';
-  if(ent.firma)h+='<div class="mt-3"><strong>Firma:</strong><br><img src="'+ent.firma+'" style="max-width:260px;border:1px solid #e5e7eb;border-radius:6px;background:#fff"></div>';
+  const firmaSrc=getEvidenceSrc(ent.firma);
+  if(firmaSrc)h+='<div class="mt-3"><strong>Firma:</strong><br><img src="'+esc(firmaSrc)+'" style="max-width:260px;border:1px solid #e5e7eb;border-radius:6px;background:#fff"></div>';
   modal.open('Detalle entrega dotación',h,'<button class="btn btn-ghost" id="entDetCerrar">Cerrar</button>','lg');
   document.getElementById('entDetCerrar')?.addEventListener('click',()=>modal.close());
 }

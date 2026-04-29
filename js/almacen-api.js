@@ -313,7 +313,7 @@ export function getEntradas(filtros = {}) {
   return result.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
 }
 
-export function registrarEntrada({ proveedor, fecha_hora, factura_data, lineas = [], observaciones }) {
+export function registrarEntrada({ id: idOverride, proveedor, fecha_hora, factura_data, lineas = [], observaciones }) {
   const store = getStore();
   const user = getUser();
 
@@ -331,7 +331,7 @@ export function registrarEntrada({ proveedor, fecha_hora, factura_data, lineas =
   }
 
   const snap = _cloneAlmacenState(store);
-  const id = 'ent-' + Date.now();
+  const id = idOverride || 'ent-' + Date.now();
   const numero = nextNumeroEntrada();
   const fechaRecepcion = new Date(fecha_hora || Date.now());
   const fechaRecepcionISO = isNaN(fechaRecepcion.getTime()) ? new Date().toISOString() : fechaRecepcion.toISOString();
@@ -446,7 +446,7 @@ export function getEntregasNuevas(filtros = {}) {
   return result.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
 }
 
-export function registrarEntregaNueva({ empleado_id, empleado_nombre, area, motivo, autorizado_por, firma, firma_empleado, firma_recibe, quien_entrego, quien_recibe, tipo_entrega, lineas = [], observaciones }) {
+export function registrarEntregaNueva({ id: idOverride, empleado_id, empleado_nombre, area, motivo, autorizado_por, firma, firma_empleado, firma_recibe, quien_entrego, quien_recibe, tipo_entrega, lineas = [], observaciones }) {
   const store = getStore();
   const user = getUser();
 
@@ -474,7 +474,7 @@ export function registrarEntregaNueva({ empleado_id, empleado_nombre, area, moti
   }
 
   // Todas las validaciones pasaron, proceder
-  const id = 'ent-nueva-' + Date.now();
+  const id = idOverride || 'ent-nueva-' + Date.now();
   const numero = nextNumeroEntregaNueva();
   const entrega = {
     id,
