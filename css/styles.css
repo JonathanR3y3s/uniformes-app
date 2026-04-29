@@ -275,3 +275,35 @@ label:has(input[type="checkbox"]),label:has(input[type="radio"]){min-height:44px
 @media(max-width:768px){
   .grid-2,.form-row.c2,.form-row.c3,.form-row.c4,.chart-grid,.exec-two-col,.fin-two-col,.exec-chart-grid,.fin-chart-grid{grid-template-columns:minmax(0,1fr)}
 }
+
+/* v8.6f — dashboard jerarquía visual */
+.kpi-primary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:32px}
+.kpi-primary{background:var(--surface);border-radius:var(--radius);padding:32px 28px;border:1px solid rgba(255,255,255,.06);transition:all .2s;min-height:144px}
+.kpi-primary:hover{border-color:rgba(255,255,255,.1);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.kpi-primary .kpi-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px}
+.kpi-primary .kpi-value{font-size:2.5rem;font-weight:900;letter-spacing:-.04em;line-height:1;color:#f1f5f9}
+.kpi-primary .kpi-sub{font-size:13px;color:#64748b;margin-top:12px}
+.kpi-secondary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:32px}
+.kpi-secondary{background:var(--surface);border-radius:var(--radius-sm);padding:16px 18px;border:1px solid rgba(255,255,255,.04);transition:all .2s}
+.kpi-secondary:hover{border-color:rgba(255,255,255,.08)}
+.kpi-secondary .kpi-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.kpi-secondary .kpi-value{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;line-height:1;color:#f1f5f9}
+.kpi-secondary .kpi-sub{font-size:11px;color:#64748b;margin-top:6px}
+.dash-chart-main{background:var(--surface);border-radius:var(--radius);border:1px solid rgba(255,255,255,.06);padding:28px;margin-bottom:32px}
+.dash-chart-main canvas{height:300px!important;width:100%!important}
+@media(max-width:1024px){
+  .kpi-primary-grid{grid-template-columns:repeat(3,1fr);gap:14px}
+  .kpi-primary{padding:24px 18px;min-height:120px}
+  .kpi-primary .kpi-value{font-size:2rem}
+  .kpi-primary .kpi-sub{font-size:12px}
+  .kpi-secondary-grid{gap:10px}
+  .kpi-primary,.kpi-secondary,.dash-chart-main{background:#fff;color:#111827;border-color:#cbd5e1}
+  .kpi-primary .kpi-label,.kpi-secondary .kpi-label{color:#475569}
+  .kpi-primary .kpi-value,.kpi-secondary .kpi-value{color:#111827}
+  .kpi-primary .kpi-sub,.kpi-secondary .kpi-sub{color:#64748b}
+}
+@media(max-width:768px){
+  .kpi-primary-grid{grid-template-columns:1fr;gap:10px}
+  .kpi-primary .kpi-value{font-size:2rem}
+  .kpi-secondary-grid{grid-template-columns:1fr 1fr;gap:10px}
+}
