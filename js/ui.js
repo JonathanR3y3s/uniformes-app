@@ -103,3 +103,14 @@ export function setupEvents(navigate){
     if(e.target.id==='drawerClose'||e.target.closest('#drawerClose')||e.target.classList.contains('drawer-overlay'))closeDrawer();
   });
 }
+
+function uiTapFeedback() {
+  if (navigator.vibrate) {
+    navigator.vibrate(10);
+  }
+}
+
+document.addEventListener('click', function(e) {
+  const el = e.target.closest('.btn, button, .nav-item, .workspace-tab, .exec-link, .kpi-primary, .kpi-secondary');
+  if (el) uiTapFeedback();
+});

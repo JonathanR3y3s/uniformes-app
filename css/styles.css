@@ -410,3 +410,7 @@ table.dt .btn:active,.data-table .btn:active{transform:scale(0.96)!important}
 .ac-box{position:absolute;width:100%;background:#fff;border:1px solid #ccc;z-index:100;max-height:200px;overflow-y:auto}
 .ac-item{padding:10px}
 .ac-item:active{background:#eee}
+/* v8.7d — feedback táctil */
+.btn:active,button:active,.nav-item:active,.workspace-tab:active,.exec-link:active,.kpi-primary:active,.kpi-secondary:active{transform:scale(0.97)}
+.btn,button,.nav-item,.workspace-tab,.exec-link,.kpi-primary,.kpi-secondary{transition:transform 0.08s ease,box-shadow 0.12s ease,background-color 0.12s ease}
+@media(hover:hover){.btn:hover,button:hover,.workspace-tab:hover,.exec-link:hover,.kpi-primary:hover,.kpi-secondary:hover{filter:brightness(0.98)}}
