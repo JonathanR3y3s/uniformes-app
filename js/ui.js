@@ -144,7 +144,7 @@ function uiNativeFeedback(el, event) {
   el.appendChild(ripple);
   if (navigator.vibrate) { try { navigator.vibrate(12); } catch (e) {} }
   if (uiPlayClick) uiPlayClick();
-  window.setTimeout(() => { el.classList.remove('is-pressing', 'tap-confirm'); }, 140);
+  window.setTimeout(() => { el.classList.remove('is-pressing', 'tap-confirm'); }, 220);
   window.setTimeout(() => { ripple.remove(); }, 460);
 }
 
