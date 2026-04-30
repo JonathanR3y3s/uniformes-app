@@ -104,13 +104,52 @@ export function setupEvents(navigate){
   });
 }
 
-function uiTapFeedback() {
-  if (navigator.vibrate) {
-    navigator.vibrate(10);
+function uiCreateClickSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    const ctx = new AudioCtx();
+    return function playClick() {
+      try {
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 520;
+        gain.gain.setValueAtTime(0.035, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.035);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.035);
+      } catch (e) {}
+    };
+  } catch (e) {
+    return null;
   }
 }
 
-document.addEventListener('click', function(e) {
-  const el = e.target.closest('.btn, button, .nav-item, .workspace-tab, .exec-link, .kpi-primary, .kpi-secondary');
-  if (el) uiTapFeedback();
-});
+const uiPlayClick = uiCreateClickSound();
+
+function uiNativeFeedback(el, event) {
+  if (!el) return;
+  el.classList.add('is-pressing', 'tap-confirm');
+  const rect = el.getBoundingClientRect();
+  const ripple = document.createElement('span');
+  ripple.className = 'tap-ripple';
+  const x = event.clientX ? event.clientX - rect.left : rect.width / 2;
+  const y = event.clientY ? event.clientY - rect.top : rect.height / 2;
+  ripple.style.left = `${x - 9}px`;
+  ripple.style.top = `${y - 9}px`;
+  el.appendChild(ripple);
+  if (navigator.vibrate) { try { navigator.vibrate(12); } catch (e) {} }
+  if (uiPlayClick) uiPlayClick();
+  window.setTimeout(() => { el.classList.remove('is-pressing', 'tap-confirm'); }, 140);
+  window.setTimeout(() => { ripple.remove(); }, 460);
+}
+
+document.addEventListener('pointerdown', function(e) {
+  const el = e.target.closest('.btn, button, .nav-item, .workspace-tab, .exec-link, .kpi-primary, .kpi-secondary, .ac-item');
+  if (!el) return;
+  uiNativeFeedback(el, e);
+}, { passive: true });
