@@ -299,10 +299,6 @@ function showWizardStep() {
         </datalist>
       </div>
       <div style="margin-top:12px">
-        <label>Fecha y Hora</label>
-        <input type="datetime-local" id="fechaHora" value="${wizardData.fecha_hora.slice(0, 16)}" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
-      </div>
-      <div style="margin-top:12px">
         <label>Observaciones</label>
         <textarea id="obs" placeholder="Notas de la recepción..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;min-height:80px">${esc(wizardData.observaciones)}</textarea>
       </div>
@@ -322,10 +318,6 @@ function showWizardStep() {
           <div>
             <label>Folio Factura</label>
             <input type="text" id="folio" value="${esc(wizardData.factura.folio)}" placeholder="Ej: INV-2024-001" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
-          </div>
-          <div>
-            <label>Fecha Factura</label>
-            <input type="date" id="fechaFact" value="${esc(wizardData.factura.fecha)}" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
           </div>
         </div>
 
@@ -598,9 +590,8 @@ function _attachRecepcionWizardListener() {
     if (e.target.id === 'btnSiguiente') {
       if (currentStep === 1) {
         wizardData.proveedor = document.getElementById('prov')?.value || '';
-        const fechaHora = document.getElementById('fechaHora')?.value || '';
-        const fechaRecepcion = fechaHora ? new Date(fechaHora) : new Date();
-        wizardData.fecha_hora = isNaN(fechaRecepcion.getTime()) ? new Date().toISOString() : fechaRecepcion.toISOString();
+        const nowISO = new Date().toISOString();
+        wizardData.fecha_hora = nowISO;
         wizardData.observaciones = document.getElementById('obs')?.value || '';
         if (!wizardData.proveedor) {
           notify('El proveedor es obligatorio', 'error');
@@ -608,9 +599,10 @@ function _attachRecepcionWizardListener() {
         }
       } else if (currentStep === 2) {
         if (!document.getElementById('sinFactura')?.checked) {
+          const nowISO = new Date().toISOString();
           wizardData.factura = {
             folio: document.getElementById('folio')?.value || '',
-            fecha: document.getElementById('fechaFact')?.value || '',
+            fecha: nowISO,
             subtotal: parseFloat(document.getElementById('subtotal')?.value || 0),
             iva: parseFloat(document.getElementById('iva')?.value || 0),
             total: parseFloat(document.getElementById('total')?.value || 0),
@@ -771,10 +763,6 @@ function openCompletarFactura(id) {
         <label>Folio Factura *</label>
         <input type="text" id="folioFactura" placeholder="Ej: INV-2024-001" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
       </div>
-      <div>
-        <label>Fecha Factura *</label>
-        <input type="date" id="fechaFactura" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
-      </div>
     </div>
 
     <div class="form-row c3" style="margin-top:12px;gap:8px">
@@ -802,19 +790,19 @@ function openCompletarFactura(id) {
 
   document.getElementById('btnSaveFactura')?.addEventListener('click', () => {
     const folio = document.getElementById('folioFactura')?.value.trim();
-    const fecha = document.getElementById('fechaFactura')?.value;
+    const nowISO = new Date().toISOString();
     const subtotal = parseFloat(document.getElementById('subtotalFact')?.value || 0);
     const iva = parseFloat(document.getElementById('ivaFact')?.value || 0);
     const total = parseFloat(document.getElementById('totalFact')?.value || 0);
 
-    if (!folio || !fecha) {
-      notify('Folio y fecha son obligatorios', 'error');
+    if (!folio) {
+      notify('El folio es obligatorio', 'error');
       return;
     }
 
     const resultado = completarFactura(id, {
       folio,
-      fecha,
+      fecha: nowISO,
       subtotal,
       iva,
       total,
