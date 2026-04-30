@@ -11,3 +11,12 @@ export function areaClass(a){return'area-'+(a||'').toLowerCase().replace(/\s+/g,
 export function genId(){const employees=getStore().employees;const existing=new Set(employees.map(e=>e.id));let id;do{id=Date.now().toString().slice(-6);let i=0;while(existing.has(id)){i++;id=(parseInt(id,10)+i).toString();}}while(existing.has(id));return id;}
 export function today(){return new Date().toISOString().split('T')[0];}
 export function fmtDate(d){if(!d)return'—';try{const iso=String(d).includes('T')?d:d+'T00:00:00';const dt=new Date(iso);if(isNaN(dt.getTime()))return String(d).slice(0,10)||'—';return dt.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return String(d).slice(0,10)||'—';}}
+export function acFiltrar(lista, campos, texto) {
+  if (!texto) return [];
+  const t = texto.toLowerCase();
+  return lista.filter(item => {
+    return campos.some(c =>
+      String(item[c] || '').toLowerCase().includes(t)
+    );
+  }).slice(0, 8);
+}

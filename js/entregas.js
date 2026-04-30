@@ -4,7 +4,7 @@
  */
 
 import { getStore, saveEntregasNuevas } from './storage.js';
-import { esc, fmtDate } from './utils.js';
+import { esc, fmtDate, acFiltrar } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getEntregasNuevas, registrarEntregaNueva, getProductos, createProducto, getStockDisponible as getStockDisponibleOficial } from './almacen-api.js';
@@ -238,10 +238,9 @@ function openNuevaEntrega() {
         </select>
         <div id="personalEntregaBox" style="${datos.tipo_entrega === 'consumible' || datos.tipo_receptor === 'ocasional' ? 'display:none;' : ''}">
           <label>Empleado *</label>
-          <select id="emp" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
-            <option value="">Seleccionar...</option>
-            ${empleados.filter(e => e.estado === 'activo').map(e => `<option value="${e.id}" ${datos.empleado_id === e.id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}
-          </select>
+          <div style="position:relative">
+            <input type="text" id="empInput" placeholder="Buscar empleado..." data-id="${datos.empleado_id || ''}" value="${esc(datos.empleado_nombre || '')}" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          </div>
         </div>
         <div id="ocasionalEntregaBox" style="${datos.tipo_receptor === 'ocasional' ? '' : 'display:none;'}">
           <label>Nombre receptor ocasional *</label>
@@ -381,17 +380,34 @@ function openNuevaEntrega() {
         };
       });
 
-      document.getElementById('emp')?.addEventListener('change', (e) => {
-        const emp = empleados.find(x => x.id === e.target.value);
-        if (emp) {
+      const empInput = document.getElementById('empInput');
+      if (empInput) {
+        const acBox = document.createElement('div');
+        acBox.className = 'ac-box';
+        empInput.parentNode.appendChild(acBox);
+        empInput.addEventListener('input', (e) => {
+          datos.empleado_id = '';
+          datos.empleado_nombre = '';
+          empInput.dataset.id = '';
+          const res = acFiltrar(getStore().employees, ['nombre', 'numero'], e.target.value);
+          acBox.innerHTML = res.map(emp => `<div class="ac-item" data-id="${emp.id}">${esc(emp.nombre)} (${esc(emp.numero || '')})</div>`).join('');
+        });
+        acBox.addEventListener('click', (e) => {
+          const el = e.target.closest('.ac-item');
+          if (!el) return;
+          const emp = getStore().employees.find(x => x.id == el.dataset.id);
+          if (!emp) return;
+          empInput.value = emp.nombre;
+          empInput.dataset.id = emp.id;
           datos.empleado_id = emp.id;
           datos.empleado_nombre = emp.nombre;
           datos.quien_recibe = emp.nombre;
           datos.area = emp.area || '';
-          document.getElementById('tallasInfo').textContent = emp.tallas ? Object.keys(emp.tallas).join(', ') : 'Ninguna';
-          // TODO: mostrar última entrega
-        }
-      });
+          const tallasInfo = document.getElementById('tallasInfo');
+          if (tallasInfo) tallasInfo.textContent = emp.tallas ? Object.keys(emp.tallas).join(', ') : 'Ninguna';
+          acBox.innerHTML = '';
+        });
+      }
     } else if (paso === 2) {
       document.getElementById('motivo')?.addEventListener('input', (e) => {
         datos.motivo = e.target.value;
@@ -450,30 +466,41 @@ function openNuevaEntrega() {
         if (sku && !sku.value) sku.value = q || '';
       }
 
-      document.getElementById('searchProd')?.addEventListener('keyup', (e) => {
-        const q = e.target.value.toLowerCase().trim();
-        const filtered = q ? productos.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q)).slice(0, 10) : [];
-        let html = '';
-        filtered.forEach(p => {
-          const stock = getStockDisponible(p);
-          const tipoLabel = (p.tipo || 'personal') === 'consumible' ? 'Consumible' : 'Personal';
-          html += `<div class="prod-item" style="cursor:pointer;padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;font-size:13px" data-prod-id="${p.id}"><strong>${esc(p.nombre)}</strong> <small style="color:#999">${esc(p.sku || '')} · ${tipoLabel}</small> (${stock} disponibles)</div>`;
-        });
-        if (q && !filtered.length) html = '<button class="btn btn-secondary" id="btnProductoNoExiste" style="width:100%">Producto no encontrado. ¿Deseas agregarlo al catálogo?</button>';
-        document.getElementById('prodList').innerHTML = html;
+      const searchProdEl = document.getElementById('searchProd');
+      if (searchProdEl) {
+        const acBoxProd = document.createElement('div');
+        acBoxProd.className = 'ac-box';
+        const wrapperProd = document.createElement('div');
+        wrapperProd.style.position = 'relative';
+        searchProdEl.parentNode.insertBefore(wrapperProd, searchProdEl);
+        wrapperProd.appendChild(searchProdEl);
+        wrapperProd.appendChild(acBoxProd);
 
-        document.querySelectorAll('.prod-item').forEach(item => {
-          item.addEventListener('click', () => {
-            selectedProd = productos.find(p => p.id === item.dataset.prodId);
-            selectedVarianteId = null;
-            selectedTalla = '';
-            document.getElementById('searchProd').value = selectedProd ? selectedProd.nombre : '';
-            document.getElementById('prodList').innerHTML = '';
-            renderProductoSeleccionado();
-          });
+        searchProdEl.addEventListener('input', (e) => {
+          const res = acFiltrar(productos, ['nombre', 'sku'], e.target.value);
+          if (res.length) {
+            acBoxProd.innerHTML = res.map(p => `<div class="ac-item" data-id="${p.id}">${esc(p.nombre)} (${esc(p.sku || '')})</div>`).join('');
+          } else if (e.target.value.trim()) {
+            acBoxProd.innerHTML = `<div class="ac-item" id="acNoExiste">Producto no encontrado. ¿Agregar al catálogo?</div>`;
+          } else {
+            acBoxProd.innerHTML = '';
+          }
+          document.getElementById('prodList').innerHTML = '';
         });
-        document.getElementById('btnProductoNoExiste')?.addEventListener('click', () => showQuickCreate(e.target.value.trim()));
-      });
+
+        acBoxProd.addEventListener('click', (e) => {
+          const noExiste = e.target.closest('#acNoExiste');
+          if (noExiste) { showQuickCreate(searchProdEl.value.trim()); acBoxProd.innerHTML = ''; return; }
+          const el = e.target.closest('.ac-item');
+          if (!el) return;
+          selectedProd = productos.find(x => x.id == el.dataset.id);
+          searchProdEl.value = selectedProd ? selectedProd.nombre : '';
+          selectedVarianteId = null;
+          selectedTalla = '';
+          acBoxProd.innerHTML = '';
+          renderProductoSeleccionado();
+        });
+      }
 
       document.getElementById('btnCrearProductoRapido')?.addEventListener('click', () => {
         const nombre = (document.getElementById('quickProdNombre')?.value || '').trim();

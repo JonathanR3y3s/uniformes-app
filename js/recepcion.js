@@ -4,7 +4,7 @@
  */
 
 import { getStore } from './storage.js';
-import { esc, fmtMoney } from './utils.js';
+import { esc, fmtMoney, acFiltrar } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getEntradas, registrarEntrada, completarFactura, getProductos, getCategorias, updateProducto } from './almacen-api.js';
@@ -458,24 +458,28 @@ function showWizardStep() {
     const searchInput = document.getElementById('searchProd');
     let selectedProduct = null;
 
-    searchInput.addEventListener('keyup', () => {
-      const q = searchInput.value.toLowerCase();
-      const productos = getProductos();
-      const filtered = productos.filter(p => p.nombre.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)).slice(0, 10);
+    const acBoxRec = document.createElement('div');
+    acBoxRec.className = 'ac-box';
+    const wrapperRec = document.createElement('div');
+    wrapperRec.style.position = 'relative';
+    searchInput.parentNode.insertBefore(wrapperRec, searchInput);
+    wrapperRec.appendChild(searchInput);
+    wrapperRec.appendChild(acBoxRec);
 
-      let html = '';
-      filtered.forEach(p => {
-        html += `<div class="prod-item" style="cursor:pointer;padding:8px;background:#1f1f1f;border-radius:4px;margin-bottom:4px" data-prod-id="${p.id}"><strong>${esc(p.nombre)}</strong><br><small style="color:#999">${esc(p.sku)}</small></div>`;
-      });
-      document.getElementById('prodList').innerHTML = html;
+    const productosRec = getProductos();
+    searchInput.addEventListener('input', (e) => {
+      const res = acFiltrar(productosRec, ['nombre', 'sku'], e.target.value);
+      acBoxRec.innerHTML = res.map(p => `<div class="ac-item" data-id="${p.id}">${esc(p.nombre)} (${esc(p.sku || '')})</div>`).join('');
+      document.getElementById('prodList').innerHTML = '';
+    });
 
-      document.querySelectorAll('.prod-item').forEach(item => {
-        item.addEventListener('click', () => {
-          selectedProduct = getStore().productos.find(p => p.id === item.dataset.prodId);
-          searchInput.value = selectedProduct ? selectedProduct.nombre : '';
-          document.getElementById('prodList').innerHTML = '';
-        });
-      });
+    acBoxRec.addEventListener('click', (e) => {
+      const el = e.target.closest('.ac-item');
+      if (!el) return;
+      selectedProduct = productosRec.find(x => x.id == el.dataset.id);
+      searchInput.value = selectedProduct ? selectedProduct.nombre : '';
+      searchInput.dataset.id = selectedProduct ? selectedProduct.id : '';
+      acBoxRec.innerHTML = '';
     });
 
     document.getElementById('fotoProd')?.addEventListener('change', async (e) => {
