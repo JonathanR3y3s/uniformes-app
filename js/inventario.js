@@ -5,7 +5,8 @@
  */
 
 import { getStore } from './storage.js';
-import { esc, fmtDate, fmtMoney } from './utils.js';
+import { esc, fmtDate, fmtMoney, generarSKU } from './utils.js';
+import { TIPOS_PRODUCTO } from './config.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import {
@@ -549,10 +550,34 @@ function openNuevoProducto() {
         <button type="button" class="btn btn-secondary" id="btnAddVariante" style="margin-top:8px">+ Agregar Variante</button>
       </div>
 
-      <!-- Preview SKU -->
-      <div style="margin-top:12px;padding:8px;background:#111;border-radius:4px">
-        <small style="color:#999">SKU Generado:</small>
-        <div id="skuPreview" style="font-family:monospace;font-weight:bold;color:#4ade80">—</div>
+      <!-- Generación de SKU -->
+      <div style="margin-top:12px;padding:10px;background:#0d1b2a;border:1px solid #1e3a5f;border-radius:6px">
+        <div style="font-size:12px;color:#60a5fa;font-weight:bold;margin-bottom:8px">Identificación / SKU automático</div>
+        <div class="form-row c3" style="gap:8px">
+          <div>
+            <label>Familia</label>
+            <select id="formFamilia" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+              <option value="">Sin familia...</option>
+              ${TIPOS_PRODUCTO.map(t => `<option value="${t.prefijo}">${esc(t.nombre)} (${t.prefijo})</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label>Producto base</label>
+            <input type="text" id="formProductoBase" placeholder="Ej: PANT" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          </div>
+          <div>
+            <label>Variante / presentación</label>
+            <input type="text" id="formVariantePres" placeholder="Ej: 30" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          </div>
+        </div>
+        <div style="margin-top:8px">
+          <label>SKU manual (opcional)</label>
+          <input type="text" id="formSKUManual" placeholder="Dejar vacío para auto-generar" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+        </div>
+        <div style="margin-top:8px;padding:8px;background:#0a0a0a;border-radius:4px;display:flex;align-items:center;gap:8px">
+          <small style="color:#999;white-space:nowrap">SKU generado:</small>
+          <div id="skuPreview" style="font-family:monospace;font-weight:bold;color:#4ade80;font-size:15px">—</div>
+        </div>
       </div>
     </div>
   `;
@@ -576,6 +601,10 @@ function openNuevoProducto() {
   const fotoInput = document.getElementById('formFoto');
 
   nombre.addEventListener('keyup', () => updateSKUPreview());
+  document.getElementById('formFamilia')?.addEventListener('change', () => updateSKUPreview());
+  document.getElementById('formProductoBase')?.addEventListener('input', () => updateSKUPreview());
+  document.getElementById('formVariantePres')?.addEventListener('input', () => updateSKUPreview());
+  document.getElementById('formSKUManual')?.addEventListener('input', () => updateSKUPreview());
   nivelControlSelect.addEventListener('change', updateStockMinVisibility);
 
   tipoSelect.addEventListener('change', () => {
@@ -650,6 +679,22 @@ function openNuevoProducto() {
       return;
     }
 
+    // Calcular SKU final
+    const manualSKU = document.getElementById('formSKUManual')?.value.trim();
+    const familiaPref = document.getElementById('formFamilia')?.value || '';
+    const prodBaseVal = document.getElementById('formProductoBase')?.value || '';
+    const variantePres = document.getElementById('formVariantePres')?.value || '';
+    const skuFinal = manualSKU || generarSKU(familiaPref, prodBaseVal, variantePres);
+
+    // Validar duplicado
+    if (skuFinal) {
+      const todosProductos = getProductos();
+      if (todosProductos.some(p => p.sku === skuFinal)) {
+        notify('SKU duplicado. Revisa el producto antes de guardar.', 'error');
+        return;
+      }
+    }
+
     if (fotoVal) {
       fotoVal = await saveEvidence({
         base64: fotoVal,
@@ -674,6 +719,11 @@ function openNuevoProducto() {
       nivel_control: nivelControlVal,
       proveedor_frecuente: proveedorVal,
     });
+
+    // Sobrescribir SKU si se generó uno personalizado
+    if (skuFinal) {
+      updateProducto(producto.id, { sku: skuFinal });
+    }
 
     // Agregar variantes si aplica
     if (varianteVal) {
@@ -700,9 +750,16 @@ function openNuevoProducto() {
   });
 
   function updateSKUPreview() {
-    const n = nombre.value.trim();
-    const sku = n ? generateSKU(n, null, null) : '—';
-    document.getElementById('skuPreview').textContent = sku;
+    const manual = document.getElementById('formSKUManual')?.value.trim();
+    if (manual) {
+      document.getElementById('skuPreview').textContent = manual;
+      return;
+    }
+    const prefijo = document.getElementById('formFamilia')?.value || '';
+    const prodBase = document.getElementById('formProductoBase')?.value || '';
+    const variante = document.getElementById('formVariantePres')?.value || '';
+    const sku = generarSKU(prefijo, prodBase, variante);
+    document.getElementById('skuPreview').textContent = sku || '—';
   }
 
   function updateStockMinVisibility() {

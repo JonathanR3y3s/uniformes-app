@@ -20,3 +20,22 @@ export function acFiltrar(lista, campos, texto) {
     );
   }).slice(0, 8);
 }
+export function normalizarSKUParte(valor) {
+  return String(valor || "")
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^A-Z0-9]+/g, "")
+    .slice(0, 12);
+}
+export function generarSKU(prefijo, producto, variante = "") {
+  const a = normalizarSKUParte(prefijo);
+  const b = normalizarSKUParte(producto);
+  const c = normalizarSKUParte(variante);
+  if (!a || !b) return "";
+  return c ? `${a}-${b}-${c}` : `${a}-${b}`;
+}
+export function generarLoteFecha() {
+  return new Date().toISOString().split("T")[0];
+}

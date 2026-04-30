@@ -1,6 +1,14 @@
 export const VERSION='7.0';
 export const STORAGE_KEY='uniformes_assa_abloy_2026_v4';
 export const TALLAS={ROPA:['XCH','CH','M','G','XG','XXG','XXXG'],PANTALON:['26','28','30','32','34','36','38','40','42','44'],CALZADO:['22','23','24','25','26','27','28','29','30','31','32','33'],UNITALLA:['UNITALLA']};
+export const TIPOS_PRODUCTO=[
+  {nombre:"Uniforme",prefijo:"UNI",activo:true},
+  {nombre:"Consumible",prefijo:"CON",activo:true},
+  {nombre:"Papelería",prefijo:"PAP",activo:true},
+  {nombre:"Limpieza",prefijo:"LIM",activo:true},
+  {nombre:"EPP",prefijo:"EPP",activo:true},
+  {nombre:"Souvenir",prefijo:"SOU",activo:true}
+];
 export const TIPO_TALLA={'PLAYERA POLO TIPO A':'ROPA','PLAYERA POLO TIPO B':'ROPA','CAMISOLA':'ROPA','CHALECO':'ROPA','PLAYERA PANTS':'ROPA','PANTS':'ROPA','CHAMARRA':'ROPA','PANTALON':'PANTALON','ZAPATO NORMAL':'CALZADO','ZAPATO ESPECIAL':'CALZADO','ZAPATO SEGURIDAD':'CALZADO','BOTA':'CALZADO','CHOCLO':'CALZADO','TENIS':'CALZADO','SANDALIAS':'CALZADO','TOALLA':'UNITALLA','TERMO':'UNITALLA','GORRA':'UNITALLA','SOMBRILLA':'UNITALLA'};
 export const REGLAS={
 'PLANTA':{prendas:['PLAYERA POLO TIPO A','PANTALON','BOTA_O_CHOCLO','PLAYERA PANTS','PANTS','TENIS','CHALECO_O_CHAMARRA','TOALLA','TERMO','GORRA','SOMBRILLA','SANDALIAS'],cantidades:{'PLAYERA POLO TIPO A':3,'PANTALON':3,'BOTA_O_CHOCLO':1,'PLAYERA PANTS':1,'PANTS':1,'TENIS':1,'CHALECO_O_CHAMARRA':1,'TOALLA':2,'TERMO':1,'GORRA':1,'SOMBRILLA':1,'SANDALIAS':1},opciones:{'BOTA_O_CHOCLO':['BOTA','CHOCLO'],'CHALECO_O_CHAMARRA':['CHALECO','CHAMARRA']},usaTallaZapatos:['SANDALIAS']},

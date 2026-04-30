@@ -4,7 +4,7 @@
  */
 
 import { getStore } from './storage.js';
-import { esc, fmtMoney, acFiltrar } from './utils.js';
+import { esc, fmtMoney, acFiltrar, generarLoteFecha } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getEntradas, registrarEntrada, completarFactura, getProductos, getCategorias, updateProducto } from './almacen-api.js';
@@ -635,6 +635,7 @@ function _attachRecepcionWizardListener() {
       const lineas = [];
       for (let i = 0; i < wizardData.lineas.length; i++) {
         const linea = { ...wizardData.lineas[i] };
+        if (!linea.lote) linea.lote = generarLoteFecha();
         if (linea.foto_producto) {
           linea.foto_producto = await persistEvidence(linea.foto_producto, {
             tipo: 'foto',
