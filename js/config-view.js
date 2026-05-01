@@ -55,7 +55,8 @@ function renderPage(){
   h+='<div id="supabaseStatus" style="margin-bottom:14px"><p class="text-sm text-muted">Verificando conexión…</p></div>';
   h+='<p class="text-sm text-sec mb-3">Los datos se guardan localmente y se sincronizan automáticamente con Supabase en segundo plano. Si aún no tienes datos en la nube, haz la migración inicial.</p>';
   h+='<button class="btn btn-primary" style="width:100%;margin-bottom:10px" id="cfgMigrate"><i class="fas fa-cloud-upload-alt mr-2"></i>Migrar todos los datos a Supabase</button>';
-  h+='<button class="btn btn-ghost" style="width:100%" id="cfgPull"><i class="fas fa-cloud-download-alt mr-2"></i>Traer datos actualizados de Supabase</button>';
+  h+='<button class="btn btn-ghost" style="width:100%;margin-bottom:10px" id="cfgPull"><i class="fas fa-cloud-download-alt mr-2"></i>Traer datos actualizados de Supabase</button>';
+  h+='<button class="btn btn-ghost" style="width:100%" id="cfgV2Backup"><i class="fas fa-cloud-upload-alt mr-2"></i>Respaldar modelo V2</button>';
   h+='<div id="migrationLog" style="margin-top:12px"></div>';
   h+='</div></div>';
   // Actualización PWA
@@ -87,6 +88,30 @@ function doBackup(){
   a.click();
   log('BACKUP_EXPORT','Registros: '+summary,'CONFIG');
   notify('Respaldo exportado correctamente','success');
+}
+
+async function doV2Backup(){
+  const sync=await getSync();
+  if(!sync?.pushV2BackupOnly){notify('Backup V2 no disponible','error');return;}
+  const logBox=document.getElementById('migrationLog');
+  if(logBox)logBox.innerHTML='<div style="background:var(--surface-2);border-radius:8px;padding:12px;font-size:12px;font-family:monospace;max-height:180px;overflow-y:auto" id="migLog"></div>';
+  const addLine=(msg)=>{const el=document.getElementById('migLog');if(el){const line=document.createElement('div');line.textContent=msg;el.appendChild(line);el.scrollTop=el.scrollHeight;}};
+  addLine('Iniciando backup V2 push-only…');
+  const result=await sync.pushV2BackupOnly();
+  (result?.summaries||[]).forEach(r=>addLine(`${r.collection}: total ${r.total}, subidos ${r.uploaded}, omitidos ${r.skipped}, errores ${r.errors.length}`));
+  if(result?.ok){
+    addLine('✓ Backup V2 completado.');
+    notify('Backup V2 completado','success');
+    log('SUPABASE_V2_BACKUP','Backup V2 push-only completado','CONFIG');
+  } else {
+    addLine('✗ Backup V2 con errores.');
+    notify('Backup V2 con errores','error');
+  }
+  const statusLine=document.getElementById('v2BackupStatusLine');
+  if(statusLine&&result){
+    statusLine.textContent=`Backup V2: último respaldo ${result.ok?'OK':'error'} (${new Date(result.at).toLocaleString('es-MX')})`;
+    statusLine.style.color=result.ok?'#059669':'#dc2626';
+  }
 }
 
 function showRestorePreview(bk){
@@ -147,6 +172,7 @@ function handleConfigClick(e){
     location.reload();
   }
   if(e.target.closest('#cfgBackup'))doBackup();
+  if(e.target.closest('#cfgV2Backup')){doV2Backup();return;}
   if(e.target.closest('#dropRestore')||e.target.closest('#fileRestore')){
     document.getElementById('fileRestore')?.click();
   }
@@ -159,14 +185,20 @@ async function initSupabaseSection(){
   if(!sync){box.innerHTML='<p class="text-sm" style="color:#dc2626"><i class="fas fa-times-circle mr-1"></i>Módulo de sync no disponible</p>';return;}
   const status=sync.getSupabaseStatus?.()|| 'desconocido';
   const lastSync=sync.getLastSyncAt?.();
+  const v2Backup=sync.getLastV2BackupStatus?.();
   const colors={connected:'#059669',error:'#dc2626',connecting:'#d97706',disconnected:'#64748b'};
   const labels={connected:'Conectado',error:'Error de conexión',connecting:'Conectando…',disconnected:'Sin conexión'};
   const col=colors[status]||'#64748b';
   const lbl=labels[status]||status;
-  box.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border)">
-    <span style="width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0"></span>
-    <span style="font-weight:700;font-size:13px;color:${col}">${lbl}</span>
-    ${lastSync?`<span class="text-xs text-muted" style="margin-left:auto">Última sync: ${new Date(lastSync).toLocaleString('es-MX')}</span>`:''}
+  const v2Text=v2Backup?`Backup V2: último respaldo ${v2Backup.ok?'OK':'error'} (${new Date(v2Backup.at).toLocaleString('es-MX')})`:'Backup V2: sin respaldo registrado';
+  const v2Color=v2Backup?(v2Backup.ok?'#059669':'#dc2626'):'#64748b';
+  box.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;padding:10px 14px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0"></span>
+      <span style="font-weight:700;font-size:13px;color:${col}">${lbl}</span>
+      ${lastSync?`<span class="text-xs text-muted" style="margin-left:auto">Última sync: ${new Date(lastSync).toLocaleString('es-MX')}</span>`:''}
+    </div>
+    <div id="v2BackupStatusLine" class="text-xs" style="color:${v2Color};font-weight:700">${v2Text}</div>
   </div>`;
 
   // Migrate button

@@ -20,6 +20,8 @@ import { getStore, saveEmployees, saveEntregas, saveProveedores,
          saveComprasAlmacen, saveCampanias, saveStockUniformes,
          saveEncuestas, saveAuditLog, saveAreas } from './storage.js';
 
+export { getSupabaseStatus };
+
 // ─── Colecciones que se sincronizan ────────────────────────────────────────────
 export const COLLECTIONS = [
   { key: 'employees',      storeKey: 'employees' },
@@ -36,11 +38,18 @@ export const COLLECTIONS = [
 
 const KV_KEYS = ['stockExtra', 'areasRules', 'users'];
 
-// Estas colecciones deben incluirse en Fase 1B antes de operación multiusuario.
-const SYNC_MODEL_V2_PENDING = [
-  "productos", "movimientos", "entradas", "lineasEntrada",
-  "entregasNuevas", "lineasEntrega", "devoluciones", "lineasDevolucion",
-  "mermas", "bitacora"
+const SYNC_MODEL_V2_BACKUP_COLLECTIONS = [
+  "productos",
+  "categorias",
+  "entradas",
+  "lineasEntrada",
+  "entregasNuevas",
+  "lineasEntrega",
+  "salidasNuevas",
+  "lineasSalida",
+  "devolucionesNuevas",
+  "lineasDevolucion",
+  "movimientos"
 ];
 
 // ─── Estado del motor ──────────────────────────────────────────────────────────
@@ -48,9 +57,11 @@ let _initialized = false;
 let _syncing = false;
 let _pendingQueue = []; // {type:'item'|'collection', collection, item?}
 let _lastSyncAt = null;
+let _lastV2BackupStatus = null;
 let _statusEl = null;
 const RETRY_DELAY_MS = 5000;
 const SYNC_INTERVAL_MS = 60000; // 1 minuto
+const V2_BACKUP_STATUS_KEY = '_sync_v2_backup_status';
 
 // ─── Indicador visual ──────────────────────────────────────────────────────────
 function updateStatusBadge(status) {
@@ -110,6 +121,7 @@ export async function pullFromSupabase() {
   updateStatusBadge('pulling');
   let anyUpdate = false;
 
+  // V2 backup is push-only. Pull/merge disabled until conflict strategy exists.
   for (const col of COLLECTIONS) {
     const result = await fetchCollection(col.key);
     if (!result.ok || !result.data || !result.data.length) continue;
@@ -147,6 +159,61 @@ export async function pullFromSupabase() {
     console.log('[SYNC] Pull completo — datos actualizados desde Supabase');
   }
   updateStatusBadge('connected');
+}
+
+// ─── Backup V2 push-only: localStorage → Supabase ─────────────────────────────
+export async function pushV2BackupOnly() {
+  const client = await getClient();
+  if (!client) {
+    const status = _recordV2BackupStatus({
+      ok: false,
+      summaries: [],
+      error: 'Sin conexión',
+    });
+    updateStatusBadge('error');
+    console.warn('[SYNC V2 BACKUP] No se pudo iniciar — sin conexión Supabase');
+    return status;
+  }
+
+  updateStatusBadge('syncing');
+  const store = getStore();
+  const summaries = [];
+  let ok = true;
+
+  for (const collection of SYNC_MODEL_V2_BACKUP_COLLECTIONS) {
+    const items = Array.isArray(store[collection]) ? store[collection] : [];
+    const summary = {
+      collection,
+      total: items.length,
+      uploaded: 0,
+      skipped: 0,
+      errors: [],
+    };
+
+    for (const item of items) {
+      if (!item || item.id === undefined || item.id === null || item.id === '') {
+        summary.skipped++;
+        summary.errors.push('Registro sin id omitido');
+        ok = false;
+        continue;
+      }
+
+      const result = await upsertItem(collection, item);
+      if (result.ok) {
+        summary.uploaded++;
+      } else {
+        summary.errors.push(`id ${item.id}: ${result.error || 'Error al subir'}`);
+        ok = false;
+      }
+    }
+
+    summaries.push(summary);
+  }
+
+  const status = _recordV2BackupStatus({ ok, summaries });
+  console.log('[SYNC V2 BACKUP] Resumen push-only', summaries);
+  updateStatusBadge(ok ? 'connected' : 'error');
+  return status;
 }
 
 // ─── Push: localStorage → Supabase (background) ───────────────────────────────
@@ -282,8 +349,32 @@ export function getLastSyncAt() {
   return _lastSyncAt || localStorage.getItem('_sync_last_pull') || null;
 }
 
+export function getLastV2BackupStatus() {
+  if (_lastV2BackupStatus) return _lastV2BackupStatus;
+  try {
+    const raw = localStorage.getItem(V2_BACKUP_STATUS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) {
+    return null;
+  }
+}
+
 export function isConnected() {
   return getSupabaseStatus() === 'connected';
+}
+
+function _recordV2BackupStatus({ ok, summaries, error }) {
+  const status = {
+    ok: Boolean(ok),
+    at: new Date().toISOString(),
+    summaries: summaries || [],
+    error: error || null,
+  };
+  _lastV2BackupStatus = status;
+  try {
+    localStorage.setItem(V2_BACKUP_STATUS_KEY, JSON.stringify(status));
+  } catch(e) {}
+  return status;
 }
 
 // ─── Helper interno ────────────────────────────────────────────────────────────
