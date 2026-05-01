@@ -7,7 +7,7 @@ import { getStore } from './storage.js';
 import { esc, fmtDate } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole } from './user-roles.js';
-import { getProductos, getMovimientos } from './almacen-api.js';
+import { getProductos, getMovimientos, getCostoUnitarioProducto, getValorInventarioProducto } from './almacen-api.js';
 
 const TIPOS_ENTRADA = new Set(['entrada_compra', 'inventario_inicial', 'ajuste_positivo', 'entrada']);
 const TIPOS_COMPRA = new Set(['entrada_compra', 'entrada']);
@@ -41,7 +41,12 @@ function cantidadAbs(m) {
 }
 
 function importeMov(m) {
-  return cantidadAbs(m) * (Number(m.costo_unitario) || 0);
+  const costo = Number(m.costo_unitario) || getCostoUnitarioProducto(m.producto_id, m.variante_id || null) || 0;
+  return cantidadAbs(m) * costo;
+}
+
+function costoMovDisponible(m) {
+  return Boolean((Number(m.costo_unitario) || 0) > 0 || getCostoUnitarioProducto(m.producto_id, m.variante_id || null));
 }
 
 function labelTipo(m, withIcon = false) {
@@ -98,7 +103,7 @@ function entregaTipo(e, productos, lineas) {
 
 function costoLinea(linea, producto) {
   const cantidad = Number(linea.cantidad) || 0;
-  const costo = Number(producto?.costo_promedio || producto?.ultimo_costo || 0);
+  const costo = producto ? getCostoUnitarioProducto(producto.id, linea.variante_id || null) || 0 : 0;
   return cantidad * costo;
 }
 
@@ -164,7 +169,7 @@ function tablaMetricas(titulo, filas, admin) {
                 <td>${esc(f.label)}</td>
                 <td style="text-align:center">${f.entregas}</td>
                 <td style="text-align:center">${f.piezas}</td>
-                ${admin ? `<td style="text-align:right">$${f.gasto.toLocaleString('es-MX', { minimumFractionDigits: 0 })}</td>` : ''}
+                ${admin ? `<td style="text-align:right">${f.gasto > 0 ? '$' + f.gasto.toLocaleString('es-MX', { minimumFractionDigits: 0 }) : 'No disponible'}</td>` : ''}
               </tr>
             `).join('') : `<tr><td colspan="${admin ? 4 : 3}" style="text-align:center;color:#999">Sin datos</td></tr>`)}
           </tbody>
@@ -185,12 +190,11 @@ export function render() {
 
   const productos = getProductos();
   const metricasTipo = metricasPorTipo();
-  const stockValorizado = productos.reduce((sum, p) => {
-    const stock = p.es_por_variante
-      ? (p.variantes || []).reduce((s, v) => s + (v.stock_actual || 0), 0)
-      : (p.stock_actual || 0);
-    return sum + (stock * p.costo_promedio || 0);
-  }, 0);
+  // Fuentes usadas por reportes: productos, movimientos, entregas/devoluciones
+  // nuevas y costos de recepción. No se calcula importe cuando falta costo.
+  const inventarioValores = productos.map(p => getValorInventarioProducto(p));
+  const stockValorizado = inventarioValores.reduce((sum, x) => sum + x.valor, 0);
+  const stockSinCosto = inventarioValores.filter(x => x.sinCosto).length;
 
   let html = `
     <div class="page-content">
@@ -209,8 +213,8 @@ export function render() {
           <div class="kpi-label">Gasto Este Mes</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-value">$${stockValorizado.toLocaleString('es-MX', {minimumFractionDigits:0})}</div>
-          <div class="kpi-label">Stock Valorizado</div>
+          <div class="kpi-value">${stockValorizado > 0 ? '$' + stockValorizado.toLocaleString('es-MX', {minimumFractionDigits:0}) : 'No disponible'}</div>
+          <div class="kpi-label">${stockSinCosto ? 'Stock Valorizado (parcial)' : 'Stock Valorizado'}</div>
         </div>` : ''}
         <div class="kpi-card">
           <div class="kpi-value">${productos.length}</div>
@@ -230,7 +234,7 @@ export function render() {
             <div class="kpi-label">Entregas Consumible</div>
           </div>
           ${admin ? `<div class="kpi-card">
-            <div class="kpi-value">$${metricasTipo.totalConsumibles.toLocaleString('es-MX', { minimumFractionDigits: 0 })}</div>
+            <div class="kpi-value">${metricasTipo.totalConsumibles > 0 ? '$' + metricasTipo.totalConsumibles.toLocaleString('es-MX', { minimumFractionDigits: 0 }) : 'No disponible'}</div>
             <div class="kpi-label">Gasto Consumibles</div>
           </div>` : ''}
           <div class="kpi-card">
@@ -372,7 +376,7 @@ function openReporteConsumo() {
         entregas,
         devoluciones,
         consumo,
-        costo_promedio: p.costo_promedio || 0
+        costo_unitario: getCostoUnitarioProducto(p.id, null) || 0
       };
     }
   });
@@ -405,7 +409,7 @@ function openReporteConsumo() {
               <td style="text-align:center">${d.entregas}</td>
               <td style="text-align:center">${d.devoluciones}</td>
               <td style="text-align:center;font-weight:bold">${d.consumo}</td>
-              <td style="text-align:right">$${(d.consumo * d.costo_promedio).toLocaleString('es-MX', {minimumFractionDigits:0})}</td>
+              <td style="text-align:right">${d.costo_unitario > 0 ? '$' + (d.consumo * d.costo_unitario).toLocaleString('es-MX', {minimumFractionDigits:0}) : 'No disponible'}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -462,13 +466,14 @@ function openReporteMovimientos() {
           ${movimientos.slice(0, visibleMovimientos).map(m => {
             const p = getStore().productos.find(x => x.id === m.producto_id);
             const tipoLabel = labelTipo(m, true);
+            const costoUnitario = Number(m.costo_unitario) || getCostoUnitarioProducto(m.producto_id, m.variante_id || null) || 0;
             return `
               <tr>
                 <td><small>${fmtDate(fechaMov(m).slice(0, 10))}</small></td>
                 <td><small>${tipoLabel}</small></td>
                 <td><small>${p ? esc(p.nombre) : '?'}</small></td>
                 <td style="text-align:center">${m.cantidad}</td>
-                ${admin ? `<td style="text-align:right">$${m.costo_unitario?.toFixed(2) || '—'}</td><td style="text-align:right">$${importeMov(m).toLocaleString('es-MX', {minimumFractionDigits:0})}</td>` : ''}
+                ${admin ? `<td style="text-align:right">${costoUnitario > 0 ? '$' + costoUnitario.toFixed(2) : 'No disponible'}</td><td style="text-align:right">${costoMovDisponible(m) ? '$' + importeMov(m).toLocaleString('es-MX', {minimumFractionDigits:0}) : 'No disponible'}</td>` : ''}
                 <td style="text-align:center">${m.stock_despues}</td>
               </tr>
             `;
@@ -512,7 +517,7 @@ function exportGastosExcel(datos) {
 function exportConsumoExcel(datos) {
   let csv = 'Producto,SKU,Entradas,Salidas,Entregas,Devoluciones,Consumo,Costo Total\n';
   datos.forEach(d => {
-    csv += `"${d.nombre}","${d.sku}",${d.entradas},${d.salidas},${d.entregas},${d.devoluciones},${d.consumo},$${(d.consumo * d.costo_promedio).toFixed(2)}\n`;
+    csv += `"${d.nombre}","${d.sku}",${d.entradas},${d.salidas},${d.entregas},${d.devoluciones},${d.consumo},${d.costo_unitario > 0 ? '$' + (d.consumo * d.costo_unitario).toFixed(2) : 'No disponible'}\n`;
   });
   downloadCSV(csv, 'reporte_consumo.csv');
 }
@@ -525,7 +530,8 @@ function exportMovimientosExcel(movimientos, admin = getUserRole() === 'admin') 
     const p = getStore().productos.find(x => x.id === m.producto_id);
     const tipoLabel = labelTipo(m);
     if (admin) {
-      csv += `${fechaMov(m)},"${tipoLabel}","${p ? p.nombre : '?'}",${m.cantidad},$${m.costo_unitario?.toFixed(2) || 0},$${importeMov(m).toFixed(2)},${m.stock_despues}\n`;
+      const costoUnitario = Number(m.costo_unitario) || getCostoUnitarioProducto(m.producto_id, m.variante_id || null) || 0;
+      csv += `${fechaMov(m)},"${tipoLabel}","${p ? p.nombre : '?'}",${m.cantidad},${costoUnitario > 0 ? '$' + costoUnitario.toFixed(2) : 'No disponible'},${costoMovDisponible(m) ? '$' + importeMov(m).toFixed(2) : 'No disponible'},${m.stock_despues}\n`;
     } else {
       csv += `${fechaMov(m)},"${tipoLabel}","${p ? p.nombre : '?'}",${m.cantidad},${m.stock_despues}\n`;
     }

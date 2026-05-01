@@ -99,6 +99,95 @@ function _getStockDesdeMovimientos(producto_id, variante_id = null) {
   return Number(movs[0].stock_despues) || 0;
 }
 
+function _positiveNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function _entradaFecha(store, entradaId) {
+  const entrada = (store.entradas || []).find(e => e.id === entradaId);
+  return entrada?.fecha_hora || entrada?.fecha || entrada?.fecha_creacion || '';
+}
+
+function _productoCostoConfigurado(producto, variante_id = null) {
+  if (!producto) return null;
+  const variante = (producto.variantes || []).find(v => String(v.id || '') === String(variante_id || ''));
+  return _positiveNumber(variante?.ultimo_costo)
+    ?? _positiveNumber(variante?.costo_promedio)
+    ?? _positiveNumber(producto.ultimo_costo)
+    ?? _positiveNumber(producto.costo_promedio)
+    ?? null;
+}
+
+export function getCostoUnitarioProducto(producto_id, variante_id = null) {
+  const store = getStore();
+  const producto = (store.productos || []).find(p => p.id === producto_id);
+  if (!producto) return null;
+
+  const lineas = (store.lineasEntrada || [])
+    .filter(l => l.producto_id === producto_id && String(l.variante_id || '') === String(variante_id || ''))
+    .map(l => ({ linea: l, fecha: _entradaFecha(store, l.entrada_id) }))
+    .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const recepcion = lineas.map(x => _positiveNumber(x.linea.costo_unitario)).find(Boolean);
+  return recepcion ?? _productoCostoConfigurado(producto, variante_id);
+}
+
+export function productoTieneCosto(producto) {
+  if (!producto) return false;
+  if (getCostoUnitarioProducto(producto.id, null)) return true;
+  return (producto.variantes || []).some(v => getCostoUnitarioProducto(producto.id, v.id));
+}
+
+export function getValorInventarioProducto(producto) {
+  if (!producto) return { valor: 0, sinCosto: true };
+  if (producto.es_por_variante && Array.isArray(producto.variantes) && producto.variantes.length) {
+    return producto.variantes.reduce((acc, v) => {
+      const stock = Number(v.stock_actual) || 0;
+      const costo = getCostoUnitarioProducto(producto.id, v.id);
+      if (stock > 0 && !costo) acc.sinCosto = true;
+      acc.valor += costo ? stock * costo : 0;
+      return acc;
+    }, { valor: 0, sinCosto: false });
+  }
+  const stock = Number(producto.stock_actual) || 0;
+  const costo = getCostoUnitarioProducto(producto.id, null);
+  return { valor: costo ? stock * costo : 0, sinCosto: stock > 0 && !costo };
+}
+
+export function getAlmacenDataQuality() {
+  const store = getStore();
+  const productos = store.productos || [];
+  const movimientos = store.movimientos || [];
+  const entradas = store.entradas || [];
+  const lineasEntrada = store.lineasEntrada || [];
+  const entregas = store.entregasNuevas || [];
+  const lineasEntrega = store.lineasEntrega || [];
+
+  const productosSinCosto = productos.filter(p => !productoTieneCosto(p)).length;
+  const movimientosSinCosto = movimientos.filter(m => {
+    if ((Number(m.costo_unitario) || 0) > 0) return false;
+    return !getCostoUnitarioProducto(m.producto_id, m.variante_id || null);
+  }).length;
+  const recepcionesSinCosto = lineasEntrada.filter(l => !_positiveNumber(l.costo_unitario)).length;
+  const recepcionesPendientesFactura = entradas.filter(e => (e.estado === 'pendiente_factura') || (e.estadoFactura === 'pendiente') || !(e.factura_folio || e.factura)).length;
+  const entregasSinArea = entregas.filter(e => !String(e.area || '').trim()).length;
+  const proveedoresFaltantes = entradas.filter(e => !String(e.proveedor || '').trim()).length
+    + productos.filter(p => !String(p.proveedor_frecuente || p.proveedor || p.proveedor_nombre || '').trim()).length;
+  const movimientosSinReferencia = movimientos.filter(m => !(m.documento_id || m.documento_tipo || m.observaciones || m.motivo)).length;
+  const entregasSinCosto = lineasEntrega.filter(l => !getCostoUnitarioProducto(l.producto_id, l.variante_id || null)).length;
+
+  return {
+    productosSinCosto,
+    movimientosSinCosto,
+    recepcionesSinCosto,
+    recepcionesPendientesFactura,
+    entregasSinArea,
+    proveedoresFaltantes,
+    movimientosSinReferencia,
+    entregasSinCosto,
+  };
+}
+
 export function getStockDisponible(producto_id, talla = null) {
   const producto = getStore().productos.find(p => p.id === producto_id);
   if (!producto) return 0;

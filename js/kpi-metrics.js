@@ -5,6 +5,7 @@
 
 import { getStore } from './storage.js';
 import { normTalla } from './utils.js';
+import { getProductos, getCostoUnitarioProducto, getAlmacenDataQuality } from './almacen-api.js';
 
 // ============================================================================
 // MÉTRICAS OPERATIVAS
@@ -102,17 +103,39 @@ function getDeliveriesToday(operadorId) {
 // ============================================================================
 
 export function getFinancialMetrics(dateFrom, dateTo) {
-  const deliveries = filterDeliveriesByDate(getStore().entregas || [], dateFrom, dateTo);
-  const empleados = getStore().employees || [];
-  const proveedores = getStore().proveedores || [];
+  const store = getStore();
+  const useNewDeliveries = (store.entregasNuevas || []).length > 0;
+  const deliveries = useNewDeliveries
+    ? filterDeliveriesByDate(store.entregasNuevas || [], dateFrom, dateTo)
+    : filterDeliveriesByDate(store.entregas || [], dateFrom, dateTo);
+  const empleados = store.employees || [];
+  const productosMap = new Map(getProductos().map(p => [p.id, p]));
 
-  const gastoTotal = deliveries.reduce((sum, d) => sum + (d.costTotal || 0), 0);
+  // Fuente defendible: entregas nuevas + lineasEntrega + costo de recepción.
+  // Si no hay entregas nuevas, se conserva lectura legacy pero sin inventar costo.
+  const deliveryCost = d => {
+    if (!useNewDeliveries) return Number(d.costTotal) || 0;
+    return (store.lineasEntrega || [])
+      .filter(l => l.entrega_id === d.id)
+      .reduce((sum, l) => {
+        const unit = getCostoUnitarioProducto(l.producto_id, l.variante_id || null) || 0;
+        return sum + ((Number(l.cantidad) || 0) * unit);
+      }, 0);
+  };
+  const deliveryHasCost = d => {
+    if (!useNewDeliveries) return Number(d.costTotal) > 0;
+    return (store.lineasEntrega || [])
+      .filter(l => l.entrega_id === d.id)
+      .every(l => Boolean(getCostoUnitarioProducto(l.producto_id, l.variante_id || null)));
+  };
+
+  const gastoTotal = deliveries.reduce((sum, d) => sum + deliveryCost(d), 0);
   const gastoPorEntrega = deliveries.length > 0 ? Math.round(gastoTotal / deliveries.length) : 0;
 
   const gastoPorEmpleado = {};
   empleados.forEach(emp => {
-    const empDeliveries = deliveries.filter(d => d.empleadoId === emp.id);
-    const cost = empDeliveries.reduce((sum, d) => sum + (d.costTotal || 0), 0);
+    const empDeliveries = deliveries.filter(d => String(d.empleado_id || d.empleadoId) === String(emp.id));
+    const cost = empDeliveries.reduce((sum, d) => sum + deliveryCost(d), 0);
     if (cost > 0 || empDeliveries.length > 0) {
       gastoPorEmpleado[emp.id] = {
         nombre: emp.nombre,
@@ -129,17 +152,29 @@ export function getFinancialMetrics(dateFrom, dateTo) {
   });
 
   deliveries.forEach(d => {
-    const emp = empleados.find(e => e.id === d.empleadoId);
-    if (emp) gastoPorArea[emp.area] = (gastoPorArea[emp.area] || 0) + (d.costTotal || 0);
+    const emp = empleados.find(e => String(e.id) === String(d.empleado_id || d.empleadoId));
+    const area = d.area || emp?.area;
+    if (area) gastoPorArea[area] = (gastoPorArea[area] || 0) + deliveryCost(d);
   });
 
   const gastoPorPrenda = {};
-  deliveries.forEach(d => {
-    d.prendas?.forEach(p => {
-      if (!gastoPorPrenda[p.nombre]) gastoPorPrenda[p.nombre] = 0;
-      gastoPorPrenda[p.nombre] += p.costo || 0;
+  if (useNewDeliveries) {
+    deliveries.forEach(d => {
+      (store.lineasEntrega || []).filter(l => l.entrega_id === d.id).forEach(l => {
+        const producto = productosMap.get(l.producto_id);
+        const nombre = producto?.nombre || l.producto_id;
+        if (!gastoPorPrenda[nombre]) gastoPorPrenda[nombre] = 0;
+        gastoPorPrenda[nombre] += (Number(l.cantidad) || 0) * (getCostoUnitarioProducto(l.producto_id, l.variante_id || null) || 0);
+      });
     });
-  });
+  } else {
+    deliveries.forEach(d => {
+      d.prendas?.forEach(p => {
+        if (!gastoPorPrenda[p.nombre]) gastoPorPrenda[p.nombre] = 0;
+        gastoPorPrenda[p.nombre] += p.costo || 0;
+      });
+    });
+  }
 
   const topEmpleados = Object.values(gastoPorEmpleado)
     .sort((a, b) => b.costo - a.costo)
@@ -165,6 +200,8 @@ export function getFinancialMetrics(dateFrom, dateTo) {
     topAreas,
     topPrendas,
     proyeccionPendiente: calculateProjection(empleados, deliveries),
+    incompleto: deliveries.some(d => !deliveryHasCost(d)),
+    calidadDatos: getAlmacenDataQuality(),
   };
 }
 

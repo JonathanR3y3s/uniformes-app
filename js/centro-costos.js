@@ -1,4 +1,4 @@
-import{getStore}from'./storage.js';import{getAreaNames}from'./areas-config.js';import{esc,fmt,fmtMoney,fmtDate}from'./utils.js';import{createChart}from'./ui.js';import{getMovimientos,getProductos}from'./almacen-api.js';
+import{getStore}from'./storage.js';import{getAreaNames}from'./areas-config.js';import{esc,fmt,fmtMoney,fmtDate}from'./utils.js';import{createChart}from'./ui.js';import{getMovimientos,getProductos,getCostoUnitarioProducto,productoTieneCosto,getValorInventarioProducto,getAlmacenDataQuality}from'./almacen-api.js';
 let currentYear=new Date().getFullYear().toString();
 const PAGE_SIZE=50;
 let ccVisibleLimit=PAGE_SIZE;
@@ -290,15 +290,12 @@ function finPrevMonth(){const d=new Date(FIN_NOW.getFullYear(),FIN_NOW.getMonth(
 function finAbsQty(x){return Math.abs(Number(x?.cantidad)||0);}
 function finStock(p){return p?.es_por_variante?(p.variantes||[]).reduce((s,v)=>s+(Number(v.stock_actual)||0),0):(Number(p?.stock_actual)||0);}
 function finUnitCost(p,varianteId=null){
-  const variante=(p?.variantes||[]).find(v=>v.id===varianteId);
-  return Number(variante?.ultimo_costo||variante?.costo_promedio||p?.costo_promedio||p?.ultimo_costo||0);
+  return p?getCostoUnitarioProducto(p.id,varianteId)||0:0;
 }
 function finInventoryValue(p){
-  if(!p)return 0;
-  if(p.es_por_variante)return(p.variantes||[]).reduce((s,v)=>s+(Number(v.stock_actual)||0)*finUnitCost(p,v.id),0);
-  return finStock(p)*finUnitCost(p);
+  return getValorInventarioProducto(p).valor;
 }
-function finHasCost(p){return finUnitCost(p)>0||(p?.variantes||[]).some(v=>finUnitCost(p,v.id)>0);}
+function finHasCost(p){return productoTieneCosto(p);}
 function finCategoryName(p,categorias){return categorias.get(p?.categoria_id)?.nombre||p?.categoria_nombre||p?.categoria||'Sin categoría';}
 function finProviderName(p){return(p?.proveedor_frecuente||p?.proveedor||p?.proveedor_nombre||'').trim();}
 function finLowStock(p){
@@ -325,21 +322,29 @@ function finBuildRows(){
   const categorias=new Map((store.categorias||[]).map(c=>[c.id,c]));
   const purchaseRows=[];
   const consumptionRows=[];
+  // Fuentes oficiales: productos, movimientos, entradas/lineasEntrada, entregas,
+  // devoluciones, mermas, proveedores, empleados, areas y costos de recepción.
+  // Compras legacy se usan solo si no existe fuente nueva de recepción.
   (store.entradas||[]).forEach(doc=>{
     (store.lineasEntrada||[]).filter(l=>l.entrada_id===doc.id).forEach(l=>{
       const p=productosMap.get(l.producto_id);
-      const total=Number(l.costo_total)||((Number(l.cantidad)||0)*(Number(l.costo_unitario)||0));
-      purchaseRows.push({fecha:finDateKey(doc),mes:finMonthKey(doc),origen:'Compra',tipo:'compra',documento:doc.numero||doc.id,area:'No disponible',empleado:'No disponible',producto:p?.nombre||l.producto_id,producto_id:l.producto_id,categoria:finCategoryName(p,categorias),categoria_id:p?.categoria_id||'',proveedor:finSafeProvider(doc.proveedor||finProviderName(p)),cantidad:Number(l.cantidad)||0,unitario:Number(l.costo_unitario)||0,total});
+      const cantidad=Number(l.cantidad)||0;
+      const totalCapturado=Number(l.costo_total)||0;
+      const unit=Number(l.costo_unitario)||((cantidad>0&&totalCapturado>0)?totalCapturado/cantidad:0)||finUnitCost(p,l.variante_id||null);
+      const total=unit?cantidad*unit:0;
+      purchaseRows.push({fecha:finDateKey(doc),mes:finMonthKey(doc),origen:'Compra',tipo:'compra',documento:doc.numero||doc.id,area:'No disponible',empleado:'No disponible',producto:p?.nombre||l.producto_id,producto_id:l.producto_id,categoria:finCategoryName(p,categorias),categoria_id:p?.categoria_id||'',proveedor:finSafeProvider(doc.proveedor||finProviderName(p)),cantidad,unitario:unit,total});
     });
   });
-  (store.proveedores||[]).forEach(p=>{
-    const total=(Number(p.cantidad)||0)*(Number(p.precioUnitario)||0);
-    purchaseRows.push({fecha:p.fecha||'',mes:String(p.fecha||'').slice(0,7),origen:'Compra legacy',tipo:'legacy',documento:p.referencia||p.id,area:'No disponible',empleado:'No disponible',producto:[p.prenda,p.talla].filter(Boolean).join(' '),producto_id:'',categoria:'Uniformes',categoria_id:'Uniformes',proveedor:finSafeProvider(p.proveedor),cantidad:Number(p.cantidad)||0,unitario:Number(p.precioUnitario)||0,total});
-  });
-  (store.comprasAlmacen||[]).forEach(c=>{
-    const total=(Number(c.cantidad)||0)*(Number(c.precioUnitario)||0);
-    purchaseRows.push({fecha:c.fecha||'',mes:String(c.fecha||'').slice(0,7),origen:'Compra almacén',tipo:'legacy',documento:c.referencia||c.id,area:'No disponible',empleado:'No disponible',producto:c.articulo||'Artículo',producto_id:'',categoria:c.categoria||'Almacén',categoria_id:c.categoria||'Almacén',proveedor:finSafeProvider(c.proveedor),cantidad:Number(c.cantidad)||0,unitario:Number(c.precioUnitario)||0,total});
-  });
+  if(!purchaseRows.length){
+    (store.proveedores||[]).forEach(p=>{
+      const total=(Number(p.cantidad)||0)*(Number(p.precioUnitario)||0);
+      purchaseRows.push({fecha:p.fecha||'',mes:String(p.fecha||'').slice(0,7),origen:'Compra legacy',tipo:'legacy',documento:p.referencia||p.id,area:'No disponible',empleado:'No disponible',producto:[p.prenda,p.talla].filter(Boolean).join(' '),producto_id:'',categoria:'Uniformes',categoria_id:'Uniformes',proveedor:finSafeProvider(p.proveedor),cantidad:Number(p.cantidad)||0,unitario:Number(p.precioUnitario)||0,total});
+    });
+    (store.comprasAlmacen||[]).forEach(c=>{
+      const total=(Number(c.cantidad)||0)*(Number(c.precioUnitario)||0);
+      purchaseRows.push({fecha:c.fecha||'',mes:String(c.fecha||'').slice(0,7),origen:'Compra almacén legacy',tipo:'legacy',documento:c.referencia||c.id,area:'No disponible',empleado:'No disponible',producto:c.articulo||'Artículo',producto_id:'',categoria:c.categoria||'Almacén',categoria_id:c.categoria||'Almacén',proveedor:finSafeProvider(c.proveedor),cantidad:Number(c.cantidad)||0,unitario:Number(c.precioUnitario)||0,total});
+    });
+  }
   (store.entregasNuevas||[]).forEach(doc=>{
     (store.lineasEntrega||[]).filter(l=>l.entrega_id===doc.id).forEach(l=>{
       const p=productosMap.get(l.producto_id);
@@ -412,9 +417,11 @@ function finBuildData(){
   const monthlyVariation=finVariation(data.purchaseRows);
   const productsNoCost=data.productos.filter(p=>!finHasCost(p));
   const inventoryValue=data.productos.reduce((s,p)=>s+finInventoryValue(p),0);
+  const inventoryCostIncomplete=data.productos.some(p=>getValorInventarioProducto(p).sinCosto);
   const lowStockHighCost=data.productos.filter(p=>finLowStock(p)&&finInventoryValue(p)>0).sort((a,b)=>finInventoryValue(b)-finInventoryValue(a)).slice(0,10);
   const pareto=finPareto(filtered.consumption.concat(filtered.mermas));
-  return{...data,filtered,activeEmployees,employeesWithCost,entregaDocs,monthlyVariation,productsNoCost,inventoryValue,lowStockHighCost,pareto,topAreas:finTop(filtered.consumption,r=>r.area,r=>r.area,7).filter(x=>x.key!=='No disponible'),topEmployees:finTop(filtered.consumption,r=>r.empleado,r=>r.empleado,7).filter(x=>x.key!=='No disponible'),topCategories:finTop(filtered.purchases,r=>r.categoria_id||r.categoria,r=>r.categoria,7),topProviders:finTop(filtered.purchases,r=>r.proveedor,r=>r.proveedor,7).filter(x=>x.key!=='No disponible'),topProducts:finTop(filtered.consumption.concat(filtered.mermas),r=>r.producto_id||r.producto,r=>r.producto,8)};
+  const dataQuality=getAlmacenDataQuality();
+  return{...data,filtered,activeEmployees,employeesWithCost,entregaDocs,monthlyVariation,productsNoCost,inventoryValue,inventoryCostIncomplete,lowStockHighCost,pareto,dataQuality,topAreas:finTop(filtered.consumption,r=>r.area,r=>r.area,7).filter(x=>x.key!=='No disponible'),topEmployees:finTop(filtered.consumption,r=>r.empleado,r=>r.empleado,7).filter(x=>x.key!=='No disponible'),topCategories:finTop(filtered.purchases,r=>r.categoria_id||r.categoria,r=>r.categoria,7),topProviders:finTop(filtered.purchases,r=>r.proveedor,r=>r.proveedor,7).filter(x=>x.key!=='No disponible'),topProducts:finTop(filtered.consumption.concat(filtered.mermas),r=>r.producto_id||r.producto,r=>r.producto,8)};
 }
 function finOptions(values,selected){return values.map(v=>'<option value="'+esc(v.value)+'"'+(String(v.value)===String(selected)?' selected':'')+'>'+esc(v.label)+'</option>').join('');}
 function finFilterOptions(data){
@@ -471,6 +478,18 @@ function finRenderDetail(data){
 function finRenderCharts(data){
   return'<div class="fin-chart-grid"><div class="fin-panel"><div class="fin-panel-head"><div><h3>Tendencia mensual</h3><p>Compras reales históricas</p></div></div><canvas id="finMonthly"></canvas></div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Ranking por área</h3><p>Consumo valorizado</p></div></div><canvas id="finAreas"></canvas></div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Pareto 80/20</h3><p>Concentración por producto</p></div></div><canvas id="finPareto"></canvas></div></div>';
 }
+function finQualityPanel(data){
+  const q=data.dataQuality;
+  const items=[
+    ['Productos sin costo',q.productosSinCosto,'No disponible por falta de costo'],
+    ['Entregas sin área',q.entregasSinArea,'No disponible por falta de área'],
+    ['Proveedores faltantes',q.proveedoresFaltantes,'No disponible por falta de proveedor'],
+    ['Movimientos sin referencia',q.movimientosSinReferencia,'Requieren documento o motivo'],
+    ['Movimientos sin costo',q.movimientosSinCosto,'Impacto financiero incompleto'],
+    ['Recepciones sin costo',q.recepcionesSinCosto,'Costo unitario faltante']
+  ];
+  return'<div class="fin-panel"><div class="fin-panel-head"><div><h3>Calidad de datos</h3><p>Datos faltantes que limitan KPIs financieros</p></div></div><div class="kpi-grid">'+items.map(([label,value,sub])=>'<div class="kpi" style="border-top:2px solid '+(value?'#f59e0b':'#22c55e')+'"><div class="kpi-label">'+esc(label)+'</div><div class="kpi-value">'+fmt(value)+'</div><div class="kpi-sub">'+esc(value?sub:'Completo')+'</div></div>').join('')+'</div></div>';
+}
 function finRenderContent(){
   const data=finBuildData();
   const purchaseTotal=finTotal(data.purchaseRows);
@@ -486,8 +505,9 @@ function finRenderContent(){
   const variation=data.monthlyVariation;
   let h='<div class="fin-exec"><div class="fin-hero"><div><span class="fin-eyebrow">Reporte Financiero Ejecutivo</span><h1>Gasto, consumo e impacto financiero</h1><p>Compras, entregas, mermas, proveedores y productos calculados con datos reales existentes.</p></div><div class="fin-hero-meta"><strong>'+fmt(data.filtered.combined.length)+'</strong><span>registros filtrados</span></div></div>';
   h+=finRenderFilters(data);
+  h+='<div style="font-size:12px;font-weight:800;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;margin:14px 0 8px">KPIs confiables</div>';
   h+='<div class="fin-kpi-grid">';
-  h+=finKpi({label:'Gasto total histórico',value:fmtMoney(purchaseTotal),available:purchaseTotal>0,sub:'Compras registradas en entradas y compras legacy',status:purchaseTotal>0?'success':'warning',icon:'fa-sack-dollar',note:{meaning:'Total acumulado de compras con importe disponible.',why:'Mide el desembolso histórico real capturado.'}});
+  h+=finKpi({label:'Gasto total histórico',value:fmtMoney(purchaseTotal),available:purchaseTotal>0,sub:data.purchaseRows.some(r=>r.tipo==='legacy')?'Compras legacy por falta de recepciones nuevas':'Compras registradas en recepciones',status:purchaseTotal>0?'success':'warning',icon:'fa-sack-dollar',note:{meaning:'Total acumulado de compras con importe disponible.',why:'Mide el desembolso histórico real capturado.'}});
   h+=finKpi({label:'Gasto del mes',value:fmtMoney(monthSpend),available:monthSpend>0,sub:'Mes calendario actual',status:monthSpend>0?'info':'warning',icon:'fa-calendar-days',note:{meaning:'Compras registradas durante el mes actual.',why:'Permite vigilar presión de gasto reciente.'}});
   h+=finKpi({label:'Gasto filtrado',value:fmtMoney(filteredPurchases),available:filteredPurchases>0,sub:'Compras bajo filtros activos',status:filteredPurchases>0?'info':'warning',icon:'fa-filter',note:{meaning:'Importe de compras que coincide con fecha/categoría/proveedor.',why:'Aísla una vista ejecutiva para análisis puntual.'}});
   h+=finKpi({label:'Gasto por área',value:areaTop?fmtMoney(areaTop.total):'',available:!!areaTop,sub:areaTop?areaTop.label:'Sin datos de área',status:areaTop?'info':'warning',drill:areaTop?{type:'area',value:areaTop.key}:null,icon:'fa-layer-group',note:{meaning:'Área con mayor consumo valorizado.',why:'Ayuda a priorizar revisión por centro de costo.'}});
@@ -496,12 +516,14 @@ function finRenderContent(){
   h+=finKpi({label:'Gasto por proveedor',value:provTop?fmtMoney(provTop.total):'',available:!!provTop,sub:provTop?provTop.label:'Sin proveedor capturado',status:provTop?'info':'warning',drill:provTop?{type:'proveedor',value:provTop.key}:null,icon:'fa-truck-field',note:{meaning:'Proveedor con mayor monto histórico filtrado.',why:'Revela concentración y dependencia de compra.'}});
   h+=finKpi({label:'Costo promedio por empleado',value:fmtMoney(avgEmployee),available:avgEmployee>0,sub:data.employeesWithCost.size+' empleados con costo',status:avgEmployee>0?'success':'warning',icon:'fa-users',note:{meaning:'Consumo valorizado dividido entre empleados con registros.',why:'Normaliza gasto por persona atendida.'}});
   h+=finKpi({label:'Costo promedio por entrega',value:fmtMoney(avgDelivery),available:avgDelivery>0,sub:data.entregaDocs.size+' entregas con costo',status:avgDelivery>0?'success':'warning',icon:'fa-hand-holding-dollar',note:{meaning:'Costo estimado por documento de entrega.',why:'Permite comparar eficiencia de entrega.'}});
-  h+=finKpi({label:'Costo de mermas',value:fmtMoney(mermaCost),available:mermaCost>0||!data.filtered.mermas.length,sub:data.filtered.mermas.length+' registros de merma',status:mermaCost>0?'danger':'success',drill:{type:'merma',value:''},icon:'fa-circle-minus',note:{meaning:'Costo valorizado de mermas con precios existentes.',why:'Cuantifica pérdida operativa.'}});
-  h+=finKpi({label:'Valor actual inventario',value:fmtMoney(data.inventoryValue),available:data.inventoryValue>0,sub:'Stock actual x costo configurado',status:data.inventoryValue>0?'success':'warning',icon:'fa-warehouse',note:{meaning:'Valor financiero del inventario disponible.',why:'Indica capital inmovilizado en almacén.'}});
+  h+=finKpi({label:'Costo de mermas',value:fmtMoney(mermaCost),available:mermaCost>0||!data.filtered.mermas.length,sub:data.filtered.mermas.length+' registros de merma',status:mermaCost>0?'danger':'success',drill:data.filtered.mermas.length?{type:'merma',value:''}:null,icon:'fa-circle-minus',note:{meaning:'Costo valorizado de mermas con precios existentes.',why:'Cuantifica pérdida operativa.'}});
+  h+=finKpi({label:'Valor actual inventario',value:fmtMoney(data.inventoryValue),available:data.inventoryValue>0,sub:data.inventoryCostIncomplete?'Dato incompleto: productos sin costo':'Stock actual x costo de recepción',status:data.inventoryValue>0&&!data.inventoryCostIncomplete?'success':'warning',icon:'fa-warehouse',note:{meaning:'Valor financiero del inventario disponible.',why:'Indica capital inmovilizado en almacén.'}});
   h+=finKpi({label:'Variación mensual',value:(variation.pct>=0?'+':'')+variation.pct+'%',available:variation.available,sub:variation.available?fmtMoney(variation.cur)+' vs '+fmtMoney(variation.prev):'No disponible',status:variation.available?(variation.pct>20?'danger':variation.pct>5?'warning':'success'):'warning',icon:'fa-arrow-trend-up',note:{meaning:'Cambio del gasto actual contra mes anterior.',why:'Señala aceleraciones anormales de gasto.'}});
   h+=finKpi({label:'Pareto 80/20',value:data.pareto.count+' productos',available:data.pareto.total>0,sub:data.pareto.share+'% del impacto valorizado',status:data.pareto.count?'info':'warning',icon:'fa-ranking-star',note:{meaning:'Cantidad de productos que explica cerca del 80% del costo.',why:'Enfoca acciones sobre pocos productos críticos.'}});
-  h+=finKpi({label:'Productos sin precio',value:fmt(data.productsNoCost.length),available:true,sub:'Requieren costo/precio configurado',status:data.productsNoCost.length?'warning':'success',drill:{type:'sinPrecio',value:''},icon:'fa-tag',note:{meaning:'Productos sin costo usable en el cálculo.',why:'Evita reportes financieros incompletos.'}});
+  h+=finKpi({label:'Productos sin precio',value:fmt(data.productsNoCost.length),available:true,sub:'Requieren costo/precio configurado',status:data.productsNoCost.length?'warning':'success',drill:data.productsNoCost.length?{type:'sinPrecio',value:''}:null,icon:'fa-tag',note:{meaning:'Productos sin costo usable en el cálculo.',why:'Evita reportes financieros incompletos.'}});
   h+='</div>';
+  h+='<div style="font-size:12px;font-weight:800;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;margin:14px 0 8px">KPIs incompletos y datos faltantes</div>';
+  h+=finQualityPanel(data);
   h+='<div class="fin-two-col"><div class="fin-panel"><div class="fin-panel-head"><div><h3>Top áreas por gasto</h3><p>Click para detalle por empleado/producto</p></div></div>'+finRankRows(data.topAreas,'area')+'</div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Top proveedores</h3><p>Click para productos asociados</p></div></div>'+finRankRows(data.topProviders,'proveedor')+'</div></div>';
   h+='<div class="fin-two-col"><div class="fin-panel"><div class="fin-panel-head"><div><h3>Top empleados por costo</h3><p>Consumo valorizado</p></div></div>'+finRankRows(data.topEmployees,'empleado')+'</div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Productos con mayor impacto financiero</h3><p>Click para movimientos y costo</p></div></div>'+finRankRows(data.topProducts,'producto')+'</div></div>';
   h+=finSemaphore(data);
