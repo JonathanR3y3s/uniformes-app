@@ -9,13 +9,34 @@ import{log}from'./storage.js';
 
 const KEY='_users_store';
 
+// TODO: reemplazar por Supabase Auth / backend hashing antes de producción multiusuario.
+export async function hashPassword(password){
+  const enc=new TextEncoder();
+  const data=enc.encode(String(password||''));
+  const hashBuffer=await crypto.subtle.digest('SHA-256',data);
+  return Array.from(new Uint8Array(hashBuffer)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
 export function initUsersStore(){
+  const DEFAULT_PASSWORDS=['admin2026','operador2026'];
   if(!localStorage.getItem(KEY)){
     const defaults=[
-      {id:'admin',username:'admin',name:'Administrador',password:'admin2026',role:'admin',activo:true,createdAt:new Date().toISOString()},
-      {id:'operador',username:'operador',name:'Operador General',password:'operador2026',role:'operador',activo:true,createdAt:new Date().toISOString()}
+      {id:'admin',username:'admin',name:'Administrador',password:'admin2026',role:'admin',activo:true,mustChangePassword:true,createdAt:new Date().toISOString()},
+      {id:'operador',username:'operador',name:'Operador General',password:'operador2026',role:'operador',activo:true,mustChangePassword:true,createdAt:new Date().toISOString()}
     ];
     localStorage.setItem(KEY,JSON.stringify(defaults));
+  } else {
+    // Detectar contraseñas default en instalaciones ya desplegadas
+    try{
+      const users=JSON.parse(localStorage.getItem(KEY))||[];
+      let changed=false;
+      users.forEach(u=>{
+        if(u.password&&DEFAULT_PASSWORDS.includes(u.password)&&!u.mustChangePassword){
+          u.mustChangePassword=true;changed=true;
+        }
+      });
+      if(changed)localStorage.setItem(KEY,JSON.stringify(users));
+    }catch{}
   }
 }
 
@@ -88,7 +109,7 @@ function openNewUser(){
   setTimeout(()=>document.getElementById('nuName')?.focus(),80);
 }
 
-function saveNewUser(){
+async function saveNewUser(){
   const name=(document.getElementById('nuName')?.value||'').trim();
   const username=(document.getElementById('nuUser')?.value||'').trim().toLowerCase();
   const pass=document.getElementById('nuPass')?.value||'';
@@ -105,7 +126,7 @@ function saveNewUser(){
   const users=getUsers();
   if(users.find(u=>u.username===username)){notify('Ese nombre de usuario ya existe','error');return;}
 
-  users.push({id:genId(),username,name,password:pass,role,activo,createdAt:new Date().toISOString()});
+  users.push({id:genId(),username,name,password_hash:await hashPassword(pass),role,activo,createdAt:new Date().toISOString()});
   saveUsers(users);
   log('USUARIO_ALTA',username+' ('+role+')');
   modal.close();
@@ -167,7 +188,7 @@ function openPwdUser(id){
     <div class="form-group"><label class="form-label">Confirmar contraseña *</label><input type="password" class="form-input" id="pwdNew2" placeholder="Repetir contraseña" autocomplete="new-password"></div>`;
   modal.open('Cambiar contraseña — '+u.name,body,'<button class="btn btn-ghost" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSavePwd"><i class="fas fa-key"></i> Cambiar</button>','sm');
   document.getElementById('mCancel').addEventListener('click',()=>modal.close());
-  document.getElementById('mSavePwd').addEventListener('click',()=>{
+  document.getElementById('mSavePwd').addEventListener('click',async()=>{
     const p1=document.getElementById('pwdNew')?.value||'';
     const p2=document.getElementById('pwdNew2')?.value||'';
     if(p1.length<6){notify('Mínimo 6 caracteres','warning');return;}
@@ -175,7 +196,9 @@ function openPwdUser(id){
     const users=getUsers();
     const idx=users.findIndex(x=>x.id===id);
     if(idx<0)return;
-    users[idx].password=p1;
+    users[idx].password_hash=await hashPassword(p1);
+    delete users[idx].password;
+    users[idx].mustChangePassword=false;
     saveUsers(users);
     log('USUARIO_PWD',u.username);
     modal.close();
@@ -198,6 +221,16 @@ function delUser(id){
   notify('Usuario eliminado','success');
   document.getElementById('mainContent').innerHTML=render();
   init();
+}
+
+export function updateUserPassword(id,fields){
+  const users=getUsers();
+  const idx=users.findIndex(u=>u.id===id);
+  if(idx<0)return;
+  if(fields.password_hash!==undefined)users[idx].password_hash=fields.password_hash;
+  if('password' in fields)delete users[idx].password;
+  if(fields.mustChangePassword!==undefined)users[idx].mustChangePassword=fields.mustChangePassword;
+  saveUsers(users);
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────

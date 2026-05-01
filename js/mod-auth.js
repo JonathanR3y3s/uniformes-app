@@ -2,7 +2,7 @@
  * MÓDULO DE AUTENTICACIÓN — Login contra store dinámico de usuarios
  */
 import{setUser,getUser,logout as logoutUser,getUserRole}from'./user-roles.js';
-import{initUsersStore,findUser}from'./users.js';
+import{initUsersStore,findUser,hashPassword,updateUserPassword}from'./users.js';
 
 export function initAuth(){
   initUsersStore();
@@ -43,14 +43,30 @@ export function showLoginScreen(){
   const passInput=document.getElementById('loginPass');
   const errorDiv=document.getElementById('loginError');
 
-  loginBtn.addEventListener('click',()=>{
+  loginBtn.addEventListener('click',async()=>{
     const username=(userInput.value||'').trim();
     const pass=passInput.value;
     if(!username||!pass){showError('Usuario y contraseña requeridos',errorDiv);return;}
     const u=findUser(username);
     if(!u){showError('Usuario o contraseña incorrectos',errorDiv);passInput.value='';return;}
     if(!u.activo){showError('Usuario inactivo — contacta al administrador',errorDiv);passInput.value='';return;}
-    if(u.password!==pass){showError('Usuario o contraseña incorrectos',errorDiv);passInput.value='';return;}
+    if(u.password_hash){
+      const inputHash=await hashPassword(pass);
+      if(inputHash!==u.password_hash){showError('Usuario o contraseña incorrectos',errorDiv);passInput.value='';return;}
+    } else if(u.password!==undefined){
+      if(u.password!==pass){showError('Usuario o contraseña incorrectos',errorDiv);passInput.value='';return;}
+      // Migrar plaintext → hash transparente en primer login
+      const newHash=await hashPassword(pass);
+      updateUserPassword(u.id,{password_hash:newHash,password:undefined});
+    } else {
+      showError('Usuario o contraseña incorrectos',errorDiv);passInput.value='';return;
+    }
+    // Contraseña correcta — verificar cambio obligatorio
+    const freshUser=findUser(username);
+    if(freshUser&&freshUser.mustChangePassword){
+      showForceChangePassword(freshUser);
+      return;
+    }
     setUser(u.role,u.name,u.username);
     location.reload();
   });
@@ -61,6 +77,43 @@ export function showLoginScreen(){
 
   // Focus automático
   setTimeout(()=>userInput?.focus(),100);
+}
+
+function showForceChangePassword(u){
+  document.body.innerHTML=`
+    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#f0f1f5;display:flex;align-items:center;justify-content:center;z-index:10000;font-family:Inter,-apple-system,sans-serif">
+      <div style="width:100%;max-width:360px;padding:16px">
+        <div style="background:#0c0c0c;border-radius:12px;padding:32px 28px 28px;margin-bottom:12px">
+          <div style="width:40px;height:40px;background:#dc2626;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:20px">
+            <i class="fas fa-key" style="color:#fff;font-size:16px"></i>
+          </div>
+          <h1 style="margin:0 0 4px;font-size:18px;color:#fff;font-weight:700">Cambio de contraseña requerido</h1>
+          <p style="margin:0 0 20px;color:rgba(255,255,255,.5);font-size:13px">Por seguridad debes establecer una nueva contraseña antes de continuar.</p>
+          <div style="margin-bottom:14px">
+            <label style="display:block;margin-bottom:6px;font-weight:600;color:rgba(255,255,255,.4);font-size:11px;text-transform:uppercase;letter-spacing:.06em">Nueva contraseña</label>
+            <input type="password" id="fcp_p1" placeholder="Mínimo 8 caracteres" autocomplete="new-password" style="width:100%;padding:12px 14px;border:1px solid rgba(255,255,255,.1);border-radius:6px;font-size:15px;box-sizing:border-box;background:rgba(255,255,255,.07);color:#fff;font-family:inherit"/>
+          </div>
+          <div style="margin-bottom:20px">
+            <label style="display:block;margin-bottom:6px;font-weight:600;color:rgba(255,255,255,.4);font-size:11px;text-transform:uppercase;letter-spacing:.06em">Confirmar contraseña</label>
+            <input type="password" id="fcp_p2" placeholder="Repetir contraseña" autocomplete="new-password" style="width:100%;padding:12px 14px;border:1px solid rgba(255,255,255,.1);border-radius:6px;font-size:15px;box-sizing:border-box;background:rgba(255,255,255,.07);color:#fff;font-family:inherit"/>
+          </div>
+          <button id="fcp_btn" style="width:100%;padding:14px;background:#fff;color:#111;border:none;border-radius:6px;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit">Establecer contraseña</button>
+          <div id="fcp_err" style="margin-top:12px;padding:9px 12px;border-radius:6px;background:rgba(220,38,38,.15);color:#fca5a5;font-size:13px;display:none;border:1px solid rgba(220,38,38,.2)"></div>
+        </div>
+      </div>
+    </div>`;
+  const errEl=document.getElementById('fcp_err');
+  document.getElementById('fcp_btn').addEventListener('click',async()=>{
+    const p1=document.getElementById('fcp_p1')?.value||'';
+    const p2=document.getElementById('fcp_p2')?.value||'';
+    if(p1.length<8){showError('La contraseña debe tener al menos 8 caracteres',errEl);return;}
+    if(p1!==p2){showError('Las contraseñas no coinciden',errEl);return;}
+    const newHash=await hashPassword(p1);
+    updateUserPassword(u.id,{password_hash:newHash,password:undefined,mustChangePassword:false});
+    setUser(u.role,u.name,u.username);
+    location.reload();
+  });
+  setTimeout(()=>document.getElementById('fcp_p1')?.focus(),100);
 }
 
 function showError(msg,errorDiv){

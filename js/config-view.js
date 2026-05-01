@@ -66,7 +66,7 @@ function renderPage(){
   h+='</div></div>';
   // Zona peligrosa
   h+='<div class="card" style="border-color:#dc2626"><div class="card-head" style="background:#fef2f2"><h3 style="color:#dc2626"><i class="fas fa-exclamation-triangle mr-2"></i>Zona de Riesgo</h3></div><div class="card-body"><div class="flex gap-3 flex-wrap">';
-  h+='<button class="btn btn-ghost" id="cfgLog"><i class="fas fa-eraser mr-1"></i> Limpiar bitácora</button>';
+  // Bitácora no debe eliminarse en operación real. Solo exportar/archivar.
   h+='<button class="btn btn-danger" id="cfgClear"><i class="fas fa-trash-alt mr-1"></i> Borrar todos los datos</button>';
   h+='</div><p class="text-xs text-muted mt-3"><i class="fas fa-info-circle mr-1"></i>El borrado de datos no se puede deshacer. Exporta un respaldo primero.</p></div></div>';
   return h;
@@ -145,12 +145,6 @@ function handleConfigClick(e){
     log('RESET','Todos los datos eliminados','CONFIG');
     notify('Todos los datos han sido eliminados','warning');
     location.reload();
-  }
-  if(e.target.closest('#cfgLog')){
-    if(!confirm('¿Limpiar la bitácora de eventos?'))return;
-    getStore().auditLog=[];saveAuditLog();
-    notify('Bitácora limpiada','success');
-    document.getElementById('mainContent').innerHTML=renderPage();init();
   }
   if(e.target.closest('#cfgBackup'))doBackup();
   if(e.target.closest('#dropRestore')||e.target.closest('#fileRestore')){

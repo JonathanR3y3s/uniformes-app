@@ -43,7 +43,8 @@ export function render(){
   h+='<div><label class="form-label">Fecha desde</label><input type="date" class="form-input" id="bitFD"></div>';
   h+='<div><label class="form-label">Fecha hasta</label><input type="date" class="form-input" id="bitFH"></div>';
   h+='<div></div>';
-  h+='<div class="flex items-center" style="align-items:flex-end"><button class="btn btn-danger" id="bitClear" style="width:100%"><i class="fas fa-eraser mr-1"></i> Limpiar Bitácora</button></div>';
+  // Bitácora no debe eliminarse en operación real. Solo exportar/archivar.
+  h+='<div></div>';
   h+='</div>';
   h+='</div></div>';
 
@@ -101,13 +102,6 @@ export function init(){
   document.getElementById('bitFClear')?.addEventListener('click',()=>{
     ['bitFM','bitFU','bitFD','bitFH'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     document.getElementById('bitFS').value='';
-    renderRows();
-  });
-  document.getElementById('bitClear')?.addEventListener('click',()=>{
-    if(!confirm('¿Limpiar toda la bitácora?\nEsta acción no se puede deshacer.'))return;
-    getStore().auditLog=[];
-    saveAuditLog();
-    notify('Bitácora limpiada','success');
     renderRows();
   });
   renderRows();

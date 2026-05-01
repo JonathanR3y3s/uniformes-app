@@ -36,6 +36,13 @@ export const COLLECTIONS = [
 
 const KV_KEYS = ['stockExtra', 'areasRules', 'users'];
 
+// Estas colecciones deben incluirse en Fase 1B antes de operación multiusuario.
+const SYNC_MODEL_V2_PENDING = [
+  "productos", "movimientos", "entradas", "lineasEntrada",
+  "entregasNuevas", "lineasEntrega", "devoluciones", "lineasDevolucion",
+  "mermas", "bitacora"
+];
+
 // ─── Estado del motor ──────────────────────────────────────────────────────────
 let _initialized = false;
 let _syncing = false;
