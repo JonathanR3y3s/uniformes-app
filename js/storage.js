@@ -143,6 +143,32 @@ export function buildBackup(){
     catalogoProveedores:catalogoProveedores,
   };
 }
+/** Borra solo datos operativos de prueba — no toca empleados, usuarios, áreas ni config */
+export function resetDatosOperativos(){
+  const s=store;
+  s.inventario=[];s.entregas=[];s.salidas=[];s.stockExtra={};
+  s.comprasAlmacen=[];s.campanias=[];s.stockUniformes=[];s.encuestas=[];
+  s.articulos=[];s.skus=[];s.movimientosInventario=[];
+  s.documentosEntrega=[];s.documentosDevolucion=[];
+  s.productos=[];s.categorias=[];
+  s.entradas=[];s.lineasEntrada=[];
+  s.entregasNuevas=[];s.lineasEntrega=[];
+  s.salidasNuevas=[];s.lineasSalida=[];
+  s.devolucionesNuevas=[];s.lineasDevolucion=[];
+  s.movimientos=[];
+  saveInventario();saveEntregas();saveSalidas();saveStockExtra();
+  saveComprasAlmacen();saveCampanias();saveStockUniformes();saveEncuestas();
+  saveArticulos();saveSkus();saveMovimientosInventario();
+  saveDocumentosEntrega();saveDocumentosDevolucion();
+  saveProductos();saveCategorias();
+  saveEntradas();saveLineasEntrada();
+  saveEntregasNuevas();saveLineasEntrega();
+  saveSalidasNuevas();saveLineasSalida();
+  saveDevolucionesNuevas();saveLineasDevolucion();
+  saveMovimientos();
+  try{localStorage.removeItem('_sync_queue');}catch(e){}
+  try{localStorage.setItem('_ultimo_reset_datos',new Date().toISOString());}catch(e){}
+}
 /** Restaura desde backup validado — retorna {ok,errors[]} */
 export function restoreBackup(bk){
   const errors=[];

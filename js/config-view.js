@@ -1,7 +1,8 @@
 import{VERSION,STORAGE_KEY}from'./config.js';
-import{getStore,saveEmployees,saveProveedores,saveEntregas,saveSalidas,saveStockExtra,saveAuditLog,buildBackup,restoreBackup,getStorageUsageKB,log}from'./storage.js';
+import{getStore,saveEmployees,saveProveedores,saveEntregas,saveSalidas,saveStockExtra,saveAuditLog,buildBackup,restoreBackup,getStorageUsageKB,log,resetDatosOperativos}from'./storage.js';
 import{calcStats}from'./rules.js';
 import{notify,confirm,modal}from'./ui.js';
+import{isAdmin}from'./user-roles.js';
 // Supabase sync (importado con try/catch para no romper si no está disponible)
 let _sync=null;async function getSync(){if(_sync)return _sync;try{_sync=await import('./sync-engine.js');}catch(e){}return _sync;}
 
@@ -70,6 +71,13 @@ function renderPage(){
   // Bitácora no debe eliminarse en operación real. Solo exportar/archivar.
   h+='<button class="btn btn-danger" id="cfgClear"><i class="fas fa-trash-alt mr-1"></i> Borrar todos los datos</button>';
   h+='</div><p class="text-xs text-muted mt-3"><i class="fas fa-info-circle mr-1"></i>El borrado de datos no se puede deshacer. Exporta un respaldo primero.</p></div></div>';
+  if(isAdmin()){
+    h+='<div class="card mt-4" style="border-color:#dc2626"><div class="card-head" style="background:#fef2f2"><h3 style="color:#dc2626"><i class="fas fa-flask mr-2"></i>Zona de Pruebas</h3></div><div class="card-body">';
+    h+='<p class="text-sm text-sec mb-3">Borra inventario, recepciones, entregas, devoluciones, mermas y movimientos locales. <strong>No borra empleados, usuarios ni configuración.</strong></p>';
+    h+='<button class="btn btn-danger" id="cfgResetPruebas" style="width:100%"><i class="fas fa-rotate-left mr-2"></i>Reiniciar datos operativos de prueba</button>';
+    h+='<p class="text-xs text-muted mt-2"><i class="fas fa-info-circle mr-1"></i>Genera un respaldo automático antes de borrar. Solo visible para administradores. Si tienes sync activo, revisa Supabase antes de sincronizar después del reset.</p>';
+    h+='</div></div>';
+  }
   return h;
 }
 
@@ -77,6 +85,35 @@ function row(label,val){return`<div style="display:flex;justify-content:space-be
 
 export function render(){return renderPage();}
 
+async function doResetPruebas(){
+  if(window.prompt('Escribe BORRAR para reiniciar datos de prueba')!=='BORRAR'){
+    notify('Operación cancelada','info');
+    return;
+  }
+  const s=getStore();
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,16);
+  const backup={
+    _meta:{type:'reset-operativo',version:VERSION,exportedAt:new Date().toISOString(),nota:'Backup automático antes de reset de datos operativos'},
+    inventario:s.inventario,entregas:s.entregas,salidas:s.salidas,
+    stockExtra:s.stockExtra,comprasAlmacen:s.comprasAlmacen,
+    campanias:s.campanias,stockUniformes:s.stockUniformes,encuestas:s.encuestas,
+    articulos:s.articulos,skus:s.skus,movimientosInventario:s.movimientosInventario,
+    documentosEntrega:s.documentosEntrega,documentosDevolucion:s.documentosDevolucion,
+    productos:s.productos,categorias:s.categorias,
+    entradas:s.entradas,lineasEntrada:s.lineasEntrada,
+    entregasNuevas:s.entregasNuevas,lineasEntrega:s.lineasEntrega,
+    salidasNuevas:s.salidasNuevas,lineasSalida:s.lineasSalida,
+    devolucionesNuevas:s.devolucionesNuevas,lineasDevolucion:s.lineasDevolucion,
+    movimientos:s.movimientos
+  };
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`backup-reset-${ts}.json`;a.click();
+  resetDatosOperativos();
+  log('RESET_OPERATIVO','Datos operativos de prueba reiniciados','CONFIG');
+  notify('Datos reiniciados. Si tienes sync activo, revisa Supabase antes de sincronizar.','warning');
+  setTimeout(()=>location.reload(),1500);
+}
 function doBackup(){
   const bk=buildBackup();
   const counts=bk._meta.counts;
@@ -172,6 +209,7 @@ function handleConfigClick(e){
     location.reload();
   }
   if(e.target.closest('#cfgBackup'))doBackup();
+  if(e.target.closest('#cfgResetPruebas')){doResetPruebas();return;}
   if(e.target.closest('#cfgV2Backup')){doV2Backup();return;}
   if(e.target.closest('#dropRestore')||e.target.closest('#fileRestore')){
     document.getElementById('fileRestore')?.click();
