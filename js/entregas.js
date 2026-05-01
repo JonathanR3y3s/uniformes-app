@@ -169,11 +169,12 @@ function openNuevaEntrega() {
   let paso = 1;
   let datos = {
     tipo_receptor: 'empleado',
-    receptor_ocasional: null,
+    receptor_area: null,
     tipo_entrega: 'dotacion',
     empleado_id: '',
     empleado_nombre: '',
     area: '',
+    responsable_area: '',
     quien_recibe: '',
     motivo: '',
     observaciones: '',
@@ -202,7 +203,8 @@ function openNuevaEntrega() {
       const stock = getStockDisponible(producto, linea.variante_id || null);
       const talla = getTallaLinea(producto, linea);
       if (!producto || stock < linea.cantidad) {
-        notify('Sin stock de ' + (producto?.nombre || 'producto') + (talla ? ' talla ' + talla : ''), 'error');
+        window.alert(`Stock insuficiente. Disponible: ${stock}`);
+        notify('Stock insuficiente. Disponible: ' + stock + (producto ? ' — ' + producto.nombre : '') + (talla ? ' talla ' + talla : ''), 'error');
         return false;
       }
     }
@@ -227,7 +229,7 @@ function openNuevaEntrega() {
         <label>Tipo receptor</label>
         <select id="tipoReceptor" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:12px">
           <option value="empleado" ${datos.tipo_receptor === 'empleado' ? 'selected' : ''}>Empleado</option>
-          <option value="ocasional" ${datos.tipo_receptor === 'ocasional' ? 'selected' : ''}>Ocasional</option>
+          <option value="area" ${datos.tipo_receptor === 'area' ? 'selected' : ''}>Área interna / responsable</option>
         </select>
         <label>Tipo de entrega</label>
         <select id="tipoEntrega" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:12px">
@@ -236,24 +238,19 @@ function openNuevaEntrega() {
           <option value="individual" ${datos.tipo_entrega === 'individual' ? 'selected' : ''}>Individual</option>
           <option value="consumible" ${datos.tipo_entrega === 'consumible' ? 'selected' : ''}>Consumible</option>
         </select>
-        <div id="personalEntregaBox" style="${datos.tipo_entrega === 'consumible' || datos.tipo_receptor === 'ocasional' ? 'display:none;' : ''}">
+        <div id="personalEntregaBox" style="${datos.tipo_receptor === 'area' ? 'display:none;' : ''}">
           <label>Empleado *</label>
           <div style="position:relative">
             <input type="text" id="empInput" placeholder="Buscar empleado..." data-id="${datos.empleado_id || ''}" value="${esc(datos.empleado_nombre || '')}" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
           </div>
         </div>
-        <div id="ocasionalEntregaBox" style="${datos.tipo_receptor === 'ocasional' ? '' : 'display:none;'}">
-          <label>Nombre receptor ocasional *</label>
-          <input type="text" id="receptorOcasionalNombre" value="${esc(datos.receptor_ocasional?.nombre || '')}" placeholder="Nombre completo" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
-          <label>Relación</label>
-          <select id="receptorOcasionalRelacion" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
-            ${['visitante','contratista','proveedor','otro'].map(r => `<option value="${r}" ${datos.receptor_ocasional?.relacion === r ? 'selected' : ''}>${r.charAt(0).toUpperCase() + r.slice(1)}</option>`).join('')}
-          </select>
+        <div id="areaEntregaBox" style="${datos.tipo_receptor === 'area' ? '' : 'display:none;'}">
+          <label>Área interna *</label>
+          <input type="text" id="areaInternaNombre" value="${esc(datos.area || '')}" placeholder="Ej: Limpieza, Mantenimiento, Seguridad" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
+          <label>Responsable que recibe *</label>
+          <input type="text" id="areaResponsable" value="${esc(datos.responsable_area || '')}" placeholder="Nombre del responsable" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
         </div>
-        <div id="consumibleEntregaBox" style="${datos.tipo_entrega === 'consumible' ? '' : 'display:none;'}padding:10px;background:#111;border-radius:4px;font-size:13px;color:#ddd">
-          Recibe: <strong>Supervisora de Limpieza</strong>
-        </div>
-        <div id="tallasBox" style="margin-top:12px;padding:8px;background:#111;border-radius:4px;font-size:12px;color:#999;${datos.tipo_entrega === 'consumible' || datos.tipo_receptor === 'ocasional' ? 'display:none;' : ''}">
+        <div id="tallasBox" style="margin-top:12px;padding:8px;background:#111;border-radius:4px;font-size:12px;color:#999;${datos.tipo_receptor === 'area' ? 'display:none;' : ''}">
           <p>Tallas capturadas: <span id="tallasInfo">—</span></p>
           <p>Última entrega: <span id="ultEntregaInfo">—</span></p>
         </div>
@@ -296,12 +293,15 @@ function openNuevaEntrega() {
       `;
     } else if (paso === 4) {
       const totalPiezas = datos.lineas.reduce((sum, l) => sum + (Number(l.cantidad) || 0), 0);
+      const fechaAutomatica = new Date().toLocaleString('es-MX');
       body = `
         <div style="padding:12px;background:#111;border:1px solid #334155;border-radius:8px;margin-bottom:14px">
           <h4 style="margin:0 0 8px;font-size:14px">Resumen de entrega</h4>
           <p><strong>Empleado / receptor:</strong> ${esc(datos.quien_recibe || datos.empleado_nombre || '—')}</p>
+          <p><strong>Área:</strong> ${esc(datos.area || '—')}</p>
           <p><strong>Tipo de entrega:</strong> ${esc(datos.tipo_entrega || 'dotacion')}</p>
           <p><strong>Cantidad total de piezas:</strong> ${totalPiezas}</p>
+          <p><strong>Fecha automática:</strong> ${esc(fechaAutomatica)} <small style="color:#94a3b8">(se guarda al confirmar)</small></p>
           <table class="data-table" style="margin-top:10px;font-size:12px">
             <thead><tr><th>Producto</th><th style="text-align:center">Cantidad</th></tr></thead>
             <tbody>
@@ -331,17 +331,17 @@ function openNuevaEntrega() {
       const tipoEntrega = document.getElementById('tipoEntrega');
       tipoReceptor?.addEventListener('change', (e) => {
         datos.tipo_receptor = e.target.value;
-        if (datos.tipo_receptor === 'ocasional') {
+        if (datos.tipo_receptor === 'area') {
           datos.empleado_id = null;
           datos.empleado_nombre = '';
-          datos.quien_recibe = datos.receptor_ocasional?.nombre || '';
-          datos.area = '';
-        } else if (datos.tipo_entrega !== 'consumible') {
-          datos.receptor_ocasional = null;
+          datos.quien_recibe = datos.responsable_area || '';
+        } else {
+          datos.receptor_area = null;
           datos.empleado_id = '';
           datos.empleado_nombre = '';
           datos.quien_recibe = '';
           datos.area = '';
+          datos.responsable_area = '';
         }
         showPaso();
       });
@@ -349,34 +349,24 @@ function openNuevaEntrega() {
         datos.tipo_entrega = e.target.value;
         datos.lineas = [];
         datos.consumible_confirmado = false;
-        if (datos.tipo_entrega === 'consumible') {
-          datos.tipo_receptor = 'empleado';
-          datos.receptor_ocasional = null;
-          datos.empleado_id = null;
-          datos.empleado_nombre = 'Supervisora de Limpieza';
-          datos.quien_recibe = 'Supervisora de Limpieza';
-          datos.area = 'Limpieza';
-        } else {
-          datos.empleado_id = '';
-          datos.empleado_nombre = '';
-          datos.quien_recibe = '';
-          datos.area = '';
-        }
         showPaso();
       });
 
-      document.getElementById('receptorOcasionalNombre')?.addEventListener('input', (e) => {
-        datos.receptor_ocasional = {
-          nombre: e.target.value.trim(),
-          relacion: document.getElementById('receptorOcasionalRelacion')?.value || 'visitante',
+      document.getElementById('areaInternaNombre')?.addEventListener('input', (e) => {
+        datos.area = e.target.value.trim();
+        datos.receptor_area = {
+          area: datos.area,
+          responsable: datos.responsable_area,
         };
-        datos.quien_recibe = datos.receptor_ocasional.nombre;
       });
 
-      document.getElementById('receptorOcasionalRelacion')?.addEventListener('change', (e) => {
-        datos.receptor_ocasional = {
-          nombre: (document.getElementById('receptorOcasionalNombre')?.value || '').trim(),
-          relacion: e.target.value,
+      document.getElementById('areaResponsable')?.addEventListener('input', (e) => {
+        datos.responsable_area = e.target.value.trim();
+        datos.quien_recibe = datos.responsable_area;
+        datos.empleado_nombre = datos.responsable_area;
+        datos.receptor_area = {
+          area: datos.area,
+          responsable: datos.responsable_area,
         };
       });
 
@@ -565,7 +555,8 @@ function openNuevaEntrega() {
         const stockDisp = getStockDisponible(selectedProd, selectedVarianteId);
 
         if (cant > stockDisp) {
-          notify('Sin stock de ' + selectedProd.nombre + (selectedTalla ? ' talla ' + selectedTalla : ''), 'error');
+          window.alert(`Stock insuficiente. Disponible: ${stockDisp}`);
+          notify('Stock insuficiente. Disponible: ' + stockDisp + ' — ' + selectedProd.nombre + (selectedTalla ? ' talla ' + selectedTalla : ''), 'error');
           return;
         }
 
@@ -678,46 +669,37 @@ function openNuevaEntrega() {
       if (paso === 3 && !validarLineasStock()) {
         return;
       }
-      if (paso === 1 && datos.tipo_entrega === 'personal' && !datos.empleado_id) {
+      if (paso === 1 && datos.tipo_receptor === 'empleado' && !datos.empleado_id) {
         notify('Selecciona un empleado', 'warning');
         return;
       }
-      if (paso === 1 && datos.tipo_receptor === 'empleado' && datos.tipo_entrega !== 'consumible' && !datos.empleado_id) {
-        notify('Selecciona un empleado', 'warning');
-        return;
-      }
-      if (paso === 1 && datos.tipo_receptor === 'empleado' && datos.tipo_entrega !== 'consumible') {
+      if (paso === 1 && datos.tipo_receptor === 'empleado') {
         const empActivo = empleados.find(e => e.id === datos.empleado_id && e.estado === 'activo');
         if (!empActivo) {
           notify('Empleado inactivo o no encontrado', 'error');
           return;
         }
       }
-      if (paso === 1 && datos.tipo_receptor === 'ocasional') {
-        const nombreOcasional = (document.getElementById('receptorOcasionalNombre')?.value || datos.receptor_ocasional?.nombre || '').trim();
-        if (!nombreOcasional) {
-          notify('Escribe el nombre del receptor ocasional', 'warning');
+      if (paso === 1 && datos.tipo_receptor === 'area') {
+        const areaInterna = (document.getElementById('areaInternaNombre')?.value || datos.area || '').trim();
+        const responsable = (document.getElementById('areaResponsable')?.value || datos.responsable_area || '').trim();
+        if (!areaInterna) {
+          notify('Escribe el área interna', 'warning');
           return;
         }
-        datos.receptor_ocasional = {
-          nombre: nombreOcasional,
-          relacion: document.getElementById('receptorOcasionalRelacion')?.value || datos.receptor_ocasional?.relacion || 'visitante',
+        if (!responsable) {
+          notify('Escribe el responsable que recibe', 'warning');
+          return;
+        }
+        datos.receptor_area = {
+          area: areaInterna,
+          responsable,
         };
         datos.empleado_id = null;
-        datos.empleado_nombre = nombreOcasional;
-        datos.quien_recibe = nombreOcasional;
-      }
-      if (paso === 1 && datos.tipo_entrega === 'consumible') {
-        datos.tipo_receptor = 'empleado';
-        datos.receptor_ocasional = null;
-        datos.empleado_id = null;
-        datos.empleado_nombre = 'Supervisora de Limpieza';
-        datos.quien_recibe = 'Supervisora de Limpieza';
-        datos.area = 'Limpieza';
-        if (!datos.consumible_confirmado) {
-          if (!window.confirm('¿Confirmar entrega de consumibles a Supervisora de Limpieza?')) return;
-          datos.consumible_confirmado = true;
-        }
+        datos.empleado_nombre = responsable;
+        datos.quien_recibe = responsable;
+        datos.responsable_area = responsable;
+        datos.area = areaInterna;
       }
       if (paso < 4) paso++;
       showPaso();
@@ -753,13 +735,15 @@ function openNuevaEntrega() {
         empleado_id: datos.empleado_id,
         empleado_nombre: datos.empleado_nombre,
         area: datos.area,
+        responsable_area: datos.responsable_area,
         motivo: datos.motivo,
         autorizado_por: datos.autorizado_por,
         firma: datos.firma || null,
-        firma_empleado: datos.tipo_receptor === 'empleado' && datos.tipo_entrega !== 'consumible' ? datos.firma || null : null,
+        firma_empleado: datos.tipo_receptor === 'empleado' ? datos.firma || null : null,
         firma_recibe: datos.firma || null,
         quien_recibe: datos.quien_recibe || datos.empleado_nombre,
         tipo_entrega: datos.tipo_entrega,
+        tipo_receptor: datos.tipo_receptor,
         lineas: datos.lineas,
         observaciones: datos.observaciones,
       });
@@ -772,7 +756,7 @@ function openNuevaEntrega() {
 
       Object.assign(resultado.entrega, {
         tipo_receptor: datos.tipo_receptor,
-        receptor_ocasional: datos.tipo_receptor === 'ocasional' ? datos.receptor_ocasional : null,
+        receptor_area: datos.tipo_receptor === 'area' ? datos.receptor_area : null,
         tipo_entrega: datos.tipo_entrega,
         motivo: datos.motivo || '',
         observaciones: datos.observaciones || '',
@@ -802,6 +786,7 @@ function openDetalleEntrega(id) {
     <p><strong>Recibe:</strong> ${esc(entrega.quien_recibe || entrega.empleado_nombre)}</p>
     <p><strong>Tipo receptor:</strong> ${esc(entrega.tipo_receptor || 'empleado')}</p>
     ${entrega.receptor_ocasional ? `<p><strong>Relación:</strong> ${esc(entrega.receptor_ocasional.relacion || '—')}</p>` : ''}
+    ${entrega.receptor_area ? `<p><strong>Responsable de área:</strong> ${esc(entrega.receptor_area.responsable || entrega.responsable_area || '—')}</p>` : ''}
     <p><strong>Tipo entrega:</strong> ${esc(entrega.tipo_entrega || 'dotacion')}</p>
     <p><strong>Área:</strong> ${esc(entrega.area)}</p>
     <p><strong>Motivo:</strong> ${esc(entrega.motivo)}</p>
@@ -860,6 +845,7 @@ function imprimirRecibo(id) {
         <tr><td><strong>Tipo receptor:</strong></td><td>${esc(entrega.tipo_receptor || 'empleado')}</td></tr>
         <tr><td><strong>Tipo entrega:</strong></td><td>${esc(entrega.tipo_entrega || 'dotacion')}</td></tr>
         ${entrega.receptor_ocasional ? `<tr><td><strong>Relación:</strong></td><td>${esc(entrega.receptor_ocasional.relacion || '—')}</td></tr>` : ''}
+        ${entrega.receptor_area ? `<tr><td><strong>Responsable:</strong></td><td>${esc(entrega.receptor_area.responsable || entrega.responsable_area || '—')}</td></tr>` : ''}
         <tr><td><strong>Área:</strong></td><td>${esc(entrega.area)}</td></tr>
         <tr><td><strong>Motivo:</strong></td><td>${esc(entrega.motivo)}</td></tr>
         <tr><td><strong>Obs.:</strong></td><td>${esc(entrega.observaciones || '—')}</td></tr>

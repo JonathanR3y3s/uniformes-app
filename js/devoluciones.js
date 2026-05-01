@@ -8,7 +8,7 @@ import { esc, fmtDate } from './utils.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
 import { getDevolucionesNuevas, registrarDevolucionNueva, getProductos } from './almacen-api.js';
-import { getEvidenceSrc } from './evidence-storage.js';
+import { saveEvidence, getEvidenceSrc } from './evidence-storage.js';
 
 let _devolucionesWizardHandler = null;
 const PAGE_SIZE = 50;
@@ -19,6 +19,23 @@ function detachDevolucionesWizardHandler() {
     document.removeEventListener('click', _devolucionesWizardHandler, true);
     _devolucionesWizardHandler = null;
   }
+}
+
+function getTallaLinea(producto, linea) {
+  if (!producto || !linea) return '';
+  if (linea.variante_id) {
+    const variante = (producto.variantes || []).find(v => v.id === linea.variante_id);
+    return variante?.talla || variante?.nombre || '';
+  }
+  return linea.talla || '';
+}
+
+function condicionLabel(condicion) {
+  return {
+    regresa_a_stock: 'Regresa a stock',
+    va_a_merma: 'Va a merma',
+    reparacion_revision: 'Reparación / revisión',
+  }[condicion] || condicion || '—';
 }
 
 export function render() {
@@ -166,10 +183,14 @@ function openNuevaDevolucion() {
 
   let paso = 1;
   let datos = {
+    entrega_original_id: '',
+    entrega_original_folio: '',
+    devolucion_sin_entrega_original: false,
     empleado_id: '',
     empleado_nombre: '',
     area: '',
     motivo_devolucion: '',
+    condicion: 'regresa_a_stock',
     observaciones: '',
     lineas: [],
     firma: null,
@@ -189,36 +210,64 @@ function openNuevaDevolucion() {
     let body = '';
 
     if (paso === 1) {
+      const entregas = (getStore().entregasNuevas || []).slice().sort((a, b) => String(b.fecha_hora || '').localeCompare(String(a.fecha_hora || '')));
       body = `
-        <label>Empleado *</label>
-        <select id="emp" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+        <label>Entrega original *</label>
+        <select id="entregaOriginal" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:10px">
+          <option value="">Buscar / seleccionar entrega...</option>
+          ${entregas.map(ent => {
+            const label = `${ent.numero || ent.id} - ${ent.quien_recibe || ent.empleado_nombre || 'Sin receptor'}${ent.area ? ' - ' + ent.area : ''}`;
+            return `<option value="${ent.id}" ${datos.entrega_original_id === ent.id ? 'selected' : ''}>${esc(label)}</option>`;
+          }).join('')}
+        </select>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px">
+          <input type="checkbox" id="sinEntregaOriginal" ${datos.devolucion_sin_entrega_original ? 'checked' : ''}> Devolución sin entrega original
+        </label>
+        <label>Empleado / receptor</label>
+        <select id="emp" ${datos.devolucion_sin_entrega_original ? '' : 'disabled'} style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
           <option value="">Seleccionar...</option>
-          ${empleados.filter(e => e.estado === 'activo').map(e => `<option value="${e.id}">${esc(e.nombre)}</option>`).join('')}
+          ${empleados.filter(e => e.estado === 'activo').map(e => `<option value="${e.id}" ${datos.empleado_id === e.id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}
+          ${datos.empleado_id && !empleados.some(e => e.id === datos.empleado_id) ? `<option value="${esc(datos.empleado_id)}" selected>${esc(datos.empleado_nombre || 'Receptor sin empleado')}</option>` : ''}
         </select>
         <div style="margin-top:12px;padding:8px;background:#111;border-radius:4px;font-size:12px;color:#999">
           <p>Empleado: <span id="empInfo">—</span></p>
           <p>Área: <span id="areaInfo">—</span></p>
+          <p>Entrega: <span id="entregaInfo">—</span></p>
         </div>
       `;
     } else if (paso === 2) {
+      const motivoOptions = datos.devolucion_sin_entrega_original
+        ? '<option value="Devolución sin entrega original" selected>Devolución sin entrega original</option>'
+        : `
+          <option value="">Seleccionar...</option>
+          <option value="cambio_talla" ${datos.motivo_devolucion === 'cambio_talla' ? 'selected' : ''}>Cambio de Talla</option>
+          <option value="deterioro" ${datos.motivo_devolucion === 'deterioro' ? 'selected' : ''}>Deterioro / Daño</option>
+          <option value="no_aplica" ${datos.motivo_devolucion === 'no_aplica' ? 'selected' : ''}>No Aplica / No le Quedó</option>
+          <option value="renuncia" ${datos.motivo_devolucion === 'renuncia' ? 'selected' : ''}>Renuncia</option>
+          <option value="otro" ${datos.motivo_devolucion === 'otro' ? 'selected' : ''}>Otro</option>
+        `;
       body = `
         <label>Motivo de Devolución *</label>
         <select id="motivo" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:12px">
-          <option value="">Seleccionar...</option>
-          <option value="cambio_talla">Cambio de Talla</option>
-          <option value="deterioro">Deterioro / Daño</option>
-          <option value="no_aplica">No Aplica / No le Quedó</option>
-          <option value="renuncia">Renuncia</option>
-          <option value="otro">Otro</option>
+          ${motivoOptions}
+        </select>
+        <label>Condición *</label>
+        <select id="condicion" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:12px">
+          <option value="regresa_a_stock" ${datos.condicion === 'regresa_a_stock' ? 'selected' : ''}>Regresa a stock</option>
+          <option value="va_a_merma" ${datos.condicion === 'va_a_merma' ? 'selected' : ''}>Va a merma</option>
+          <option value="reparacion_revision" ${datos.condicion === 'reparacion_revision' ? 'selected' : ''}>Reparación / revisión</option>
         </select>
         <label>Observaciones</label>
         <textarea id="observaciones" placeholder="Detalles adicionales..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;height:80px"></textarea>
       `;
     } else if (paso === 3) {
-      const productos = getProductos();
+      const lineasEntrega = datos.entrega_original_id
+        ? (getStore().lineasEntrega || []).filter(l => l.entrega_id === datos.entrega_original_id)
+        : [];
       body = `
         <input type="text" id="searchProd" placeholder="Buscar producto..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
         <div id="prodList" style="max-height:150px;overflow-y:auto;margin-bottom:12px"></div>
+        ${lineasEntrega.length ? '<p style="font-size:12px;color:#94a3b8;margin:0 0 8px">Productos tomados de la entrega original seleccionada.</p>' : ''}
         <input type="number" id="cantidad" min="1" value="1" placeholder="Cantidad" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff;margin-bottom:8px">
         <button class="btn btn-success" id="btnAgregar" style="width:100%"><i class="fas fa-plus"></i> Agregar</button>
         <div id="lineasList" style="margin-top:12px;max-height:200px;overflow-y:auto"></div>
@@ -231,7 +280,10 @@ function openNuevaDevolucion() {
         <h4>Resumen de Devolución</h4>
         <p><strong>Empleado:</strong> ${esc(datos.empleado_nombre)}</p>
         <p><strong>Área:</strong> ${esc(datos.area)}</p>
+        <p><strong>Entrega original:</strong> ${esc(datos.entrega_original_folio || (datos.devolucion_sin_entrega_original ? 'Excepción: sin entrega original' : '—'))}</p>
         <p><strong>Motivo:</strong> ${esc(datos.motivo_devolucion)}</p>
+        <p><strong>Condición:</strong> ${esc(condicionLabel(datos.condicion))}</p>
+        <p><strong>Fecha automática:</strong> ${esc(new Date().toLocaleString('es-MX'))} <small style="color:#94a3b8">(se guarda al confirmar)</small></p>
         <p><strong>Total Piezas:</strong> ${totalPiezas}</p>
         <p><strong>Total Productos:</strong> ${lineas.length}</p>
         <table class="data-table" style="margin-top:12px;font-size:12px">
@@ -239,7 +291,8 @@ function openNuevaDevolucion() {
           <tbody>
             ${lineas.map(l => {
               const p = getStore().productos.find(x => x.id === l.producto_id);
-              return `<tr><td>${p ? esc(p.nombre) : '?'}</td><td>${l.cantidad}</td></tr>`;
+              const talla = getTallaLinea(p, l);
+              return `<tr><td>${p ? esc(p.nombre) : '?'}${talla ? ' · T:' + esc(talla) : ''}</td><td>${l.cantidad}</td></tr>`;
             }).join('')}
           </tbody>
         </table>
@@ -257,6 +310,33 @@ function openNuevaDevolucion() {
     modal.open(`Paso ${paso}/4`, body, getPasoFooter(), 'md');
 
     if (paso === 1) {
+      function syncEntregaInfo(entrega) {
+        document.getElementById('empInfo').textContent = datos.empleado_nombre || '—';
+        document.getElementById('areaInfo').textContent = datos.area || '—';
+        document.getElementById('entregaInfo').textContent = entrega ? (entrega.numero || entrega.id) : (datos.devolucion_sin_entrega_original ? 'Excepción' : '—');
+      }
+      document.getElementById('entregaOriginal')?.addEventListener('change', (e) => {
+        const entrega = (getStore().entregasNuevas || []).find(x => x.id === e.target.value);
+        datos.entrega_original_id = entrega?.id || '';
+        datos.entrega_original_folio = entrega?.numero || '';
+        datos.devolucion_sin_entrega_original = false;
+        datos.empleado_id = entrega?.empleado_id || null;
+        datos.empleado_nombre = entrega?.quien_recibe || entrega?.empleado_nombre || '';
+        datos.area = entrega?.area || '';
+        datos.lineas = [];
+        document.getElementById('sinEntregaOriginal').checked = false;
+        syncEntregaInfo(entrega);
+      });
+      document.getElementById('sinEntregaOriginal')?.addEventListener('change', (e) => {
+        datos.devolucion_sin_entrega_original = e.target.checked;
+        datos.entrega_original_id = '';
+        datos.entrega_original_folio = '';
+        datos.lineas = [];
+        if (datos.devolucion_sin_entrega_original) {
+          datos.motivo_devolucion = 'Devolución sin entrega original';
+        }
+        showPaso();
+      });
       document.getElementById('emp')?.addEventListener('change', (e) => {
         const emp = empleados.find(x => x.id === e.target.value);
         if (emp) {
@@ -267,30 +347,50 @@ function openNuevaDevolucion() {
           document.getElementById('areaInfo').textContent = emp.area || '—';
         }
       });
+      const entregaInicial = (getStore().entregasNuevas || []).find(x => x.id === datos.entrega_original_id);
+      syncEntregaInfo(entregaInicial);
     } else if (paso === 2) {
+      if (datos.devolucion_sin_entrega_original) {
+        datos.motivo_devolucion = 'Devolución sin entrega original';
+      }
       document.getElementById('motivo')?.addEventListener('change', (e) => {
         datos.motivo_devolucion = e.target.value;
+      });
+      document.getElementById('condicion')?.addEventListener('change', (e) => {
+        datos.condicion = e.target.value;
       });
       document.getElementById('observaciones')?.addEventListener('input', (e) => {
         datos.observaciones = e.target.value;
       });
     } else if (paso === 3) {
       const productos = getProductos();
+      const lineasEntrega = datos.entrega_original_id
+        ? (getStore().lineasEntrega || []).filter(l => l.entrega_id === datos.entrega_original_id)
+        : [];
+      const productosEntregados = lineasEntrega.map(l => {
+        const p = productos.find(prod => prod.id === l.producto_id);
+        const talla = getTallaLinea(p, l);
+        return { producto: p, linea: l, label: `${p?.nombre || 'Producto'}${talla ? ' · T:' + talla : ''} (${l.cantidad} entregado)` };
+      }).filter(item => item.producto);
       let selectedProd = null;
+      let selectedLineaEntrega = null;
 
       document.getElementById('searchProd')?.addEventListener('keyup', (e) => {
         const q = e.target.value.toLowerCase();
-        const filtered = productos.filter(p => p.nombre.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)).slice(0, 10);
+        const source = productosEntregados.length ? productosEntregados : productos.map(p => ({ producto: p, linea: null, label: `${p.nombre} (${p.sku || ''})` }));
+        const filtered = source.filter(item => item.label.toLowerCase().includes(q) || (item.producto.sku || '').toLowerCase().includes(q)).slice(0, 10);
         let html = '';
-        filtered.forEach(p => {
-          html += `<div class="prod-item" style="cursor:pointer;padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;font-size:13px" data-prod-id="${p.id}"><strong>${esc(p.nombre)}</strong></div>`;
+        filtered.forEach((item, idx) => {
+          html += `<div class="prod-item" style="cursor:pointer;padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;font-size:13px" data-prod-idx="${idx}"><strong>${esc(item.label)}</strong></div>`;
         });
         document.getElementById('prodList').innerHTML = html;
 
         document.querySelectorAll('.prod-item').forEach(item => {
           item.addEventListener('click', () => {
-            selectedProd = productos.find(p => p.id === item.dataset.prodId);
-            document.getElementById('searchProd').value = selectedProd ? selectedProd.nombre : '';
+            const selected = filtered[Number(item.dataset.prodIdx)];
+            selectedProd = selected?.producto || null;
+            selectedLineaEntrega = selected?.linea || null;
+            document.getElementById('searchProd').value = selected ? selected.label : '';
             document.getElementById('prodList').innerHTML = '';
           });
         });
@@ -307,9 +407,21 @@ function openNuevaDevolucion() {
           return;
         }
 
-        datos.lineas.push({ producto_id: selectedProd.id, cantidad: cant });
+        if (selectedLineaEntrega && cant > Number(selectedLineaEntrega.cantidad || 0)) {
+          notify('La devolución no puede exceder la cantidad de la entrega original', 'error');
+          return;
+        }
+
+        datos.lineas.push({
+          producto_id: selectedProd.id,
+          variante_id: selectedLineaEntrega?.variante_id || null,
+          talla: selectedLineaEntrega?.talla || '',
+          cantidad: cant,
+          condicion: datos.condicion,
+        });
         notify('Producto agregado', 'success');
         selectedProd = null;
+        selectedLineaEntrega = null;
         document.getElementById('searchProd').value = '';
         document.getElementById('cantidad').value = '1';
         renderLineas();
@@ -319,7 +431,8 @@ function openNuevaDevolucion() {
         let html = '';
         datos.lineas.forEach((l, idx) => {
           const p = getStore().productos.find(x => x.id === l.producto_id);
-          html += `<div style="padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;display:flex;justify-content:space-between"><span>${p ? esc(p.nombre) : '?'} x${l.cantidad}</span><button class="btn-icon btn-danger" onclick="removeLinea(${idx})" style="padding:2px 6px"><i class="fas fa-trash"></i></button></div>`;
+          const talla = getTallaLinea(p, l);
+          html += `<div style="padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;display:flex;justify-content:space-between;gap:8px"><span>${p ? esc(p.nombre) : '?'}${talla ? ' T:' + esc(talla) : ''} x${l.cantidad}<br><small style="color:#94a3b8">${esc(condicionLabel(l.condicion))}</small></span><button class="btn-icon btn-danger" onclick="removeLinea(${idx})" style="padding:2px 6px"><i class="fas fa-trash"></i></button></div>`;
         });
         document.getElementById('lineasList').innerHTML = html;
       }
@@ -387,18 +500,30 @@ function openNuevaDevolucion() {
   };
 
   detachDevolucionesWizardHandler();
-  _devolucionesWizardHandler = (e) => {
+  _devolucionesWizardHandler = async (e) => {
     if (e.target.id === 'btnAnt') {
       if (paso > 1) paso--;
       showPaso();
     }
     if (e.target.id === 'btnSig') {
-      if (paso === 1 && !datos.empleado_id) {
-        notify('Selecciona un empleado', 'warning');
+      if (paso === 1 && !datos.entrega_original_id && !datos.devolucion_sin_entrega_original) {
+        notify('Selecciona entrega original o marca la excepción', 'warning');
+        return;
+      }
+      if (paso === 1 && datos.devolucion_sin_entrega_original && !datos.empleado_id) {
+        notify('Selecciona un empleado para la excepción', 'warning');
         return;
       }
       if (paso === 2 && !datos.motivo_devolucion) {
         notify('Selecciona un motivo', 'warning');
+        return;
+      }
+      if (paso === 2 && datos.devolucion_sin_entrega_original && datos.motivo_devolucion !== 'Devolución sin entrega original') {
+        notify('El motivo debe ser "Devolución sin entrega original"', 'warning');
+        return;
+      }
+      if (paso === 2 && !datos.condicion) {
+        notify('Selecciona condición', 'warning');
         return;
       }
       if (paso === 3 && datos.lineas.length === 0) {
@@ -411,15 +536,27 @@ function openNuevaDevolucion() {
     if (e.target.id === 'btnGuardar') {
       const signCanvas = document.getElementById('signaturePad');
       if (!signCanvas || !canvasTieneFirma(signCanvas)) {
-        notify('La firma es obligatoria para confirmar la entrega.', 'error');
+        notify('La firma es obligatoria para confirmar la devolución.', 'error');
         return;
       }
-      datos.firma = signCanvas.toDataURL('image/png');
+      const devolucionId = 'dev-nueva-' + Date.now();
+      datos.firma = await saveEvidence({
+        base64: signCanvas.toDataURL('image/png'),
+        tipo: 'firma',
+        entidad: 'devolucion',
+        entidadId: devolucionId,
+        filename: 'firma.png',
+      });
       const resultado = registrarDevolucionNueva({
+        id: devolucionId,
+        entrega_original_id: datos.entrega_original_id,
+        entrega_original_folio: datos.entrega_original_folio,
+        devolucion_sin_entrega_original: datos.devolucion_sin_entrega_original,
         empleado_id: datos.empleado_id,
         empleado_nombre: datos.empleado_nombre,
         area: datos.area,
         motivo: datos.motivo_devolucion,
+        condicion: datos.condicion,
         observaciones: datos.observaciones,
         firma: datos.firma,
         lineas: datos.lineas,
@@ -451,7 +588,9 @@ function openDetalleDevolucion(id) {
     <p><strong>Número:</strong> ${esc(devolucion.numero)}</p>
     <p><strong>Empleado:</strong> ${esc(devolucion.empleado_nombre)}</p>
     <p><strong>Área:</strong> ${esc(devolucion.area)}</p>
+    <p><strong>Entrega original:</strong> ${esc(devolucion.entrega_original_folio || (devolucion.devolucion_sin_entrega_original ? 'Excepción: sin entrega original' : '—'))}</p>
     <p><strong>Motivo:</strong> ${esc(devolucion.motivo)}</p>
+    <p><strong>Condición:</strong> ${esc(condicionLabel(devolucion.condicion))}</p>
     <p><strong>Observaciones:</strong> ${esc(devolucion.observaciones || '—')}</p>
     <p><strong>Fecha:</strong> ${fmtDate(devolucion.fecha_hora)}</p>
     <p><strong>Registrado por:</strong> ${esc(devolucion.registrado_por)}</p>
@@ -459,13 +598,14 @@ function openDetalleDevolucion(id) {
 
     <h4 style="margin-top:12px">Productos Devueltos</h4>
     <table class="data-table">
-      <thead><tr><th>Producto</th><th>Cantidad</th></tr></thead>
+      <thead><tr><th>Producto</th><th>Condición</th><th>Cantidad</th></tr></thead>
       <tbody>
         ${lineas.map(l => {
           const p = getStore().productos.find(x => x.id === l.producto_id);
-          return `<tr><td>${p ? esc(p.nombre) : '?'}</td><td style="text-align:center">${l.cantidad}</td></tr>`;
+          const talla = getTallaLinea(p, l);
+          return `<tr><td>${p ? esc(p.nombre) : '?'}${talla ? ' · T:' + esc(talla) : ''}</td><td>${esc(condicionLabel(l.condicion || devolucion.condicion))}</td><td style="text-align:center">${l.cantidad}</td></tr>`;
         }).join('')}
-        <tr style="font-weight:bold"><td>Total Piezas</td><td style="text-align:center">${piezas}</td></tr>
+        <tr style="font-weight:bold"><td colspan="2">Total Piezas</td><td style="text-align:center">${piezas}</td></tr>
       </tbody>
     </table>
   `;

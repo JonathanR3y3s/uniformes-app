@@ -503,9 +503,16 @@ export function getEntregasNuevas(filtros = {}) {
   return result.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
 }
 
-export function registrarEntregaNueva({ id: idOverride, empleado_id, empleado_nombre, area, motivo, autorizado_por, firma, firma_empleado, firma_recibe, quien_entrego, quien_recibe, tipo_entrega, lineas = [], observaciones }) {
+export function registrarEntregaNueva({ id: idOverride, empleado_id, empleado_nombre, area, responsable_area, motivo, autorizado_por, firma, firma_empleado, firma_recibe, quien_entrego, quien_recibe, tipo_entrega, tipo_receptor, lineas = [], observaciones }) {
   const store = getStore();
   const user = getUser();
+  const receptorValido = empleado_id || (quien_recibe || empleado_nombre || '').trim();
+  if (!receptorValido) {
+    return { ok: false, error: 'Receptor inválido' };
+  }
+  if (tipo_receptor === 'area' && (!area || !String(area).trim() || !String(responsable_area || quien_recibe || '').trim())) {
+    return { ok: false, error: 'Área y responsable son obligatorios' };
+  }
 
   // Validación TODO-OR-NOTHING: verificar stock de todas las líneas
   for (const linea of lineas) {
@@ -529,26 +536,31 @@ export function registrarEntregaNueva({ id: idOverride, empleado_id, empleado_no
   // Todas las validaciones pasaron, proceder
   const id = idOverride || 'ent-nueva-' + Date.now();
   const numero = nextNumeroEntregaNueva();
+  const nowISO = new Date().toISOString();
   const entrega = {
     id,
     numero,
-    fecha_hora: new Date().toISOString(),
+    fecha_hora: nowISO,
+    fecha: nowISO,
+    fechaEntrega: nowISO,
     empleado_id: empleado_id || null,
-    empleado_nombre,
+    empleado_nombre: empleado_nombre || quien_recibe || '',
     area: area || '',
+    responsable_area: responsable_area || '',
     motivo: motivo || '',
     autorizado_por: autorizado_por || '',
     firma: firma || null,
     firma_empleado: tipo_entrega === 'consumible' ? null : (firma_empleado || firma || null),
     firma_recibe: firma_recibe || firma || null,
     tipo_entrega: tipo_entrega || 'personal',
+    tipo_receptor: tipo_receptor || (empleado_id ? 'empleado' : 'area'),
     quien_entrego: quien_entrego || user?.name || 'Sistema',
     quien_recibe: quien_recibe || empleado_nombre || '',
     observaciones: observaciones || '',
     entregado_por: user?.name || 'Sistema',
     entregado_por_id: user?.id || 'system',
     creado_por: user?.name || 'Sistema',
-    fecha_creacion: new Date().toISOString(),
+    fecha_creacion: nowISO,
   };
 
   const snap = _cloneAlmacenState(store);
@@ -727,9 +739,33 @@ export function getDevolucionesNuevas(filtros = {}) {
   return result.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
 }
 
-export function registrarDevolucionNueva({ entrega_original_id, empleado_id, empleado_nombre, area, motivo, lineas = [], observaciones, firma }) {
+export function registrarDevolucionNueva({ id: idOverride, entrega_original_id, entrega_original_folio, devolucion_sin_entrega_original, empleado_id, empleado_nombre, area, motivo, condicion, lineas = [], observaciones, firma }) {
   const store = getStore();
   const user = getUser();
+  const motivoNormalizado = String(motivo || '').trim();
+  const sinEntregaOriginal = Boolean(devolucion_sin_entrega_original);
+  const entregaReferencia = entrega_original_id || entrega_original_folio || '';
+  const entregaOriginal = entrega_original_id
+    ? store.entregasNuevas.find(e => e.id === entrega_original_id)
+    : entrega_original_folio
+      ? store.entregasNuevas.find(e => e.numero === entrega_original_folio)
+      : null;
+
+  if (!entregaReferencia && !sinEntregaOriginal) {
+    return { ok: false, error: 'Selecciona entrega original o registra la excepción' };
+  }
+  if (entregaReferencia && !entregaOriginal) {
+    return { ok: false, error: 'Entrega original no encontrada' };
+  }
+  if (sinEntregaOriginal && motivoNormalizado !== 'Devolución sin entrega original') {
+    return { ok: false, error: 'El motivo debe ser "Devolución sin entrega original"' };
+  }
+  if (!motivoNormalizado) {
+    return { ok: false, error: 'El motivo es obligatorio' };
+  }
+  const lineasOriginales = entregaOriginal
+    ? (store.lineasEntrega || []).filter(l => l.entrega_id === entregaOriginal.id)
+    : [];
 
   // Validación
   for (const linea of lineas) {
@@ -741,25 +777,46 @@ export function registrarDevolucionNueva({ entrega_original_id, empleado_id, emp
     if (linea.variante_id && !(prod.variantes || []).some(v => v.id === linea.variante_id)) {
       return { ok: false, error: 'Variante no encontrada' };
     }
+    const condicionLinea = linea.condicion || condicion || 'regresa_a_stock';
+    if (!['regresa_a_stock', 'va_a_merma', 'reparacion_revision'].includes(condicionLinea)) {
+      return { ok: false, error: 'Condición inválida' };
+    }
+    if (lineasOriginales.length) {
+      const cantidadOriginal = lineasOriginales
+        .filter(l => l.producto_id === linea.producto_id && String(l.variante_id || '') === String(linea.variante_id || ''))
+        .reduce((sum, l) => sum + (Number(l.cantidad) || 0), 0);
+      if (!cantidadOriginal) {
+        return { ok: false, error: 'Producto no pertenece a la entrega original' };
+      }
+      if (Number(linea.cantidad) > cantidadOriginal) {
+        return { ok: false, error: 'La devolución excede la entrega original' };
+      }
+    }
   }
 
-  const id = 'dev-nueva-' + Date.now();
+  const id = idOverride || 'dev-nueva-' + Date.now();
   const numero = nextNumeroDevolucionNueva();
+  const nowISO = new Date().toISOString();
   const devolucion = {
     id,
     numero,
-    fecha_hora: new Date().toISOString(),
-    entrega_original_id: entrega_original_id || null,
+    fecha_hora: nowISO,
+    fecha: nowISO,
+    fechaDevolucion: nowISO,
+    entrega_original_id: entregaOriginal?.id || null,
+    entrega_original_folio: entregaOriginal?.numero || entrega_original_folio || '',
+    devolucion_sin_entrega_original: sinEntregaOriginal,
     empleado_id: empleado_id || null,
     empleado_nombre: empleado_nombre || '',
     area: area || '',
-    motivo: motivo || '',
+    motivo: motivoNormalizado,
+    condicion: condicion || 'regresa_a_stock',
     observaciones: observaciones || '',
     firma: firma || null,
     recibido_por: user?.name || 'Sistema',
     recibido_por_id: user?.id || 'system',
     creado_por: user?.name || 'Sistema',
-    fecha_creacion: new Date().toISOString(),
+    fecha_creacion: nowISO,
   };
 
   const snap = _cloneAlmacenState(store);
@@ -774,10 +831,13 @@ export function registrarDevolucionNueva({ entrega_original_id, empleado_id, emp
         producto_id: linea.producto_id,
         variante_id: linea.variante_id || null,
         cantidad,
+        condicion: linea.condicion || condicion || 'regresa_a_stock',
         observaciones: linea.observaciones || '',
       };
 
       store.lineasDevolucion.push(linea_obj);
+      const condicionLinea = linea_obj.condicion;
+      if (condicionLinea !== 'regresa_a_stock') continue;
 
       const mov_resultado = registrarMovimiento({
         tipo: 'entrada_devolucion',
@@ -786,6 +846,7 @@ export function registrarDevolucionNueva({ entrega_original_id, empleado_id, emp
         cantidad,
         documento_id: id,
         documento_tipo: 'devolucion',
+        motivo: motivoNormalizado,
         observaciones: `Devolución ${numero} de ${empleado_nombre}`,
       });
 
