@@ -1153,7 +1153,7 @@ function openMermaProducto(id, variante_id = null) {
       return;
     }
     if (cantidad > stock) {
-      notify('Stock insuficiente para registrar merma', 'error');
+      notify(`Stock insuficiente. Disponible: ${stock}`, 'error');
       return;
     }
     if (!window.confirm('¿Seguro que deseas registrar esta merma? Esta acción no se puede deshacer.')) {
@@ -1259,6 +1259,10 @@ function openAjusteStock(id, variante_id) {
     }
     if (!motivo) {
       notify('El motivo es obligatorio', 'error');
+      return;
+    }
+    if (tipo === 'negativo' && cantidad > stockActual) {
+      notify(`Stock insuficiente. Disponible: ${stockActual}`, 'error');
       return;
     }
 

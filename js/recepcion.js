@@ -4,10 +4,11 @@
  */
 
 import { getStore } from './storage.js';
-import { esc, fmtMoney, acFiltrar, generarLoteFecha } from './utils.js';
+import { esc, fmtMoney, acFiltrar, generarLoteFecha, generarSKU } from './utils.js';
+import { TIPOS_PRODUCTO } from './config.js';
 import { notify, modal } from './ui.js';
 import { getUserRole, getUser } from './user-roles.js';
-import { getEntradas, registrarEntrada, completarFactura, getProductos, getCategorias, updateProducto } from './almacen-api.js';
+import { getEntradas, registrarEntrada, completarFactura, getProductos, getCategorias, updateProducto, createProducto } from './almacen-api.js';
 import { saveEvidence, getEvidenceSrc } from './evidence-storage.js';
 import { isImageFile } from './file-validation.js';
 
@@ -118,6 +119,37 @@ function formatFechaSegura(value) {
   const d = new Date(value);
   if (isNaN(d.getTime())) return 'Sin fecha';
   return d.toLocaleDateString('es-MX');
+}
+
+function isCostoUnitarioValido(value) {
+  const costo = Number(value);
+  return Number.isFinite(costo) && costo > 0;
+}
+
+function alertCostoUnitario() {
+  alert('Captura el costo unitario antes de guardar la recepción.');
+}
+
+function getCategoriaIdForFamilia(prefijo) {
+  const categorias = getCategorias();
+  const tipo = TIPOS_PRODUCTO.find(t => t.prefijo === prefijo);
+  const nombreTipo = String(tipo?.nombre || '').toLowerCase();
+  const direct = categorias.find(c => String(c.nombre || '').toLowerCase() === nombreTipo);
+  if (direct) return direct.id;
+
+  const aliases = {
+    UNI: 'Uniformes',
+    EPP: 'Uniformes',
+    SOU: 'Souvenirs',
+    PAP: 'Papelería',
+    LIM: 'Limpieza',
+    CON: 'Otros',
+  };
+  const alias = aliases[prefijo] || 'Otros';
+  return categorias.find(c => String(c.nombre || '').toLowerCase() === alias.toLowerCase())?.id
+    || categorias.find(c => String(c.nombre || '').toLowerCase() === 'otros')?.id
+    || categorias[0]?.id
+    || '';
 }
 
 export function render() {
@@ -353,6 +385,52 @@ function showWizardStep() {
         <label>Buscar Producto</label>
         <input type="text" id="searchProd" placeholder="Nombre o SKU..." style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
         <div id="prodList" style="margin-top:8px;max-height:200px;overflow-y:auto"></div>
+        <button type="button" class="btn btn-secondary" id="btnCrearProductoRapido" style="margin-top:8px"><i class="fas fa-plus-circle"></i> Crear producto rápido</button>
+        <div id="productoRapidoForm" style="display:none;margin-top:12px;padding:10px;background:#0f172a;border:1px solid #334155;border-radius:4px">
+          <div class="form-row c2" style="gap:8px">
+            <div>
+              <label>Familia / tipo *</label>
+              <select id="quickFamilia" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+                <option value="">Seleccionar...</option>
+                ${TIPOS_PRODUCTO.map(t => `<option value="${esc(t.prefijo)}">${esc(t.nombre)} (${esc(t.prefijo)})</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label>Unidad de medida *</label>
+              <select id="quickUnidad" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+                <option value="pieza">Pieza</option>
+                <option value="caja">Caja</option>
+                <option value="kg">Kilogramo</option>
+                <option value="litro">Litro</option>
+                <option value="paquete">Paquete</option>
+                <option value="par">Par</option>
+                <option value="juego">Juego</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row c2" style="gap:8px;margin-top:8px">
+            <div>
+              <label>Producto base *</label>
+              <input type="text" id="quickProductoBase" placeholder="Ej: PANT" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+            </div>
+            <div>
+              <label>Variante / presentación *</label>
+              <input type="text" id="quickVariante" placeholder="Ej: 30" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+            </div>
+          </div>
+          <div style="margin-top:8px">
+            <label>Nombre visible *</label>
+            <input type="text" id="quickNombre" placeholder="Nombre visible del producto" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          </div>
+          <div style="margin-top:8px;padding:8px;background:#0a0a0a;border-radius:4px;display:flex;align-items:center;gap:8px">
+            <small style="color:#999;white-space:nowrap">SKU generado:</small>
+            <div id="quickSkuPreview" style="font-family:monospace;font-weight:bold;color:#4ade80;font-size:15px">—</div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+            <button type="button" class="btn btn-secondary" id="btnCancelarProductoRapido">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btnGuardarProductoRapido">Crear y usar</button>
+          </div>
+        </div>
       </div>
 
       <div style="margin-bottom:12px">
@@ -396,7 +474,7 @@ function showWizardStep() {
 
       <table class="data-table">
         <thead>
-          <tr><th>Producto</th><th>Cantidad</th><th>Costo</th><th>Total</th></tr>
+          <tr><th>Producto</th><th>Lote</th><th>Cantidad</th><th>Costo</th><th>Total</th></tr>
         </thead>
         <tbody>
           ${wizardData.lineas.map(l => {
@@ -404,6 +482,7 @@ function showWizardStep() {
             return `
               <tr>
                 <td>${prod ? esc(prod.nombre) : '?'}</td>
+                <td>${l.lote ? `Lote: ${esc(l.lote)}` : 'Lote: —'}</td>
                 <td style="text-align:center">${l.cantidad}</td>
                 <td style="text-align:right">${fmtMoney(l.costo_unitario)}</td>
                 <td style="text-align:right;font-weight:bold">${fmtMoney(l.cantidad * l.costo_unitario)}</td>
@@ -467,7 +546,73 @@ function showWizardStep() {
     wrapperRec.appendChild(acBoxRec);
 
     const productosRec = getProductos();
+    const quickForm = document.getElementById('productoRapidoForm');
+    const quickSkuPreview = document.getElementById('quickSkuPreview');
+    const updateQuickSkuPreview = () => {
+      const sku = generarSKU(
+        document.getElementById('quickFamilia')?.value || '',
+        document.getElementById('quickProductoBase')?.value || '',
+        document.getElementById('quickVariante')?.value || ''
+      );
+      if (quickSkuPreview) quickSkuPreview.textContent = sku || '—';
+    };
+
+    document.getElementById('btnCrearProductoRapido')?.addEventListener('click', () => {
+      if (quickForm) quickForm.style.display = 'block';
+      document.getElementById('quickNombre')?.focus();
+    });
+    document.getElementById('btnCancelarProductoRapido')?.addEventListener('click', () => {
+      if (quickForm) quickForm.style.display = 'none';
+    });
+    ['quickFamilia', 'quickProductoBase', 'quickVariante'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', updateQuickSkuPreview);
+      document.getElementById(id)?.addEventListener('change', updateQuickSkuPreview);
+    });
+    document.getElementById('btnGuardarProductoRapido')?.addEventListener('click', () => {
+      const familia = document.getElementById('quickFamilia')?.value || '';
+      const productoBase = document.getElementById('quickProductoBase')?.value.trim() || '';
+      const variante = document.getElementById('quickVariante')?.value.trim() || '';
+      const nombre = document.getElementById('quickNombre')?.value.trim() || '';
+      const unidad = document.getElementById('quickUnidad')?.value || '';
+      const sku = generarSKU(familia, productoBase, variante);
+
+      if (!familia || !productoBase || !variante || !nombre || !unidad) {
+        notify('Completa familia, producto base, variante, nombre y unidad.', 'error');
+        return;
+      }
+      if (!sku) {
+        notify('No se pudo generar SKU para el producto.', 'error');
+        return;
+      }
+      if (getProductos().some(p => String(p.sku || '').toUpperCase() === sku.toUpperCase())) {
+        notify('SKU duplicado. Revisa el producto antes de guardar.', 'error');
+        return;
+      }
+
+      const producto = createProducto({
+        nombre,
+        categoria_id: getCategoriaIdForFamilia(familia),
+        descripcion: `Producto rápido desde recepción: ${productoBase} ${variante}`.trim(),
+        unidad,
+        tipo: familia === 'CON' ? 'consumible' : 'personal',
+        es_entregable: false,
+        es_por_variante: false,
+        stock_minimo: 0,
+        nivel_control: 3,
+      });
+      updateProducto(producto.id, { sku });
+      selectedProduct = { ...producto, sku };
+      productosRec.push(selectedProduct);
+      searchInput.value = selectedProduct.nombre;
+      searchInput.dataset.id = selectedProduct.id;
+      acBoxRec.innerHTML = '';
+      document.getElementById('prodList').innerHTML = `<div style="color:#4ade80;font-size:12px">Producto creado: ${esc(selectedProduct.nombre)} (${esc(sku)})</div>`;
+      if (quickForm) quickForm.style.display = 'none';
+      notify('Producto creado y seleccionado', 'success');
+    });
+
     searchInput.addEventListener('input', (e) => {
+      selectedProduct = null;
       const res = acFiltrar(productosRec, ['nombre', 'sku'], e.target.value);
       acBoxRec.innerHTML = res.map(p => `<div class="ac-item" data-id="${p.id}">${esc(p.nombre)} (${esc(p.sku || '')})</div>`).join('');
       document.getElementById('prodList').innerHTML = '';
@@ -511,15 +656,21 @@ function showWizardStep() {
       }
 
       const cantidad = parseInt(document.getElementById('cantidad').value || 0, 10);
-      const costo = parseFloat(document.getElementById('costoUnit').value || 0);
+      const costoValue = document.getElementById('costoUnit').value;
+      const costo = parseFloat(costoValue || 0);
 
-      if (cantidad <= 0 || costo <= 0) {
-        notify('Cantidad y costo deben ser mayores a cero', 'error');
+      if (cantidad <= 0) {
+        notify('Cantidad debe ser mayor a cero', 'error');
+        return;
+      }
+      if (!isCostoUnitarioValido(costoValue)) {
+        alertCostoUnitario();
         return;
       }
 
       wizardData.lineas.push({
         producto_id: selectedProduct.id,
+        lote: generarLoteFecha(),
         cantidad,
         costo_unitario: costo,
         foto_producto: wizardData.productoFoto || null,
@@ -551,6 +702,7 @@ function renderLineasList() {
         <div>
           <div style="font-weight:bold;font-size:13px">${prod ? esc(prod.nombre) : '?'}</div>
           <small style="color:#999">${l.cantidad} x ${fmtMoney(l.costo_unitario)} = ${fmtMoney(l.cantidad * l.costo_unitario)}</small>
+          <div style="color:#94a3b8;font-size:12px;margin-top:2px">Lote: ${esc(l.lote || '—')}</div>
         </div>
         <button type="button" class="btn-icon btn-danger" onclick="removeLineaWizard(${idx})"><i class="fas fa-trash"></i></button>
       </div>
@@ -623,7 +775,20 @@ function _attachRecepcionWizardListener() {
       const btn = e.target;
       btn.disabled = true;
       const entradaId = 'ent-' + Date.now();
-      const facturaData = document.getElementById('sinFactura')?.checked ? {} : { ...wizardData.factura };
+      const lineaSinCosto = wizardData.lineas.find(linea => !isCostoUnitarioValido(linea.costo_unitario));
+      if (lineaSinCosto) {
+        btn.disabled = false;
+        alertCostoUnitario();
+        return;
+      }
+      const nowISO = new Date().toISOString();
+      wizardData.fecha_hora = nowISO;
+      wizardData.fecha = nowISO;
+      wizardData.fechaRecepcion = nowISO;
+      const folioFactura = String(wizardData.factura?.folio || '').trim();
+      const facturaData = folioFactura
+        ? { ...wizardData.factura, folio: folioFactura, fecha: wizardData.factura.fecha || nowISO, estadoFactura: 'completa' }
+        : { folio: '', estadoFactura: 'pendiente' };
       if (facturaData.foto) {
         facturaData.foto = await persistEvidence(facturaData.foto, {
           tipo: 'foto',
@@ -649,7 +814,7 @@ function _attachRecepcionWizardListener() {
       const resultado = registrarEntrada({
         id: entradaId,
         proveedor: wizardData.proveedor,
-        fecha_hora: wizardData.fecha_hora,
+        fecha_hora: nowISO,
         factura_data: facturaData,
         lineas,
         observaciones: wizardData.observaciones,
@@ -734,7 +899,7 @@ function openDetalleEntrada(id) {
       <div style="overflow-x:auto">
       <table class="data-table">
         <thead>
-          <tr><th>Producto</th><th>Cantidad</th><th>Costo Unit.</th><th>Total</th></tr>
+          <tr><th>Producto</th><th>Lote</th><th>Cantidad</th><th>Costo Unit.</th><th>Total</th></tr>
         </thead>
         <tbody>
           ${lineas.map(l => {
@@ -742,6 +907,7 @@ function openDetalleEntrada(id) {
             return `
               <tr>
                 <td>${prod ? esc(prod.nombre) : '?'}</td>
+                <td>${l.lote ? `Lote: ${esc(l.lote)}` : 'Lote: —'}</td>
                 <td style="text-align:center">${l.cantidad}</td>
                 <td style="text-align:right">${fmtMoney(l.costo_unitario)}</td>
                 <td style="text-align:right;font-weight:bold">${fmtMoney(l.costo_total)}</td>

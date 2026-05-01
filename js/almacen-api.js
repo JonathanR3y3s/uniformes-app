@@ -5,7 +5,7 @@
  */
 
 import { getStore, saveProductos, saveCategorias, saveEntradas, saveLineasEntrada, saveEntregasNuevas, saveLineasEntrega, saveSalidasNuevas, saveLineasSalida, saveDevolucionesNuevas, saveLineasDevolucion, saveMovimientos } from './storage.js';
-import { genId } from './utils.js';
+import { generarLoteFecha } from './utils.js';
 import { getUser } from './user-roles.js';
 
 function _cloneAlmacenState(store) {
@@ -62,7 +62,7 @@ function _aplicarStock(producto, delta, variante_id = null, costo_unitario = 0) 
   const cantidad = Number(delta) || 0;
   const stock_antes = Number(target.stock_actual) || 0;
   const stock_despues = stock_antes + cantidad;
-  if (stock_despues < 0) return { ok: false, error: 'Stock insuficiente' };
+  if (stock_despues < 0) return { ok: false, error: `Stock insuficiente. Disponible: ${stock_antes}` };
 
   target.stock_actual = stock_despues;
 
@@ -365,7 +365,10 @@ export function registrarEntrada({ id: idOverride, proveedor, fecha_hora, factur
   for (const linea of lineas) {
     if (!linea.producto_id) return { ok: false, error: 'Línea sin producto' };
     if (!linea.cantidad || linea.cantidad <= 0) return { ok: false, error: 'Cantidad inválida' };
-    if (linea.costo_unitario == null) return { ok: false, error: 'Falta costo unitario' };
+    const costoUnitario = Number(linea.costo_unitario);
+    if (!Number.isFinite(costoUnitario) || costoUnitario <= 0) {
+      return { ok: false, error: 'Captura el costo unitario antes de guardar la recepción.' };
+    }
 
     const prod = store.productos.find(p => p.id === linea.producto_id);
     if (!prod) return { ok: false, error: 'Producto no encontrado: ' + linea.producto_id };
@@ -377,24 +380,30 @@ export function registrarEntrada({ id: idOverride, proveedor, fecha_hora, factur
   const snap = _cloneAlmacenState(store);
   const id = idOverride || 'ent-' + Date.now();
   const numero = nextNumeroEntrada();
-  const fechaRecepcion = new Date(fecha_hora || Date.now());
-  const fechaRecepcionISO = isNaN(fechaRecepcion.getTime()) ? new Date().toISOString() : fechaRecepcion.toISOString();
-  const fechaCreacionISO = new Date().toISOString();
+  const nowISO = new Date().toISOString();
+  const fechaRecepcionISO = nowISO;
+  const fechaCreacionISO = nowISO;
+  const facturaFolio = String(factura_data?.folio || '').trim();
+  const estadoFactura = facturaFolio ? 'completa' : 'pendiente';
   const entrada = {
     id,
     numero,
     fecha_hora: fechaRecepcionISO,
+    fecha: fechaRecepcionISO,
+    fechaRecepcion: fechaRecepcionISO,
     recibido_por: user?.name || 'Sistema',
     recibido_por_id: user?.id || 'system',
     proveedor,
-    factura_folio: factura_data?.folio || null,
-    factura_fecha: factura_data?.fecha || null,
-    factura_subtotal: factura_data?.subtotal || null,
-    factura_iva: factura_data?.iva || null,
-    factura_total: factura_data?.total || null,
+    factura: facturaFolio,
+    factura_folio: facturaFolio,
+    factura_fecha: facturaFolio ? (factura_data?.fecha || fechaRecepcionISO) : '',
+    factura_subtotal: facturaFolio ? (factura_data?.subtotal || 0) : 0,
+    factura_iva: facturaFolio ? (factura_data?.iva || 0) : 0,
+    factura_total: facturaFolio ? (factura_data?.total || 0) : 0,
     factura_foto: factura_data?.foto || null,
     observaciones: observaciones || '',
-    estado: factura_data?.folio ? 'completa' : 'pendiente_factura',
+    estadoFactura,
+    estado: estadoFactura === 'completa' ? 'completa' : 'pendiente_factura',
     creado_por: user?.name || 'Sistema',
     fecha_creacion: fechaCreacionISO,
   };
@@ -406,11 +415,13 @@ export function registrarEntrada({ id: idOverride, proveedor, fecha_hora, factur
       const cantidad = Number(linea.cantidad) || 0;
       const costo = Number(linea.costo_unitario) || 0;
       const linea_id = 'line-' + Date.now() + Math.random();
+      const lote = linea.lote || generarLoteFecha();
       const linea_obj = {
         id: linea_id,
         entrada_id: id,
         producto_id: linea.producto_id,
         variante_id: linea.variante_id || null,
+        lote,
         cantidad,
         costo_unitario: costo,
         costo_total: cantidad * costo,
@@ -455,6 +466,8 @@ export function completarFactura(entrada_id, factura_data) {
   entrada.factura_iva = factura_data.iva;
   entrada.factura_total = factura_data.total;
   entrada.factura_foto = factura_data.foto || null;
+  entrada.factura = factura_data.folio || '';
+  entrada.estadoFactura = 'completa';
   entrada.estado = 'completa';
 
   saveEntradas();
@@ -509,7 +522,7 @@ export function registrarEntregaNueva({ id: idOverride, empleado_id, empleado_no
 
     const stock_disponible = getStockDisponible(linea.producto_id, linea.variante_id || null);
     if (stock_disponible < linea.cantidad) {
-      return { ok: false, error: `Stock insuficiente en ${prod.nombre}` };
+      return { ok: false, error: `Stock insuficiente. Disponible: ${stock_disponible}` };
     }
   }
 
@@ -614,17 +627,14 @@ export function registrarSalida({ tipo, autorizado_por, motivo, lineas = [], obs
     const prod = store.productos.find(p => p.id === linea.producto_id);
     if (!prod) return { ok: false, error: 'Producto no encontrado' };
 
-    let stock_disponible = 0;
     if (linea.variante_id) {
       const var_obj = (prod.variantes || []).find(v => v.id === linea.variante_id);
       if (!var_obj) return { ok: false, error: 'Variante no encontrada' };
-      stock_disponible = var_obj.stock_actual || 0;
-    } else {
-      stock_disponible = prod.stock_actual || 0;
     }
+    const stock_disponible = getStockDisponible(linea.producto_id, linea.variante_id || null);
 
     if (stock_disponible < linea.cantidad) {
-      return { ok: false, error: `Stock insuficiente en ${prod.nombre}` };
+      return { ok: false, error: `Stock insuficiente. Disponible: ${stock_disponible}` };
     }
   }
 
@@ -821,7 +831,7 @@ export function registrarMerma({ producto_id, producto_nombre, cantidad, talla, 
 
   const stockDisponible = getStockDisponible(producto_id, variante_id || null);
   if (stockDisponible < cantidadNum) {
-    return { ok: false, error: 'Stock insuficiente para registrar merma' };
+    return { ok: false, error: `Stock insuficiente. Disponible: ${stockDisponible}` };
   }
 
   const timestamp = Date.now();
@@ -890,12 +900,12 @@ export function registrarMovimiento({ tipo, producto_id, producto_nombre, varian
   const targetResult = _getStockTarget(prod, variante_id);
   if (!targetResult.ok) return targetResult;
 
-  const stock_antes = Number(targetResult.target.stock_actual) || 0;
+  const stock_antes = getStockDisponible(producto_id, variante_id || null);
   const stock_despues = stock_antes + delta;
 
   // VALIDACIÓN CARDINAL: no permitir stock negativo
-  if (stock_despues < 0) {
-    return { ok: false, error: 'Stock insuficiente' };
+  if (delta < 0 && Math.abs(delta) > stock_antes) {
+    return { ok: false, error: `Stock insuficiente. Disponible: ${stock_antes}` };
   }
 
   // Crear movimiento
