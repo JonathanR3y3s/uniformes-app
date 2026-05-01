@@ -1,11 +1,9 @@
 import * as reportesGeneral from './reportes.js';
-import * as reportesAvanzados from './advanced-reports.js';
 import * as centroCostos from './centro-costos.js';
 import { destroyCharts } from './ui.js';
 
 const tabs = [
   { id: 'general', label: 'General', module: reportesGeneral },
-  { id: 'avanzados', label: 'Avanzados', module: reportesAvanzados },
   { id: 'centro-costos', label: 'Financiero Ejecutivo', module: centroCostos },
 ];
 
@@ -38,7 +36,7 @@ export function render() {
     <div class="page-head">
       <div class="page-title">
         <h1>Reportes</h1>
-        <p>Hub operativo, avanzado y financiero ejecutivo</p>
+        <p>Hub operativo y financiero ejecutivo</p>
       </div>
     </div>
     <div class="tabs mb-4" id="reportesHubTabs" style="display:flex;gap:8px;flex-wrap:wrap">

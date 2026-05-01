@@ -32,21 +32,14 @@ export const NAV=[
   {view:'dashboard',icon:'fa-chart-pie',label:'Dashboard'}
 ]},
 {id:'almacen',icon:'fa-warehouse',label:'Almacén',defaultView:'inventario',tabs:[
-  {view:'stock-uniformes',icon:'fa-chart-simple',label:'Resumen'},
   {view:'inventario',icon:'fa-boxes',label:'Inventario'},
   {view:'recepcion',icon:'fa-arrow-down',label:'Recepción'},
-  {view:'salidas-almacen',icon:'fa-arrow-up-from-bracket',label:'Salidas'},
-  {view:'categorias',icon:'fa-tags',label:'Categorías'},
-  {view:'proveedores',icon:'fa-truck',label:'Proveedores'},
-  {view:'inventario-sku',icon:'fa-barcode',label:'SKUs'}
+  {view:'proveedores',icon:'fa-truck',label:'Proveedores'}
 ]},
 {id:'entregas',icon:'fa-people-carry-box',label:'Entregas',defaultView:'entregas-personal',tabs:[
-  {view:'entregas',icon:'fa-list-check',label:'Resumen'},
   {view:'entregas-personal',icon:'fa-hand-holding-hand',label:'Nueva entrega'},
-  {view:'devoluciones',icon:'fa-rotate-left',label:'Devoluciones'},
-  {view:'dotacion',icon:'fa-box-open',label:'Dotación',condition:dotacionVisible},
-  {view:'entrega-sku',icon:'fa-barcode',label:'Entrega SKU'},
-  {view:'devolucion-sku',icon:'fa-right-left',label:'Devolución SKU'}
+  {view:'entregas',icon:'fa-list-check',label:'Historial'},
+  {view:'devoluciones',icon:'fa-rotate-left',label:'Devoluciones'}
 ]},
 {id:'personal',icon:'fa-users',label:'Personal',defaultView:'empleados',tabs:[
   {view:'empleados',icon:'fa-id-badge',label:'Empleados'},
@@ -55,7 +48,6 @@ export const NAV=[
 ]},
 {id:'reportes',icon:'fa-chart-bar',label:'Reportes',defaultView:'reportes',tabs:[
   {view:'reportes',icon:'fa-chart-line',label:'General'},
-  {view:'advanced-reports',icon:'fa-chart-column',label:'Avanzados'},
   {view:'centro-costos',icon:'fa-coins',label:'Centro de Costos'},
   {view:'export-auditoria',icon:'fa-file-export',label:'Auditoría',roles:['admin']},
   {view:'bitacora',icon:'fa-clock-rotate-left',label:'Bitácora',roles:['admin']}
