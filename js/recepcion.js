@@ -318,17 +318,21 @@ function showWizardStep() {
   let stepLabel = '';
 
   if (currentStep === 1) {
-    // Paso 1: Proveedor
+    // Paso 1: Proveedor — catálogo formal
     stepLabel = 'Proveedor (Paso 1/4)';
-    const proveedoresHistorico = [...new Set(getStore().entradas.map(e => e.proveedor).filter(Boolean))];
+    let catalogo = [];
+    try { catalogo = JSON.parse(localStorage.getItem('_cats_provs')||'[]'); } catch(e) { catalogo = []; }
 
     body = `
       <div>
         <label>Proveedor *</label>
-        <input type="text" id="prov" list="proveedoresList" value="${esc(wizardData.proveedor)}" placeholder="Nombre del proveedor" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
-        <datalist id="proveedoresList">
-          ${proveedoresHistorico.map(p => `<option value="${esc(p)}">`).join('')}
-        </datalist>
+        <select id="provSel" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          <option value="">— Selecciona del catálogo —</option>
+          <option value="__pendiente__">⚠ Proveedor pendiente (sin asignar)</option>
+          ${catalogo.map(c => `<option value="${esc(c.nombre)}" data-id="${esc(c.id)}" ${wizardData.proveedor===c.nombre?'selected':''}>${esc(c.nombre)}${c.rfc?' · RFC '+esc(c.rfc):''}</option>`).join('')}
+        </select>
+        <input type="hidden" id="prov" value="${esc(wizardData.proveedor)}">
+        <p class="text-xs" style="color:#999;margin-top:6px">Si el proveedor no está, ve a Proveedores → Nuevo, o marca pendiente.</p>
       </div>
       <div style="margin-top:12px">
         <label>Observaciones</label>
@@ -498,9 +502,16 @@ function showWizardStep() {
 
   // Conectar eventos dinámicos según el paso
   if (currentStep === 1) {
-    document.getElementById('prov').addEventListener('blur', () => {
-      wizardData.proveedor = document.getElementById('prov').value;
-    });
+    const provSelEl = document.getElementById('provSel');
+    const provHidden = document.getElementById('prov');
+    if (provSelEl) {
+      provSelEl.addEventListener('change', () => {
+        const v = provSelEl.value;
+        const finalV = v === '__pendiente__' ? 'PENDIENTE' : v;
+        if (provHidden) provHidden.value = finalV;
+        wizardData.proveedor = finalV;
+      });
+    }
   } else if (currentStep === 2) {
     document.getElementById('sinFactura').addEventListener('change', (e) => {
       document.getElementById('facturaSection').style.display = e.target.checked ? 'none' : 'block';

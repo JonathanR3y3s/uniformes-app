@@ -375,26 +375,40 @@ function openNuevaEntrega() {
         const acBox = document.createElement('div');
         acBox.className = 'ac-box';
         empInput.parentNode.appendChild(acBox);
-        empInput.addEventListener('input', (e) => {
+        const buscarEmp = (q) => {
+          const txt = (q || '').toLowerCase().trim();
           datos.empleado_id = '';
           datos.empleado_nombre = '';
           empInput.dataset.id = '';
-          const res = acFiltrar(getStore().employees, ['nombre', 'numero'], e.target.value);
-          acBox.innerHTML = res.map(emp => `<div class="ac-item" data-id="${emp.id}">${esc(emp.nombre)} (${esc(emp.numero || '')})</div>`).join('');
-        });
+          if (!txt) { acBox.innerHTML = ''; return; }
+          const res = getStore().employees.filter(emp => {
+            if (emp.estado && emp.estado !== 'activo') return false;
+            const full = ((emp.nombre||'')+' '+(emp.paterno||'')+' '+(emp.materno||'')).toLowerCase();
+            const num = String(emp.numero_empleado||emp.numero||emp.id||'').toLowerCase();
+            return full.includes(txt) || num.includes(txt);
+          }).slice(0, 12);
+          acBox.innerHTML = res.map(emp => {
+            const nomFull = [emp.nombre,emp.paterno,emp.materno].filter(Boolean).join(' ');
+            const num = emp.numero_empleado||emp.numero||emp.id;
+            return `<div class="ac-item" data-id="${esc(emp.id)}">#${esc(num)} — ${esc(nomFull)}</div>`;
+          }).join('');
+        };
+        empInput.addEventListener('input', (e) => buscarEmp(e.target.value));
+        empInput.addEventListener('change', (e) => buscarEmp(e.target.value));
         acBox.addEventListener('click', (e) => {
           const el = e.target.closest('.ac-item');
           if (!el) return;
-          const emp = getStore().employees.find(x => x.id == el.dataset.id);
+          const emp = getStore().employees.find(x => String(x.id) === String(el.dataset.id));
           if (!emp) return;
-          empInput.value = emp.nombre;
+          const nomFull = [emp.nombre,emp.paterno,emp.materno].filter(Boolean).join(' ');
+          empInput.value = nomFull;
           empInput.dataset.id = emp.id;
           datos.empleado_id = emp.id;
-          datos.empleado_nombre = emp.nombre;
-          datos.quien_recibe = emp.nombre;
+          datos.empleado_nombre = nomFull;
+          datos.quien_recibe = nomFull;
           datos.area = emp.area || '';
           const tallasInfo = document.getElementById('tallasInfo');
-          if (tallasInfo) tallasInfo.textContent = emp.tallas ? Object.keys(emp.tallas).join(', ') : 'Ninguna';
+          if (tallasInfo) tallasInfo.textContent = emp.tallas ? Object.entries(emp.tallas).map(([k,v])=>k+':'+v).join(', ') : 'Ninguna';
           acBox.innerHTML = '';
         });
       }
@@ -657,11 +671,15 @@ function openNuevaEntrega() {
 
   detachEntregasWizardHandler();
   _entregasWizardHandler = async (e) => {
-    if (e.target.id === 'btnAnt') {
+    const btnAnt = e.target.closest && e.target.closest('#btnAnt');
+    const btnSig = e.target.closest && e.target.closest('#btnSig');
+    const btnGua = e.target.closest && e.target.closest('#btnGuardar');
+    if (btnAnt) {
       if (paso > 1) paso--;
       showPaso();
+      return;
     }
-    if (e.target.id === 'btnSig') {
+    if (btnSig) {
       if (paso === 3 && datos.lineas.length === 0) {
         notify('Agrega al menos un artículo', 'warning');
         return;
@@ -703,9 +721,10 @@ function openNuevaEntrega() {
       }
       if (paso < 4) paso++;
       showPaso();
+      return;
     }
-    if (e.target.id === 'btnGuardar') {
-      const btn = e.target;
+    if (btnGua) {
+      const btn = btnGua;
       // Capturar firma obligatoria antes de registrar
       const signCanvas = document.getElementById('signaturePad');
       if (!signCanvas || !canvasTieneFirma(signCanvas)) {

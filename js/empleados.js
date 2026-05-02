@@ -88,7 +88,11 @@ function filterEmp(){
   const list=getStore().employees.filter(e=>{
     if(fa&&e.area!==fa)return false;
     if(fe&&normEstado(e.estado)!==fe)return false;
-    if(q&&!((e.nombre||'').toLowerCase().includes(q)||(e.paterno||'').toLowerCase().includes(q)||e.id.includes(q)))return false;
+    if(q){
+      const full=((e.nombre||'')+' '+(e.paterno||'')+' '+(e.materno||'')).toLowerCase();
+      const num=String(e.numero_empleado||e.id||'').toLowerCase();
+      if(!(full.includes(q)||num.includes(q)||(e.puesto||'').toLowerCase().includes(q)))return false;
+    }
     const cap=verificarCaptura(e);
     const baja=['baja','movimiento','incapacidad','incapacitado'].includes(e.estado);
     if(fc==='capturado'&&!cap)return false;
@@ -121,41 +125,113 @@ function filterEmp(){
   if(more)more.style.display=list.length>empVisibleLimit?'inline-flex':'none';
 }
 
+const TIPOS_LABORAL=['Planta','Sindicalizado','Externo','Administrativo','Seguridad'];
+const PERFILES_DOTACION=[
+  {id:'OPERATIVO',label:'Operativo',tallas:['pantalon','camisa','chamarra','calzado','guantes']},
+  {id:'SEGURIDAD',label:'Seguridad',tallas:['pantalon','camisa','chamarra','calzado','guantes']},
+  {id:'SERVICIOS',label:'Servicios',tallas:['pantalon','camisa','calzado']},
+  {id:'MANTENIMIENTO',label:'Mantenimiento',tallas:['pantalon','camisa','chamarra','calzado','guantes']},
+  {id:'ADMINISTRATIVO',label:'Administrativo',tallas:['camisa']}
+];
+const TALLAS_DEFS={
+  pantalon:{label:'Pantalón',opts:['28','30','32','34','36','38','40','42','44']},
+  camisa:{label:'Camisa / Camisola',opts:['CH','S','M','L','XL','XXL','XXXL']},
+  chamarra:{label:'Chamarra',opts:['CH','S','M','L','XL','XXL','XXXL']},
+  calzado:{label:'Calzado',opts:['24','24.5','25','25.5','26','26.5','27','27.5','28','28.5','29','30']},
+  guantes:{label:'Guantes',opts:['CH','M','G','XG','UNITALLA']}
+};
+
+function _renderTallasSection(perfilId){
+  const perf=PERFILES_DOTACION.find(p=>p.id===perfilId);
+  if(!perf)return'<p class="text-xs text-muted">Selecciona un perfil de dotación para mostrar las tallas.</p>';
+  let h='<div class="form-row c2">';
+  perf.tallas.forEach(k=>{
+    const def=TALLAS_DEFS[k];if(!def)return;
+    h+='<div class="form-group"><label class="form-label">'+esc(def.label)+'</label><select class="form-select" data-talla="'+esc(k)+'" id="neTalla_'+esc(k)+'"><option value="">— Seleccionar —</option>'+def.opts.map(o=>'<option value="'+esc(o)+'">'+esc(o)+'</option>').join('')+'</select></div>';
+  });
+  h+='</div>';
+  return h;
+}
+
 export function openNewEmp(){
   const areas=getAreaNames();
   const tipos=getDotacionTipos();
   const tipoSelectHtml=tipos.length
-    ?'<div class="form-group"><label class="form-label">Tipo de dotación</label><select class="form-select" id="neTipo"><option value="">Sin asignar</option>'+tipos.map(t=>'<option value="'+esc(t.id)+'">'+esc(t.nombre)+'</option>').join('')+'</select></div>'
-    :'<div class="form-group"><label class="form-label">Tipo de dotación</label><select class="form-select" id="neTipo" disabled><option value="">Sin asignar</option></select><p class="text-xs text-muted mt-1">No hay tipos configurados. Créalos en Dotación → Kits.</p></div>';
-  const body='<div class="form-row c2">'
-    +'<div class="form-group"><label class="form-label">ID (opcional)</label><input class="form-input" id="neId" placeholder="Se genera automáticamente"></div>'
-    +'<div class="form-group"><label class="form-label">Área *</label><select class="form-select" id="neArea">'+areas.map(a=>'<option>'+a+'</option>').join('')+'</select></div>'
-    +tipoSelectHtml
+    ?'<div class="form-group"><label class="form-label">Tipo de dotación (kit)</label><select class="form-select" id="neTipo"><option value="">Sin asignar</option>'+tipos.map(t=>'<option value="'+esc(t.id)+'">'+esc(t.nombre)+'</option>').join('')+'</select></div>'
+    :'<div class="form-group"><label class="form-label">Tipo de dotación (kit)</label><select class="form-select" id="neTipo" disabled><option value="">Sin asignar</option></select><p class="text-xs text-muted mt-1">No hay kits configurados aún.</p></div>';
+  const body=''
+    +'<div class="divider-label">Datos básicos</div>'
+    +'<div class="form-row c2 mt-2">'
+    +'<div class="form-group"><label class="form-label">Número de empleado *</label><input class="form-input" id="neId" placeholder="Ej: 91001" autocomplete="off"></div>'
+    +'<div class="form-group"><label class="form-label">Estado</label><select class="form-select" id="neEst"><option value="activo">Activo</option><option value="baja">Baja</option><option value="movimiento">Movimiento</option><option value="incapacidad">Incapacidad</option></select></div>'
     +'<div class="form-group"><label class="form-label">Nombre(s) *</label><input class="form-input" id="neNom" placeholder="Nombre(s)"></div>'
     +'<div class="form-group"><label class="form-label">Apellido Paterno</label><input class="form-input" id="nePat"></div>'
     +'<div class="form-group"><label class="form-label">Apellido Materno</label><input class="form-input" id="neMat"></div>'
-    +'<div class="form-group"><label class="form-label">Estado</label><select class="form-select" id="neEst"><option value="activo">Activo</option><option value="baja">Baja</option><option value="movimiento">Movimiento</option><option value="incapacidad">Incapacidad</option></select></div>'
-    +'</div>';
-  modal.open('Nuevo empleado',body,'<button class="btn btn-ghost" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSaveNew"><i class="fas fa-save"></i> Guardar</button>');
+    +'<div class="form-group"><label class="form-label">Puesto *</label><input class="form-input" id="nePuesto" placeholder="Ej: Operador, Supervisor..."></div>'
+    +'</div>'
+    +'<div class="divider-label mt-3">Asignación organizacional</div>'
+    +'<div class="form-row c2 mt-2">'
+    +'<div class="form-group"><label class="form-label">Área *</label><select class="form-select" id="neArea">'+areas.map(a=>'<option>'+a+'</option>').join('')+'</select></div>'
+    +'<div class="form-group"><label class="form-label">Tipo laboral *</label><select class="form-select" id="neTipoLaboral">'+TIPOS_LABORAL.map(t=>'<option value="'+t+'">'+t+'</option>').join('')+'</select></div>'
+    +'<div class="form-group"><label class="form-label">Perfil de dotación *</label><select class="form-select" id="nePerfil"><option value="">— Selecciona —</option>'+PERFILES_DOTACION.map(p=>'<option value="'+p.id+'">'+p.label+'</option>').join('')+'</select></div>'
+    +tipoSelectHtml
+    +'</div>'
+    +'<div class="divider-label mt-3">Tallas según perfil</div>'
+    +'<div id="neTallasBox" class="mt-2"><p class="text-xs text-muted">Selecciona un perfil de dotación para mostrar las tallas.</p></div>';
+  modal.open('Nuevo empleado',body,'<button class="btn btn-ghost" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSaveNew"><i class="fas fa-save"></i> Guardar</button>','lg');
   document.getElementById('mCancel').addEventListener('click',()=>modal.close());
   document.getElementById('mSaveNew').addEventListener('click',saveNewEmp);
-  setTimeout(()=>document.getElementById('neNom')?.focus(),100);
+  document.getElementById('nePerfil').addEventListener('change',function(){
+    const box=document.getElementById('neTallasBox');
+    if(box)box.innerHTML=_renderTallasSection(this.value);
+  });
+  setTimeout(()=>document.getElementById('neId')?.focus(),100);
 }
 
 function saveNewEmp(){
   const nom=(document.getElementById('neNom')?.value||'').trim();
   if(!nom){notify('El nombre es obligatorio','warning');return;}
   const id=(document.getElementById('neId')?.value||'').trim()||genId();
-  if(getStore().employees.some(e=>e.id===id)){notify('Ese ID ya existe','error');return;}
+  if(getStore().employees.some(e=>String(e.id)===String(id))){notify('Ese número de empleado ya existe','error');return;}
+  const puesto=(document.getElementById('nePuesto')?.value||'').trim();
+  if(!puesto){notify('El puesto es obligatorio','warning');return;}
+  const tipoLaboral=(document.getElementById('neTipoLaboral')?.value||'').trim();
+  const perfilSel=(document.getElementById('nePerfil')?.value||'').trim();
+  if(!perfilSel){notify('Selecciona un perfil de dotación','warning');return;}
   const tipoId=(document.getElementById('neTipo')?.value||'').trim();
   const tipoHist=[];
   if(tipoId){
     const t=getDotacionTipos().find(x=>x.id===tipoId);
-    tipoHist.push({tipo_id:tipoId,tipo_nombre:t?t.nombre:tipoId,fecha:new Date().toISOString().slice(0,10),motivo:'Cambio manual'});
+    tipoHist.push({tipo_id:tipoId,tipo_nombre:t?t.nombre:tipoId,fecha:new Date().toISOString().slice(0,10),motivo:'Alta empleado'});
   }
-  getStore().employees.push({id,nombre:nom,paterno:(document.getElementById('nePat')?.value||'').trim(),materno:(document.getElementById('neMat')?.value||'').trim(),area:document.getElementById('neArea')?.value||'PLANTA',estado:document.getElementById('neEst')?.value||'activo',tallas:{},perfilDotacion:'AUTO',foto:null,tipo_dotacion:tipoId,tipo_historial:tipoHist,baja:null});
+  // Recopilar tallas según perfil
+  const tallas={};
+  document.querySelectorAll('#neTallasBox select[data-talla]').forEach(sel=>{
+    const k=sel.dataset.talla;const v=(sel.value||'').trim();
+    if(k&&v)tallas[k]=normTalla(v)||v;
+  });
+  const areaSel=document.getElementById('neArea')?.value||'PLANTA';
+  getStore().employees.push({
+    id,
+    numero_empleado:id,
+    nombre:nom,
+    paterno:(document.getElementById('nePat')?.value||'').trim(),
+    materno:(document.getElementById('neMat')?.value||'').trim(),
+    area:areaSel,
+    puesto,
+    tipo_laboral:tipoLaboral,
+    perfilDotacion:perfilSel,
+    estado:document.getElementById('neEst')?.value||'activo',
+    tallas,
+    capturadoManual:Object.keys(tallas).length>0,
+    foto:null,
+    tipo_dotacion:tipoId,
+    tipo_historial:tipoHist,
+    baja:null,
+    createdAt:new Date().toISOString()
+  });
   saveEmployees();
-  log('ALTA',nom+' (#'+id+')');
+  log('ALTA',nom+' (#'+id+') área:'+areaSel+' puesto:'+puesto+' perfil:'+perfilSel);
   modal.close();
   notify('Empleado registrado','success');
   filterEmp();

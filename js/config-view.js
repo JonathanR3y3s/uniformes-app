@@ -85,11 +85,30 @@ function row(label,val){return`<div style="display:flex;justify-content:space-be
 
 export function render(){return renderPage();}
 
+function _confirmTextoModal(titulo,mensaje,palabra){
+  return new Promise(resolve=>{
+    const body='<div style="padding:6px 0"><p class="text-sm" style="margin-bottom:12px">'+mensaje+'</p>'
+      +'<p class="text-xs text-muted" style="margin-bottom:8px">Para confirmar, escribe <strong>'+palabra+'</strong> en el campo:</p>'
+      +'<input type="text" id="confirmTxtInput" class="form-input" autocomplete="off" placeholder="'+palabra+'" style="font-size:16px;letter-spacing:.05em">'
+      +'</div>';
+    const foot='<button class="btn btn-ghost" id="confirmTxtCancel">Cancelar</button>'
+      +'<button class="btn btn-danger" id="confirmTxtOk"><i class="fas fa-check mr-1"></i>Confirmar</button>';
+    modal.open(titulo,body,foot);
+    setTimeout(()=>document.getElementById('confirmTxtInput')?.focus(),120);
+    const finish=(ok)=>{modal.close();resolve(ok);};
+    document.getElementById('confirmTxtCancel')?.addEventListener('click',()=>finish(false));
+    document.getElementById('confirmTxtOk')?.addEventListener('click',()=>{
+      const v=(document.getElementById('confirmTxtInput')?.value||'').trim();
+      if(v!==palabra){notify('Texto incorrecto. Operación cancelada.','warning');finish(false);return;}
+      finish(true);
+    });
+    document.getElementById('confirmTxtInput')?.addEventListener('keypress',e=>{if(e.key==='Enter')document.getElementById('confirmTxtOk')?.click();});
+  });
+}
+
 async function doResetPruebas(){
-  if(window.prompt('Escribe BORRAR para reiniciar datos de prueba')!=='BORRAR'){
-    notify('Operación cancelada','info');
-    return;
-  }
+  const ok=await _confirmTextoModal('Reiniciar datos operativos','Esta acción borra inventario, recepciones, entregas, devoluciones, mermas y movimientos locales. NO borra empleados, usuarios ni configuración. Genera un respaldo automático antes de borrar.','BORRAR');
+  if(!ok){notify('Operación cancelada','info');return;}
   const s=getStore();
   const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,16);
   const backup={
@@ -195,19 +214,21 @@ async function updatePWA(){
   }
 }
 
+async function _doFullClear(){
+  const ok=await _confirmTextoModal('Borrar TODOS los datos','Esta acción no se puede deshacer. Exporta un respaldo primero. Borrará empleados, proveedores, inventario, entregas, salidas, compras y todo el sistema.','CONFIRMAR');
+  if(!ok){notify('Cancelado','info');return;}
+  const s=getStore();
+  s.employees=[];s.proveedores=[];s.inventario=[];s.entregas=[];s.salidas=[];s.stockExtra={};s.comprasAlmacen=[];s.campanias=[];s.stockUniformes=[];s.encuestas=[];
+  saveEmployees();saveProveedores();saveEntregas();saveSalidas();saveStockExtra();
+  import('./storage.js').then(m=>{m.saveCampanias?.();m.saveStockUniformes?.();m.saveEncuestas?.();});
+  log('RESET','Todos los datos eliminados','CONFIG');
+  notify('Todos los datos han sido eliminados','warning');
+  setTimeout(()=>location.reload(),800);
+}
+
 function handleConfigClick(e){
   if(e.target.closest('#cfgUpdatePWA')){updatePWA();return;}
-  if(e.target.closest('#cfgClear')){
-    if(!confirm('¿Borrar TODOS los datos?\nNo se puede deshacer.\nExporta un respaldo primero.'))return;
-    if(window.prompt('Escribe CONFIRMAR para continuar')!=='CONFIRMAR'){notify('Cancelado','info');return;}
-    const s=getStore();
-    s.employees=[];s.proveedores=[];s.inventario=[];s.entregas=[];s.salidas=[];s.stockExtra={};s.comprasAlmacen=[];s.campanias=[];s.stockUniformes=[];s.encuestas=[];
-    saveEmployees();saveProveedores();saveEntregas();saveSalidas();saveStockExtra();
-    import('./storage.js').then(m=>{m.saveCampanias?.();m.saveStockUniformes?.();m.saveEncuestas?.();});
-    log('RESET','Todos los datos eliminados','CONFIG');
-    notify('Todos los datos han sido eliminados','warning');
-    location.reload();
-  }
+  if(e.target.closest('#cfgClear')){_doFullClear();return;}
   if(e.target.closest('#cfgBackup'))doBackup();
   if(e.target.closest('#cfgResetPruebas')){doResetPruebas();return;}
   if(e.target.closest('#cfgV2Backup')){doV2Backup();return;}

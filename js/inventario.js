@@ -570,11 +570,14 @@ function openNuevoProducto() {
             <input type="text" id="formVariantePres" placeholder="Ej: 30" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
           </div>
         </div>
-        <div style="margin-top:8px">
-          <label>SKU manual (opcional)</label>
-          <input type="text" id="formSKUManual" placeholder="Dejar vacío para auto-generar" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
-        </div>
-        <div style="margin-top:8px;padding:8px;background:#0a0a0a;border-radius:4px;display:flex;align-items:center;gap:8px">
+        ${role === 'admin' ? `
+        <details style="margin-top:8px">
+          <summary style="cursor:pointer;font-size:11px;color:#999">Avanzado · SKU manual (solo admin)</summary>
+          <div style="margin-top:6px">
+            <input type="text" id="formSKUManual" placeholder="Dejar vacío para auto-generar" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1f1f1f;color:#fff">
+          </div>
+        </details>` : '<input type="hidden" id="formSKUManual" value="">'}
+        <div style="margin-top:8px;padding:10px;background:#0a0a0a;border-radius:4px;display:flex;align-items:center;gap:8px">
           <small style="color:#999;white-space:nowrap">SKU generado:</small>
           <div id="skuPreview" style="font-family:monospace;font-weight:bold;color:#4ade80;font-size:15px">—</div>
         </div>
@@ -686,11 +689,22 @@ function openNuevoProducto() {
     const variantePres = document.getElementById('formVariantePres')?.value || '';
     const skuFinal = manualSKU || generarSKU(familiaPref, prodBaseVal, variantePres);
 
+    if (!skuFinal) {
+      notify('No se pudo generar el SKU. Revisa familia y producto base.', 'warning');
+      return;
+    }
     // Validar duplicado
-    if (skuFinal) {
-      const todosProductos = getProductos();
-      if (todosProductos.some(p => p.sku === skuFinal)) {
-        notify('SKU duplicado. Revisa el producto antes de guardar.', 'error');
+    const todosProductos = getProductos();
+    if (todosProductos.some(p => p.sku === skuFinal)) {
+      notify('SKU duplicado: '+skuFinal+'. Cambia familia/variante.', 'error');
+      return;
+    }
+
+    // Validar variantes ANTES de crear producto
+    if (varianteVal) {
+      const variantesPrev = document.querySelectorAll('#variantesList > div');
+      if (variantesPrev.length === 0) {
+        notify('Agrega al menos una variante antes de guardar', 'warning');
         return;
       }
     }

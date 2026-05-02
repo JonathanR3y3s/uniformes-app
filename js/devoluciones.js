@@ -375,26 +375,39 @@ function openNuevaDevolucion() {
       let selectedProd = null;
       let selectedLineaEntrega = null;
 
-      document.getElementById('searchProd')?.addEventListener('keyup', (e) => {
-        const q = e.target.value.toLowerCase();
+      const _doProdSearch = (rawQ) => {
+        const q = String(rawQ||'').toLowerCase().trim();
         const source = productosEntregados.length ? productosEntregados : productos.map(p => ({ producto: p, linea: null, label: `${p.nombre} (${p.sku || ''})` }));
-        const filtered = source.filter(item => item.label.toLowerCase().includes(q) || (item.producto.sku || '').toLowerCase().includes(q)).slice(0, 10);
+        const filtered = q
+          ? source.filter(item => item.label.toLowerCase().includes(q) || (item.producto.sku || '').toLowerCase().includes(q)).slice(0, 12)
+          : source.slice(0, 12);
         let html = '';
         filtered.forEach((item, idx) => {
           html += `<div class="prod-item" style="cursor:pointer;padding:6px;background:#1f1f1f;border-radius:4px;margin-bottom:4px;font-size:13px" data-prod-idx="${idx}"><strong>${esc(item.label)}</strong></div>`;
         });
-        document.getElementById('prodList').innerHTML = html;
+        const list = document.getElementById('prodList');
+        if (list) list.innerHTML = html;
 
         document.querySelectorAll('.prod-item').forEach(item => {
           item.addEventListener('click', () => {
             const selected = filtered[Number(item.dataset.prodIdx)];
             selectedProd = selected?.producto || null;
             selectedLineaEntrega = selected?.linea || null;
-            document.getElementById('searchProd').value = selected ? selected.label : '';
-            document.getElementById('prodList').innerHTML = '';
+            const sp = document.getElementById('searchProd');
+            if (sp) sp.value = selected ? selected.label : '';
+            const pl = document.getElementById('prodList');
+            if (pl) pl.innerHTML = '';
           });
         });
-      });
+      };
+
+      const sp = document.getElementById('searchProd');
+      if (sp) {
+        sp.addEventListener('input', (e) => _doProdSearch(e.target.value));
+        sp.addEventListener('keyup', (e) => _doProdSearch(e.target.value));
+        sp.addEventListener('change', (e) => _doProdSearch(e.target.value));
+        sp.addEventListener('focus', (e) => _doProdSearch(e.target.value));
+      }
 
       document.getElementById('btnAgregar')?.addEventListener('click', () => {
         if (!selectedProd) {
@@ -501,11 +514,15 @@ function openNuevaDevolucion() {
 
   detachDevolucionesWizardHandler();
   _devolucionesWizardHandler = async (e) => {
-    if (e.target.id === 'btnAnt') {
+    const btnAnt = e.target.closest && e.target.closest('#btnAnt');
+    const btnSig = e.target.closest && e.target.closest('#btnSig');
+    const btnGuardar = e.target.closest && e.target.closest('#btnGuardar');
+    if (btnAnt) {
       if (paso > 1) paso--;
       showPaso();
+      return;
     }
-    if (e.target.id === 'btnSig') {
+    if (btnSig) {
       if (paso === 1 && !datos.entrega_original_id && !datos.devolucion_sin_entrega_original) {
         notify('Selecciona entrega original o marca la excepción', 'warning');
         return;
@@ -532,8 +549,9 @@ function openNuevaDevolucion() {
       }
       if (paso < 4) paso++;
       showPaso();
+      return;
     }
-    if (e.target.id === 'btnGuardar') {
+    if (btnGuardar) {
       const signCanvas = document.getElementById('signaturePad');
       if (!signCanvas || !canvasTieneFirma(signCanvas)) {
         notify('La firma es obligatoria para confirmar la devolución.', 'error');
