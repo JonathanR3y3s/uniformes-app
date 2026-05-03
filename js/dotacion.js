@@ -1591,6 +1591,7 @@ let _entregaState={
   empleado:null,
   captura:null,
   productos:[],
+  registroExistente:null,
   signatureCanvas:null,
   signatureCtx:null,
   signatureDrawing:false,
@@ -1632,10 +1633,10 @@ function renderEntregaMasiva(){
   h+='</div></div>';
   h+='<div class="grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">';
   [
-    ['Entregados',stats.entregados],
-    ['Total',stats.total],
-    ['Pendientes',stats.pendientes],
-    ['Entregas hoy',stats.hoy]
+    ['Completos',stats.entregados],
+    ['Parciales',stats.parciales],
+    ['Sin entrega',stats.pendientes],
+    ['Hoy',stats.hoy]
   ].forEach(([label,value])=>{
     h+='<div class="card" style="margin:0;background:#f8fafc"><div class="card-body" style="padding:12px">';
     h+='<div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700">'+esc(label)+'</div>';
@@ -1708,25 +1709,39 @@ function renderEntregaFicha(){
   }
   const dot=dotacionEntregaSeleccionada();
   const tipo=findTipo(emp.tipo_dotacion);
+  const esParcial=!!_entregaState.registroExistente;
   const seleccionados=_entregaState.productos.filter(p=>p.surtido);
   let h='<div class="card" style="background:#f8fafc;margin:0"><div class="card-body">';
   h+='<div class="flex justify-between items-start gap-3" style="flex-wrap:wrap">';
   h+='<div><h3 style="margin:0 0 4px;font-size:17px">#'+esc(emp.id)+' '+esc(nombreEmpleado(emp))+'</h3>';
   h+='<div class="text-sm text-muted">Dotación: <strong>'+esc(dot?.nombre||'—')+'</strong> &nbsp;·&nbsp; Tipo: <strong>'+esc(tipo?.nombre||emp.tipo_dotacion||'—')+'</strong> &nbsp;·&nbsp; Área: <strong>'+esc(emp.area||'—')+'</strong></div></div>';
+  h+='<div class="flex gap-2" style="align-items:center">';
+  if(esParcial)h+='<span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-size:11px">Entrega complementaria</span>';
   h+='<span class="badge badge-info">'+seleccionados.length+'/'+_entregaState.productos.length+' seleccionados</span>';
-  h+='</div>';
+  h+='</div></div>';
   h+='<div class="mt-4 flex gap-2" style="flex-wrap:wrap">';
   h+='<button class="btn btn-ghost btn-sm" id="entTodos"><i class="fas fa-check-double"></i> Marcar todos</button>';
   h+='<button class="btn btn-ghost btn-sm" id="entNinguno"><i class="fas fa-times"></i> Desmarcar</button>';
   h+='</div>';
+  if(esParcial){
+    h+='<div class="mt-2" style="font-size:12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:6px 10px;color:#92400e">Mostrando solo prendas pendientes de entrega anterior.</div>';
+  }
   h+='<div class="mt-3" style="display:grid;gap:8px">';
   _entregaState.productos.forEach((p,idx)=>{
+    const sinStock=p.stock_disp<=0;
     const stockColor=p.stock_disp>=p.cantidad?'#059669':(p.stock_disp>0?'#b45309':'#dc2626');
-    h+='<label style="display:grid;grid-template-columns:28px 1fr 90px 90px;gap:8px;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:8px;cursor:pointer">';
-    h+='<input type="checkbox" class="ent-prod-check" data-idx="'+idx+'" '+(p.surtido?'checked':'')+'>';
+    const cols=esParcial?'28px 1fr 72px 72px 72px 88px':'28px 1fr 90px 90px';
+    h+='<label style="display:grid;grid-template-columns:'+cols+';gap:8px;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:8px;cursor:'+(sinStock?'default':'pointer')+'">';
+    h+='<input type="checkbox" class="ent-prod-check" data-idx="'+idx+'" '+(p.surtido?'checked':'')+(sinStock?' disabled':'')+' >';
     h+='<span><strong>'+esc(p.nombre)+'</strong><div class="text-xs text-muted">Talla: '+esc(p.talla||'Única')+(p.variante_id?' · stock por talla':'')+'</div></span>';
-    h+='<span class="text-sm" style="text-align:right">Cant. <strong>'+p.cantidad+'</strong></span>';
-    h+='<span class="text-sm" style="text-align:right;color:'+stockColor+'">Stock <strong>'+p.stock_disp+'</strong></span>';
+    if(esParcial){
+      h+='<span class="text-xs text-muted" style="text-align:right">Asig.<br><strong>'+Number(p.cantidad_asignada||p.cantidad)+'</strong></span>';
+      h+='<span class="text-xs" style="text-align:right;color:#6b7280">Entregado<br><strong>'+Number(p.cantidad_entregada||0)+'</strong></span>';
+      h+='<span class="text-sm" style="text-align:right">Pend.<br><strong>'+p.cantidad+'</strong></span>';
+    }else{
+      h+='<span class="text-sm" style="text-align:right">Cant. <strong>'+p.cantidad+'</strong></span>';
+    }
+    h+='<span class="text-sm" style="text-align:right;color:'+stockColor+'">'+(sinStock?'<span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:2px 5px;border-radius:4px;font-weight:700">Sin stock</span>':'Stock <strong>'+p.stock_disp+'</strong>')+'</span>';
     h+='</label>';
   });
   h+='</div>';
@@ -1736,7 +1751,7 @@ function renderEntregaFicha(){
   h+='<div class="signature-canvas-wrap" style="border:2px dashed #cbd5e1;border-radius:8px;background:#fff"><canvas id="entSigCanvas" style="display:block;width:100%;height:200px;cursor:crosshair;touch-action:none"></canvas></div>';
   h+='<div class="mt-2"><button class="btn btn-ghost" id="entSigClear" style="width:100%"><i class="fas fa-eraser"></i> Limpiar firma</button></div>';
   h+='</div>';
-  h+='<div class="mt-4"><button class="btn btn-primary" id="entConfirmar" style="width:100%;min-height:48px;font-size:16px"><i class="fas fa-hand-holding"></i> Confirmar entrega</button></div>';
+  h+='<div class="mt-4"><button class="btn btn-primary" id="entConfirmar" style="width:100%;min-height:48px;font-size:16px"><i class="fas fa-hand-holding"></i> Confirmar entrega'+(esParcial?' (pendientes)':'')+'</button></div>';
   h+='</div></div>';
   return h;
 }
@@ -1750,16 +1765,23 @@ function buscarEmpleadoEntrega(numero){
   const activos=empleadosActivos();
   if(!activos.some(e=>String(e.id||'')===String(emp.id||''))){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('El empleado no está activo para entrega','warning');return;}
   if(!emp.tipo_dotacion){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('El empleado no tiene tipo de dotación asignado','warning');return;}
-  if(entregaExistente(dot.id,emp.id)){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('Este empleado ya recibió la dotación seleccionada','warning');return;}
+  if(entregaExistente(dot.id,emp.id)){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('Dotación entregada completa.','warning');return;}
   const captura=tallasDeDotacion(dot.id).find(t=>String(t.empleado_id)===String(emp.id));
   if(!captura){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('El empleado no tiene tallas capturadas para esta dotación','warning');return;}
   const kit=findKit(emp.tipo_dotacion,dot.anio);
   if(!kit||!Array.isArray(kit.items)||!kit.items.length){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify('No hay kit configurado para el tipo del empleado en este año','warning');return;}
-  const armado=armarKitEntrega(kit,captura);
+  const registroParcial=getRegistroParcial(dot.id,emp.id);
+  let armado;
+  if(registroParcial){
+    armado=armarKitEntregaPendientes(kit,captura,registroParcial);
+  }else{
+    armado=armarKitEntrega(kit,captura);
+  }
   if(!armado.ok){resetEntregaEmpleado();renderEntregaFichaIntoWrap();notify(armado.error,'warning');return;}
   _entregaState.empleado=emp;
   _entregaState.captura=captura;
   _entregaState.productos=armado.productos;
+  _entregaState.registroExistente=registroParcial||null;
   _entregaState.signatureHasInk=false;
   renderEntregaFichaIntoWrap();
 }
@@ -1768,6 +1790,7 @@ function resetEntregaEmpleado(){
   _entregaState.empleado=null;
   _entregaState.captura=null;
   _entregaState.productos=[];
+  _entregaState.registroExistente=null;
   _entregaState.signatureCanvas=null;
   _entregaState.signatureCtx=null;
   _entregaState.signatureHasInk=false;
@@ -1838,10 +1861,9 @@ async function confirmarEntregaMasiva(parcial){
   const emp=_entregaState.empleado;
   const dot=dotacionEntregaSeleccionada();
   if(!emp||!dot){notify('Busca un empleado primero','warning');return;}
-  if(entregaExistente(dot.id,emp.id)){notify('Este empleado ya recibió la dotación seleccionada','warning');return;}
-  if(!_entregaState.signatureHasInk){notify('La firma es obligatoria','warning');return;}
+  if(!_entregaState.signatureHasInk){notify('Firma obligatoria.','warning');return;}
   const lineas=getLineasEntregaSeleccionadas(Boolean(parcial));
-  if(!lineas.length){notify('Selecciona al menos un producto','warning');return;}
+  if(!lineas.length){notify('No hay prendas seleccionadas para entregar.','warning');return;}
   const faltantes=validarStockEntrega(lineas);
   if(faltantes.length&&!parcial){openStockInsuficiente(faltantes);return;}
   const firma=getEntregaFirmaJPEG();
@@ -1854,7 +1876,6 @@ async function confirmarEntregaMasiva(parcial){
     entidadId:entregaNuevaId,
     filename:'firma-entrega.jpg'
   });
-  const tipo=findTipo(emp.tipo_dotacion);
   const res=registrarEntregaNueva({
     id:entregaNuevaId,
     empleado_id:emp.id,
@@ -1872,28 +1893,85 @@ async function confirmarEntregaMasiva(parcial){
   });
   if(!res.ok){notify(res.error||'No se pudo registrar la entrega','error');return;}
   const now=new Date();
-  const productos=_entregaState.productos.map(p=>{
-    const delivered=lineas.find(l=>l.producto_id===p.producto_id&&String(l.variante_id||'')===String(p.variante_id||''));
-    return{producto_id:p.producto_id,nombre:p.nombre,talla:p.talla,cantidad:p.cantidad,surtido:Number(delivered?.cantidad||0)};
-  });
-  const pendientes=productos.filter(p=>p.surtido<p.cantidad).map(p=>({...p,cantidad:p.cantidad-p.surtido}));
-  getDotacionEntregas().push({
-    id:'dot-ent-'+dot.id+'-'+emp.id+'-'+timestamp(),
-    dotacion_id:dot.id,
-    empleado_id:emp.id,
-    empleado_nombre:nombreEmpleado(emp),
-    tipo_dotacion:emp.tipo_dotacion,
-    productos,
-    firma:firmaEvidence,
-    fecha:today(),
-    hora:now.toTimeString().slice(0,5),
-    entregado_por:getEntregaUsuario(),
-    estado:pendientes.length?'parcial':'entregada',
-    pendientes
-  });
-  saveDotacionEntregas();
-  log('DOTACION_ENTREGA','Empleado #'+emp.id+' · '+productos.length+' producto(s) · '+(pendientes.length?'parcial':'completa'),'DOTACION');
-  notify('Entrega registrada'+(pendientes.length?' parcialmente':'')+' para #'+emp.id,'success');
+  const registroExistente=_entregaState.registroExistente;
+  if(registroExistente){
+    // Actualizar registro parcial existente
+    lineas.forEach(l=>{
+      const prod=(registroExistente.productos||[]).find(p=>p.producto_id===l.producto_id&&(p.talla||'Única')===(l.talla||'Única'));
+      if(prod){
+        if(prod.cantidad_entregada===undefined)prod.cantidad_entregada=Number(prod.surtido||0);
+        if(prod.cantidad_asignada===undefined)prod.cantidad_asignada=Number(prod.cantidad||0);
+        prod.cantidad_entregada+=l.cantidad;
+        prod.surtido=prod.cantidad_entregada;
+      }
+    });
+    // Recalcular pendientes
+    registroExistente.pendientes=(registroExistente.productos||[]).filter(p=>{
+      const asig=Number(p.cantidad_asignada||p.cantidad||0);
+      const ent=Number(p.cantidad_entregada||p.surtido||0);
+      return asig-ent>0;
+    }).map(p=>{
+      const asig=Number(p.cantidad_asignada||p.cantidad||0);
+      const ent=Number(p.cantidad_entregada||p.surtido||0);
+      return{producto_id:p.producto_id,nombre:p.nombre,talla:p.talla||'Única',cantidad:asig-ent,cantidad_pendiente:asig-ent};
+    });
+    registroExistente.estado=registroExistente.pendientes.length?'parcial':'entregada';
+    registroExistente.fecha_ultima_entrega=today();
+    if(!Array.isArray(registroExistente.eventos))registroExistente.eventos=[];
+    registroExistente.eventos.push({
+      fecha:today(),
+      hora:now.toTimeString().slice(0,5),
+      usuario:getEntregaUsuario(),
+      entrega_nueva_id:entregaNuevaId,
+      firma_evidence:firmaEvidence,
+      lineas:lineas.map(l=>({producto_id:l.producto_id,nombre:l.nombre,talla:l.talla,cantidad:l.cantidad}))
+    });
+    saveDotacionEntregas();
+    log('DOTACION_ENTREGA','Empleado #'+emp.id+' complementaria · '+(registroExistente.pendientes.length?'parcial':'completa'),'DOTACION');
+    notify('Entrega complementaria registrada para #'+emp.id,'success');
+  }else{
+    // Crear registro nuevo
+    const productos=_entregaState.productos.map(p=>{
+      const delivered=lineas.find(l=>l.producto_id===p.producto_id&&String(l.variante_id||'')===String(p.variante_id||''));
+      const cantEnt=Number(delivered?.cantidad||0);
+      return{producto_id:p.producto_id,nombre:p.nombre,talla:p.talla,cantidad:p.cantidad,surtido:cantEnt,cantidad_asignada:p.cantidad,cantidad_entregada:cantEnt};
+    });
+    const pendientes=productos.filter(p=>p.cantidad_entregada<p.cantidad_asignada).map(p=>({
+      producto_id:p.producto_id,nombre:p.nombre,talla:p.talla||'Única',
+      cantidad:p.cantidad_asignada-p.cantidad_entregada,
+      cantidad_pendiente:p.cantidad_asignada-p.cantidad_entregada
+    }));
+    const estado=pendientes.length?'parcial':'entregada';
+    getDotacionEntregas().push({
+      id:'dot-emp-'+dot.id+'-'+emp.id,
+      dotacion_id:dot.id,
+      dotacion_anio:dot.anio,
+      empleado_id:emp.id,
+      empleado_nombre:nombreEmpleado(emp),
+      area:emp.area||'',
+      tipo_dotacion:emp.tipo_dotacion,
+      estado,
+      productos,
+      pendientes,
+      eventos:[{
+        fecha:today(),
+        hora:now.toTimeString().slice(0,5),
+        usuario:getEntregaUsuario(),
+        entrega_nueva_id:entregaNuevaId,
+        firma_evidence:firmaEvidence,
+        lineas:lineas.map(l=>({producto_id:l.producto_id,nombre:l.nombre,talla:l.talla,cantidad:l.cantidad}))
+      }],
+      firma:firmaEvidence,
+      fecha:today(),
+      hora:now.toTimeString().slice(0,5),
+      entregado_por:getEntregaUsuario(),
+      fecha_primera_entrega:today(),
+      fecha_ultima_entrega:today()
+    });
+    saveDotacionEntregas();
+    log('DOTACION_ENTREGA','Empleado #'+emp.id+' · '+productos.length+' producto(s) · '+(pendientes.length?'parcial':'completa'),'DOTACION');
+    notify('Entrega registrada'+(pendientes.length?' parcialmente':'')+' para #'+emp.id,'success');
+  }
   resetEntregaEmpleado();
   renderTab('entrega');
 }
@@ -1911,15 +1989,59 @@ function openStockInsuficiente(faltantes){
 }
 
 function entregaExistente(dotacionId,empleadoId){
-  return getDotacionEntregas().some(e=>e.dotacion_id===dotacionId&&String(e.empleado_id)===String(empleadoId)&&e.estado!=='cancelada');
+  const r=getDotacionEntregas().find(e=>e.dotacion_id===dotacionId&&String(e.empleado_id)===String(empleadoId)&&e.estado!=='cancelada');
+  if(!r)return false;
+  if((r.estado==='entregada'||r.estado==='completa')&&(!r.pendientes||!r.pendientes.length))return true;
+  return false;
+}
+
+function getRegistroParcial(dotacionId,empleadoId){
+  const r=getDotacionEntregas().find(e=>e.dotacion_id===dotacionId&&String(e.empleado_id)===String(empleadoId)&&e.estado!=='cancelada');
+  if(!r)return null;
+  if((r.estado==='entregada'||r.estado==='completa')&&(!r.pendientes||!r.pendientes.length))return null;
+  if(r.estado==='parcial'||(r.pendientes&&r.pendientes.length>0))return r;
+  return null;
+}
+
+function armarKitEntregaPendientes(kit,captura,registro){
+  const productos=getProductos();
+  const out=[];
+  const pendientes=registro.pendientes||[];
+  for(const pend of pendientes){
+    const candPend=Number(pend.cantidad||pend.cantidad_pendiente||0);
+    if(candPend<=0)continue;
+    const prod=productos.find(p=>p.id===pend.producto_id);
+    if(!prod)return{ok:false,error:'Producto pendiente no encontrado en inventario: '+(pend.nombre||pend.producto_id)};
+    const talla=pend.talla||'Única';
+    const stock=resolverStockEntrega(prod,talla);
+    const prodBase=(registro.productos||[]).find(p=>p.producto_id===pend.producto_id&&(p.talla||'Única')===(pend.talla||'Única'));
+    const cantAsignada=Number(prodBase?.cantidad_asignada||prodBase?.cantidad||candPend);
+    const cantEntregada=Number(prodBase?.cantidad_entregada||prodBase?.surtido||0);
+    out.push({
+      producto_id:pend.producto_id,
+      variante_id:stock.variante_id,
+      nombre:pend.nombre||prod.nombre||'Producto',
+      talla,
+      cantidad:candPend,
+      cantidad_asignada:cantAsignada,
+      cantidad_entregada:cantEntregada,
+      stock_disp:stock.stock,
+      surtido:stock.stock>0,
+      es_pendiente:true
+    });
+  }
+  if(!out.length)return{ok:false,error:'No hay prendas pendientes para este empleado.'};
+  return{ok:true,productos:out};
 }
 
 function statsEntregaMasiva(dotacionId){
   const total=empleadosActivos().length;
   const entregas=getDotacionEntregas().filter(e=>e.dotacion_id===dotacionId&&e.estado!=='cancelada');
-  const empIds=new Set(entregas.map(e=>String(e.empleado_id)));
+  const completos=new Set(entregas.filter(e=>(e.estado==='entregada'||e.estado==='completa')&&(!e.pendientes||!e.pendientes.length)).map(e=>String(e.empleado_id)));
+  const parciales=new Set(entregas.filter(e=>e.estado==='parcial'||(e.pendientes&&e.pendientes.length>0)).map(e=>String(e.empleado_id)));
   const hoy=today();
-  return{entregados:empIds.size,total,pendientes:Math.max(0,total-empIds.size),hoy:entregas.filter(e=>e.fecha===hoy).length};
+  const hoySet=new Set(entregas.filter(e=>e.fecha===hoy||(Array.isArray(e.eventos)&&e.eventos.some(ev=>ev.fecha===hoy))).map(e=>String(e.empleado_id)));
+  return{entregados:completos.size,parciales:parciales.size,total,pendientes:Math.max(0,total-completos.size-parciales.size),hoy:hoySet.size};
 }
 
 function openEntregadosDotacion(){
@@ -1945,14 +2067,33 @@ function openDetalleDotacionEntrega(id){
   if(!ent)return;
   let h='<div style="display:grid;gap:6px;font-size:13px">';
   h+='<div><strong>Empleado:</strong> #'+esc(ent.empleado_id)+' '+esc(ent.empleado_nombre||'')+'</div>';
-  h+='<div><strong>Fecha:</strong> '+esc((ent.fecha||'')+' '+(ent.hora||''))+'</div>';
+  h+='<div><strong>Primera entrega:</strong> '+esc(ent.fecha_primera_entrega||ent.fecha||'—')+'</div>';
+  if(ent.fecha_ultima_entrega&&ent.fecha_ultima_entrega!==ent.fecha_primera_entrega){
+    h+='<div><strong>Última entrega:</strong> '+esc(ent.fecha_ultima_entrega)+'</div>';
+  }
   h+='<div><strong>Estado:</strong> '+esc(ent.estado||'entregada')+'</div>';
   h+='</div>';
-  h+='<table class="dt mt-3"><thead><tr><th>Producto</th><th>Talla</th><th>Cantidad</th><th>Surtido</th></tr></thead><tbody>';
+  h+='<table class="dt mt-3"><thead><tr><th>Producto</th><th>Talla</th><th>Asignado</th><th>Entregado</th></tr></thead><tbody>';
   (ent.productos||[]).forEach(p=>{
-    h+='<tr><td>'+esc(p.nombre||'')+'</td><td>'+esc(p.talla||'Única')+'</td><td style="text-align:right">'+Number(p.cantidad||0)+'</td><td style="text-align:right">'+Number(p.surtido||0)+'</td></tr>';
+    const asig=Number(p.cantidad_asignada||p.cantidad||0);
+    const ent2=Number(p.cantidad_entregada||p.surtido||0);
+    const pend=Math.max(0,asig-ent2);
+    h+='<tr><td>'+esc(p.nombre||'')+'</td><td>'+esc(p.talla||'Única')+'</td><td style="text-align:right">'+asig+'</td><td style="text-align:right;color:'+(pend>0?'#b45309':'#059669')+'">'+ent2+(pend>0?' <small>(pend. '+pend+')</small>':'')+'</td></tr>';
   });
   h+='</tbody></table>';
+  if(Array.isArray(ent.eventos)&&ent.eventos.length>1){
+    h+='<div class="mt-3"><strong>Eventos ('+ent.eventos.length+'):</strong></div>';
+    h+='<div style="display:grid;gap:4px;margin-top:6px">';
+    ent.eventos.forEach((ev,i)=>{
+      h+='<div style="font-size:12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px">';
+      h+='<strong>Entrega '+(i+1)+'</strong> · '+esc(ev.fecha||'')+(ev.hora?' '+esc(ev.hora):'');
+      if(Array.isArray(ev.lineas)&&ev.lineas.length){
+        h+=' · '+ev.lineas.map(l=>esc(l.nombre||l.producto_id)+(l.talla?' T:'+l.talla:'')+' x'+l.cantidad).join(', ');
+      }
+      h+='</div>';
+    });
+    h+='</div>';
+  }
   const firmaSrc=getEvidenceSrc(ent.firma);
   if(firmaSrc)h+='<div class="mt-3"><strong>Firma:</strong><br><img class="evidence-thumb" src="'+esc(firmaSrc)+'" style="max-width:260px;border:1px solid #e5e7eb;border-radius:6px;background:#fff"></div>';
   else h+='<div class="mt-3"><strong>Firma:</strong> <span class="empty-signature">Sin firma registrada</span></div>';
@@ -1963,15 +2104,19 @@ function openDetalleDotacionEntrega(id){
 function openPendientesEntrega(){
   const dot=dotacionEntregaSeleccionada();
   if(!dot)return;
-  const entregados=new Set(getDotacionEntregas().filter(e=>e.dotacion_id===dot.id&&e.estado!=='cancelada').map(e=>String(e.empleado_id)));
-  const pendientes=empleadosActivos().filter(e=>!entregados.has(String(e.id))).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
+  const entregas=getDotacionEntregas().filter(e=>e.dotacion_id===dot.id&&e.estado!=='cancelada');
+  const completos=new Set(entregas.filter(e=>(e.estado==='entregada'||e.estado==='completa')&&(!e.pendientes||!e.pendientes.length)).map(e=>String(e.empleado_id)));
+  const parciales=new Set(entregas.filter(e=>e.estado==='parcial'||(e.pendientes&&e.pendientes.length>0)).map(e=>String(e.empleado_id)));
+  const pendientes=empleadosActivos().filter(e=>!completos.has(String(e.id))).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
   let h='';
   if(!pendientes.length)h='<div class="empty-state" style="padding:18px"><i class="fas fa-check-circle"></i><p>Sin pendientes</p></div>';
   else{
-    h='<table class="dt"><thead><tr><th>#</th><th>Empleado</th><th>Tipo</th><th></th></tr></thead><tbody>';
+    h='<table class="dt"><thead><tr><th>#</th><th>Empleado</th><th>Tipo</th><th>Estado</th><th></th></tr></thead><tbody>';
     pendientes.forEach(emp=>{
       const tipo=findTipo(emp.tipo_dotacion);
-      h+='<tr><td class="font-mono text-xs">'+esc(emp.id)+'</td><td>'+esc(nombreEmpleado(emp))+'</td><td>'+esc(tipo?.nombre||emp.tipo_dotacion||'Sin tipo')+'</td><td><button class="btn btn-ghost btn-sm ent-pend-go" data-id="'+esc(emp.id)+'"><i class="fas fa-hand-holding"></i> Entregar</button></td></tr>';
+      const esParcial=parciales.has(String(emp.id));
+      const estadoBadge=esParcial?'<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-weight:700">Parcial</span>':'<span style="font-size:10px;background:#f1f5f9;color:#64748b;padding:2px 6px;border-radius:4px">Sin entrega</span>';
+      h+='<tr><td class="font-mono text-xs">'+esc(emp.id)+'</td><td>'+esc(nombreEmpleado(emp))+'</td><td>'+esc(tipo?.nombre||emp.tipo_dotacion||'Sin tipo')+'</td><td>'+estadoBadge+'</td><td><button class="btn btn-ghost btn-sm ent-pend-go" data-id="'+esc(emp.id)+'"><i class="fas fa-hand-holding"></i> Entregar</button></td></tr>';
     });
     h+='</tbody></table>';
   }
