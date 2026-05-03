@@ -267,7 +267,8 @@ const execDefaultFilters=()=>({
   categoria:'',
   nivel:'',
   tipo:'',
-  sitio:''
+  sitio:'',
+  origen:''
 });
 let execFilters=execDefaultFilters();
 let execActiveDetail='resumen';
@@ -394,6 +395,7 @@ function execBuildLineRows(kind,store,filters,productosMap,categorias){
   if(kind==='entregas'){
     (store.entregasNuevas||[]).forEach(doc=>{
       if(!execDocOk(doc,filters,store))return;
+      if(filters.origen&&(doc.origen||'salida_normal')!==filters.origen)return;
       if(filters.tipo&&!['salida_entrega','entrega'].includes(filters.tipo))return;
       (store.lineasEntrega||[]).filter(l=>l.entrega_id===doc.id&&productsMatch(l)).forEach(l=>{
         const p=productosMap.get(l.producto_id);
@@ -517,7 +519,7 @@ function execKpi({label,value,sub,note,status='info',drill,available=true,icon='
 }
 function execRenderFilters(data){
   const opts=execFilterOptions(data);
-  return'<div class="exec-filterbar"><div class="form-group"><label class="form-label">Año</label><select class="form-select" id="execYear">'+execOptions(opts.years.map(y=>({value:y,label:y})),execFilters.year)+'</select></div><div class="form-group"><label class="form-label">Mes</label><select class="form-select" id="execMonth"><option value="">Todos</option>'+execOptions(EXEC_MONTHS.map(([v,l])=>({value:v,label:l})),execFilters.month)+'</select></div><div class="form-group"><label class="form-label">Área</label><select class="form-select" id="execArea"><option value="">Todas</option>'+execOptions(opts.areas.map(a=>({value:a,label:a})),execFilters.area)+'</select></div><div class="form-group"><label class="form-label">Categoría</label><select class="form-select" id="execCategoria"><option value="">Todas</option>'+execOptions(opts.cats,execFilters.categoria)+'</select></div><div class="form-group"><label class="form-label">Nivel</label><select class="form-select" id="execNivel"><option value="">Todos</option>'+execOptions([1,2,3,4].map(n=>({value:String(n),label:'Nivel '+n})),execFilters.nivel)+'</select></div><div class="form-group"><label class="form-label">Movimiento</label><select class="form-select" id="execTipo"><option value="">Todos</option>'+execOptions(opts.tipos,execFilters.tipo)+'</select></div>'+(opts.sitios.length?'<div class="form-group"><label class="form-label">Sitio</label><select class="form-select" id="execSitio"><option value="">Todos</option>'+execOptions(opts.sitios.map(s=>({value:s,label:s})),execFilters.sitio)+'</select></div>':'')+'<button class="btn btn-ghost" id="execClearFilters"><i class="fas fa-filter-circle-xmark"></i> Limpiar filtros</button></div>';
+  return'<div class="exec-filterbar"><div class="form-group"><label class="form-label">Año</label><select class="form-select" id="execYear">'+execOptions(opts.years.map(y=>({value:y,label:y})),execFilters.year)+'</select></div><div class="form-group"><label class="form-label">Mes</label><select class="form-select" id="execMonth"><option value="">Todos</option>'+execOptions(EXEC_MONTHS.map(([v,l])=>({value:v,label:l})),execFilters.month)+'</select></div><div class="form-group"><label class="form-label">Área</label><select class="form-select" id="execArea"><option value="">Todas</option>'+execOptions(opts.areas.map(a=>({value:a,label:a})),execFilters.area)+'</select></div><div class="form-group"><label class="form-label">Categoría</label><select class="form-select" id="execCategoria"><option value="">Todas</option>'+execOptions(opts.cats,execFilters.categoria)+'</select></div><div class="form-group"><label class="form-label">Nivel</label><select class="form-select" id="execNivel"><option value="">Todos</option>'+execOptions([1,2,3,4].map(n=>({value:String(n),label:'Nivel '+n})),execFilters.nivel)+'</select></div><div class="form-group"><label class="form-label">Movimiento</label><select class="form-select" id="execTipo"><option value="">Todos</option>'+execOptions(opts.tipos,execFilters.tipo)+'</select></div>'+(opts.sitios.length?'<div class="form-group"><label class="form-label">Sitio</label><select class="form-select" id="execSitio"><option value="">Todos</option>'+execOptions(opts.sitios.map(s=>({value:s,label:s})),execFilters.sitio)+'</select></div>':'')+'<div class="form-group"><label class="form-label">Origen</label><select class="form-select" id="execOrigen"><option value="">Todos</option><option value="dotacion_anual"'+(execFilters.origen==='dotacion_anual'?' selected':'')+'>Dotación anual</option><option value="salida_normal"'+(execFilters.origen==='salida_normal'?' selected':'')+'>Salidas normales</option></select></div>'+'<button class="btn btn-ghost" id="execClearFilters"><i class="fas fa-filter-circle-xmark"></i> Limpiar filtros</button></div>';
 }
 function execRenderTopList(items,mode){
   if(!items.length)return'<div class="exec-empty-inline">Sin datos</div>';
@@ -608,7 +610,7 @@ function execInitCharts(data){
   createChart('execStockNivel',{type:'bar',data:{labels:data.stockByLevel.map(x=>'Nivel '+x.nivel),datasets:[{label:'Stock',data:data.stockByLevel.map(x=>x.stock),backgroundColor:['#22c55e','#38bdf8','#fbbf24','#818cf8'],borderRadius:6,borderSkipped:false}]},options:{...execChartOptions(),plugins:{legend:{display:false}}}});
 }
 function execSyncFiltersFromDom(){
-  execFilters={year:document.getElementById('execYear')?.value||'',month:document.getElementById('execMonth')?.value||'',area:document.getElementById('execArea')?.value||'',categoria:document.getElementById('execCategoria')?.value||'',nivel:document.getElementById('execNivel')?.value||'',tipo:document.getElementById('execTipo')?.value||'',sitio:document.getElementById('execSitio')?.value||''};
+  execFilters={year:document.getElementById('execYear')?.value||'',month:document.getElementById('execMonth')?.value||'',area:document.getElementById('execArea')?.value||'',categoria:document.getElementById('execCategoria')?.value||'',nivel:document.getElementById('execNivel')?.value||'',tipo:document.getElementById('execTipo')?.value||'',sitio:document.getElementById('execSitio')?.value||'',origen:document.getElementById('execOrigen')?.value||''};
 }
 function execRefresh(){
   const root=document.getElementById('execDashboardRoot');
@@ -619,7 +621,7 @@ function execRefresh(){
 function execBind(){
   const data=execBuildData(execFilters);
   execInitCharts(data);
-  ['execYear','execMonth','execArea','execCategoria','execNivel','execTipo','execSitio'].forEach(id=>{
+  ['execYear','execMonth','execArea','execCategoria','execNivel','execTipo','execSitio','execOrigen'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.onchange=()=>{execSyncFiltersFromDom();execActiveDetail='resumen';execActiveProduct='';execRefresh();};
   });

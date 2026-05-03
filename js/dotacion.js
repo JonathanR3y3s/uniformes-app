@@ -1,7 +1,7 @@
 import{esc,fmtMoney,genId}from'./utils.js';
 import{getDotaciones,saveDotaciones,getDotacionTipos,saveDotacionTipos,getDotacionKits,saveDotacionKits,getDotacionTallas,saveDotacionTallas,getDotacionConfig,saveDotacionConfig,getDotacionEntregas,saveDotacionEntregas,getStore,saveEmployees,log}from'./storage.js';
 import{notify,modal,confirm as confirmDialog,buildNav}from'./ui.js';
-import{getProductos,registrarEntregaNueva,getStockDisponible}from'./almacen-api.js';
+import{getProductos,registrarEntregaNueva,getStockDisponible,getCostoUnitarioProducto}from'./almacen-api.js';
 import{getAreaNames}from'./areas-config.js';
 import{saveEvidence,getEvidenceSrc}from'./evidence-storage.js';
 
@@ -64,6 +64,7 @@ export function render(){
           <button class="tab" data-tab="captura">Captura de tallas</button>
           <button class="tab" data-tab="concentrado">Para compras</button>
           <button class="tab" data-tab="entrega">Entrega dotación anual</button>
+          <button class="tab" data-tab="resumen">Resumen dotación</button>
         </div>
         <div id="dotTabContent" class="mt-4"></div>
       </div>
@@ -107,6 +108,11 @@ function renderTab(tab){
   if(tab==='entrega'){
     wrap.innerHTML=renderEntregaMasiva();
     bindEntregaMasiva();
+    return;
+  }
+  if(tab==='resumen'){
+    wrap.innerHTML=renderResumenDotacion();
+    initResumenDotacion();
     return;
   }
   wrap.innerHTML='<div class="empty-state"><i class="fas fa-clock"></i><p>Próximamente</p></div>';
@@ -2196,4 +2202,160 @@ function nombreEmpleado(emp){
 
 function getEntregaUsuario(){
   try{const u=JSON.parse(localStorage.getItem('_user')||'{}');return u.name||u.id||'admin';}catch(e){return'admin';}
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TAB RESUMEN DOTACIÓN (B5)
+// ════════════════════════════════════════════════════════════════════════
+let _resumenState={dotacionId:null,area:''};
+
+function dotacionResumenSel(){
+  if(_resumenState.dotacionId){const d=findDotacion(_resumenState.dotacionId);if(d)return d;}
+  const lista=dotaciones().slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0));
+  const act=lista.find(d=>d.estado==='activa');
+  const sel=act||lista[0]||null;
+  if(sel)_resumenState.dotacionId=sel.id;
+  return sel;
+}
+
+function resumenBuildContent(){
+  const lista=dotaciones();
+  if(!lista.length)return'<div class="empty-state"><i class="fas fa-info-circle"></i><p>No hay dotaciones configuradas</p></div>';
+  const dot=dotacionResumenSel();
+  if(!dot)return'<div class="empty-state"><i class="fas fa-box-open"></i><p>No hay dotaciones disponibles</p></div>';
+  const store=getStore();
+  const areas=getAreaNames();
+  const filtArea=_resumenState.area;
+  const todosActivos=empleadosActivos();
+  const activos=filtArea?todosActivos.filter(e=>e.area===filtArea):todosActivos;
+  const activosIds=new Set(activos.map(e=>String(e.id)));
+  const registros=getDotacionEntregas().filter(e=>e.dotacion_id===dot.id&&e.estado!=='cancelada'&&activosIds.has(String(e.empleado_id)));
+  const completos=registros.filter(r=>(r.estado==='entregada'||r.estado==='completa')&&(!r.pendientes||!r.pendientes.length));
+  const parciales=registros.filter(r=>r.estado==='parcial'||(r.pendientes&&r.pendientes.length>0));
+  const entregadosIds=new Set(registros.map(r=>String(r.empleado_id)));
+  const sinEntrega=activos.filter(e=>!entregadosIds.has(String(e.id)));
+  const tallasCapturadas=new Set(getDotacionTallas().filter(t=>t.dotacion_id===dot.id).map(t=>String(t.empleado_id)));
+  const sinTallas=activos.filter(e=>!tallasCapturadas.has(String(e.id)));
+  const pct=activos.length?Math.round(completos.length/activos.length*100):0;
+  const comprobantes=(store.entregasNuevas||[]).filter(c=>c.origen==='dotacion_anual'&&c.dotacion_id===dot.id&&(!filtArea||c.area===filtArea));
+  const conFirma=comprobantes.filter(c=>c.firma||c.firma_empleado||c.firma_recibe).length;
+  const lineasEntrega=store.lineasEntrega||[];
+  let costoTotal=0,lineasSinCosto=0;
+  comprobantes.forEach(c=>{
+    lineasEntrega.filter(l=>l.entrega_id===c.id).forEach(l=>{
+      const unit=getCostoUnitarioProducto(l.producto_id,l.variante_id||null);
+      if(!unit)lineasSinCosto++;
+      else costoTotal+=(Number(l.cantidad)||0)*unit;
+    });
+  });
+  const pendienteMap={};
+  parciales.forEach(r=>{
+    (r.pendientes||[]).forEach(p=>{
+      const k=(p.nombre||p.producto_id)+'|'+(p.talla||'');
+      if(!pendienteMap[k])pendienteMap[k]={nombre:p.nombre||p.producto_id,talla:p.talla||'',cantidad:0};
+      pendienteMap[k].cantidad+=Number(p.cantidad_pendiente||p.cantidad||1);
+    });
+  });
+  const entregadoMap={};
+  registros.forEach(r=>{
+    (r.productos||[]).forEach(p=>{
+      const entregado=Number(p.cantidad_entregada||p.surtido||0);
+      if(!entregado)return;
+      const k=(p.nombre||p.producto_id)+'|'+(p.talla||'');
+      if(!entregadoMap[k])entregadoMap[k]={nombre:p.nombre||p.producto_id,talla:p.talla||'',cantidad:0};
+      entregadoMap[k].cantidad+=entregado;
+    });
+  });
+  let h='';
+  h+='<div class="flex justify-between items-start gap-3 mb-4" style="flex-wrap:wrap">';
+  h+='<div><h2 style="font-size:18px;margin:0">Resumen Dotación</h2><p class="text-sm text-muted">Estado de entrega de dotación anual</p></div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">';
+  h+='<div class="form-group" style="margin:0"><label class="form-label">Dotación</label><select class="form-input" id="resDotSel" style="min-width:200px">';
+  lista.slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0)).forEach(d=>{
+    h+='<option value="'+esc(d.id)+'"'+(d.id===dot.id?' selected':'')+'>'+esc(d.nombre||('Dotación '+d.anio))+(d.estado==='activa'?' • ACTIVA':'')+'</option>';
+  });
+  h+='</select></div>';
+  if(areas.length){
+    h+='<div class="form-group" style="margin:0"><label class="form-label">Área</label><select class="form-input" id="resAreaSel"><option value="">Todas</option>';
+    areas.forEach(a=>h+='<option value="'+esc(a)+'"'+(a===filtArea?' selected':'')+'>'+esc(a)+'</option>');
+    h+='</select></div>';
+  }
+  h+='</div></div>';
+  h+='<div class="grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">';
+  [
+    ['Considerados',activos.length,'Empleados activos en filtro','#38bdf8'],
+    ['Completos',completos.length,'Dotación entregada íntegra','#22c55e'],
+    ['Parciales',parciales.length,'Entrega en proceso','#f59e0b'],
+    ['Pendientes',sinEntrega.length,'Sin ninguna entrega','#f87171'],
+    ['Sin tallas',sinTallas.length,'Sin captura de tallas','#e879f9'],
+    ['% avance',pct+'%','Completos / considerados','#818cf8'],
+    ['Comprobantes',comprobantes.length,'Entregas en almacén','#34d399'],
+    ['Con firma',conFirma,'Firma capturada','#0ea5e9'],
+    ['Costo dotación',fmtMoney(costoTotal),'Costo artículos entregados','#a78bfa'],
+    ['Sin costo',lineasSinCosto,'Líneas sin precio en catálogo','#fb923c']
+  ].forEach(([label,value,sub,color])=>{
+    h+='<div class="card" style="margin:0"><div class="card-body" style="padding:12px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted)">'+esc(label)+'</div><div style="font-size:22px;font-weight:800;margin:4px 0;color:'+color+'">'+esc(String(value))+'</div><div class="text-xs text-muted">'+esc(sub)+'</div></div></div>';
+  });
+  h+='</div>';
+  h+='<div class="card mb-4"><div class="card-head"><h3>Empleados y estado</h3><span class="text-xs text-muted">'+activos.length+' considerados</span></div><div class="table-wrap"><table class="dt"><thead><tr><th>Empleado</th><th>Área</th><th>Estado</th><th style="text-align:center">Comprobantes</th></tr></thead><tbody>';
+  activos.slice().sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'')).forEach(emp=>{
+    const reg=registros.find(r=>String(r.empleado_id)===String(emp.id));
+    const esCompleto=reg&&(reg.estado==='entregada'||reg.estado==='completa')&&(!reg.pendientes||!reg.pendientes.length);
+    const esParcial=reg&&(reg.estado==='parcial'||(reg.pendientes&&reg.pendientes.length>0));
+    const cCount=comprobantes.filter(c=>String(c.empleado_id||c.empleadoId)===String(emp.id)).length;
+    const estadoLabel=esCompleto?'<span class="badge badge-success">Completo</span>':esParcial?'<span class="badge badge-warning">Parcial</span>':'<span class="badge badge-neutral">Pendiente</span>';
+    h+='<tr><td class="font-bold">'+esc(nombreEmpleado(emp))+'</td><td>'+esc(emp.area||'—')+'</td><td>'+estadoLabel+'</td><td style="text-align:center">'+cCount+'</td></tr>';
+  });
+  if(!activos.length)h+='<tr><td colspan="4" class="empty-state"><i class="fas fa-users"></i><p>Sin empleados</p></td></tr>';
+  h+='</tbody></table></div></div>';
+  const pendienteList=Object.values(pendienteMap).sort((a,b)=>b.cantidad-a.cantidad);
+  const entregadoList=Object.values(entregadoMap).sort((a,b)=>b.cantidad-a.cantidad);
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:16px">';
+  h+='<div class="card" style="margin:0"><div class="card-head"><h3>Pendiente de entregar</h3><span class="text-xs text-muted">'+pendienteList.length+' líneas</span></div><div class="table-wrap"><table class="dt"><thead><tr><th>Producto</th><th>Talla</th><th class="text-right">Pendiente</th></tr></thead><tbody>';
+  pendienteList.forEach(p=>h+='<tr><td>'+esc(p.nombre)+'</td><td>'+esc(p.talla||'—')+'</td><td class="text-right font-bold">'+p.cantidad+'</td></tr>');
+  if(!pendienteList.length)h+='<tr><td colspan="3" class="empty-state"><i class="fas fa-check"></i><p>Sin pendientes</p></td></tr>';
+  h+='</tbody></table></div></div>';
+  h+='<div class="card" style="margin:0"><div class="card-head"><h3>Entregado por producto</h3><span class="text-xs text-muted">'+entregadoList.length+' líneas</span></div><div class="table-wrap"><table class="dt"><thead><tr><th>Producto</th><th>Talla</th><th class="text-right">Entregado</th></tr></thead><tbody>';
+  entregadoList.forEach(p=>h+='<tr><td>'+esc(p.nombre)+'</td><td>'+esc(p.talla||'—')+'</td><td class="text-right font-bold">'+p.cantidad+'</td></tr>');
+  if(!entregadoList.length)h+='<tr><td colspan="3" class="empty-state"><i class="fas fa-box-open"></i><p>Sin entregas registradas</p></td></tr>';
+  h+='</tbody></table></div></div>';
+  h+='</div>';
+  h+='<div class="card"><div class="card-head"><h3>Comprobantes dotación</h3><span class="text-xs text-muted">'+comprobantes.length+' documentos</span></div><div class="table-wrap"><table class="dt"><thead><tr><th>Fecha</th><th>Empleado</th><th>Área</th><th class="text-right">Artículos</th><th class="text-right">Costo</th><th style="text-align:center">Firma</th></tr></thead><tbody>';
+  comprobantes.slice().sort((a,b)=>String(b.fecha_hora||b.fecha||'').localeCompare(String(a.fecha_hora||a.fecha||''))).forEach(c=>{
+    const lineas=lineasEntrega.filter(l=>l.entrega_id===c.id);
+    const piezas=lineas.reduce((s,l)=>s+(Number(l.cantidad)||0),0);
+    const costo=lineas.reduce((s,l)=>{const unit=getCostoUnitarioProducto(l.producto_id,l.variante_id||null);return s+(Number(l.cantidad)||0)*(unit||0);},0);
+    const tieneFirma=!!(c.firma||c.firma_empleado||c.firma_recibe);
+    const fecha=(c.fecha_hora||c.fecha||'').slice(0,10);
+    h+='<tr><td class="text-xs">'+esc(fecha)+'</td><td>'+esc(c.quien_recibe||c.empleado_nombre||'—')+'</td><td>'+esc(c.area||'—')+'</td><td class="text-right">'+piezas+'</td><td class="text-right">'+(costo>0?fmtMoney(costo):'Sin costo')+'</td><td style="text-align:center">'+(tieneFirma?'<span class="badge badge-success"><i class="fas fa-check"></i> Firmado</span>':'<span class="badge badge-neutral">Sin firma</span>')+'</td></tr>';
+  });
+  if(!comprobantes.length)h+='<tr><td colspan="6" class="empty-state"><i class="fas fa-file-alt"></i><p>Sin comprobantes generados</p></td></tr>';
+  h+='</tbody></table></div></div>';
+  return h;
+}
+
+export function renderResumenDotacion(){
+  return'<div id="resumenDotRoot">'+resumenBuildContent()+'</div>';
+}
+
+function resumenRefresh(){
+  const root=document.getElementById('resumenDotRoot');
+  if(!root)return;
+  root.innerHTML=resumenBuildContent();
+  resumenBindInner();
+}
+
+function resumenBindInner(){
+  document.getElementById('resDotSel')?.addEventListener('change',e=>{
+    _resumenState.dotacionId=e.target.value;
+    resumenRefresh();
+  });
+  document.getElementById('resAreaSel')?.addEventListener('change',e=>{
+    _resumenState.area=e.target.value;
+    resumenRefresh();
+  });
+}
+
+export function initResumenDotacion(){
+  resumenBindInner();
 }

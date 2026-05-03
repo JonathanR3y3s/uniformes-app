@@ -278,7 +278,7 @@ const FIN_TYPE_LABELS={
   merma:'Merma',
   legacy:'Compra legacy'
 };
-let finFilters={desde:'',hasta:'',area:'',categoria:'',proveedor:''};
+let finFilters={desde:'',hasta:'',area:'',categoria:'',proveedor:'',origen:''};
 let finDrill={type:'resumen',value:''};
 let finDetailVisibleLimit=PAGE_SIZE;
 
@@ -349,7 +349,7 @@ function finBuildRows(){
     (store.lineasEntrega||[]).filter(l=>l.entrega_id===doc.id).forEach(l=>{
       const p=productosMap.get(l.producto_id);
       const unit=finUnitCost(p,l.variante_id||null);
-      consumptionRows.push({fecha:finDateKey(doc),mes:finMonthKey(doc),origen:'Entrega',tipo:'entrega',documento:doc.numero||doc.id,area:finDocArea(store,doc)||'No disponible',empleado:doc.quien_recibe||doc.empleado_nombre||'No disponible',producto:p?.nombre||l.producto_id,producto_id:l.producto_id,categoria:finCategoryName(p,categorias),categoria_id:p?.categoria_id||'',proveedor:finSafeProvider(finProviderName(p)),cantidad:Number(l.cantidad)||0,unitario:unit,total:(Number(l.cantidad)||0)*unit});
+      consumptionRows.push({fecha:finDateKey(doc),mes:finMonthKey(doc),origen:'Entrega',doc_origen:doc.origen||'salida_normal',tipo:'entrega',documento:doc.numero||doc.id,area:finDocArea(store,doc)||'No disponible',empleado:doc.quien_recibe||doc.empleado_nombre||'No disponible',producto:p?.nombre||l.producto_id,producto_id:l.producto_id,categoria:finCategoryName(p,categorias),categoria_id:p?.categoria_id||'',proveedor:finSafeProvider(finProviderName(p)),cantidad:Number(l.cantidad)||0,unitario:unit,total:(Number(l.cantidad)||0)*unit});
     });
   });
   const salidaTipo={colocacion:'Salida colocación',merma:'Merma',ajuste:'Salida ajuste',devolucion_proveedor:'Devolución proveedor',uso_interno:'Uso interno'};
@@ -357,7 +357,7 @@ function finBuildRows(){
     (store.lineasSalida||[]).filter(l=>l.salida_id===doc.id).forEach(l=>{
       const p=productosMap.get(l.producto_id);
       const unit=finUnitCost(p,l.variante_id||null);
-      consumptionRows.push({fecha:finDateKey(doc),mes:finMonthKey(doc),origen:salidaTipo[doc.tipo]||'Salida',tipo:doc.tipo==='merma'?'merma':'salida',documento:doc.numero||doc.id,area:'No disponible',empleado:doc.autorizado_por||'No disponible',producto:p?.nombre||l.producto_id,producto_id:l.producto_id,categoria:finCategoryName(p,categorias),categoria_id:p?.categoria_id||'',proveedor:finSafeProvider(finProviderName(p)),cantidad:Number(l.cantidad)||0,unitario:unit,total:(Number(l.cantidad)||0)*unit});
+      consumptionRows.push({fecha:finDateKey(doc),mes:finMonthKey(doc),origen:salidaTipo[doc.tipo]||'Salida',doc_origen:'salida_normal',tipo:doc.tipo==='merma'?'merma':'salida',documento:doc.numero||doc.id,area:'No disponible',empleado:doc.autorizado_por||'No disponible',producto:p?.nombre||l.producto_id,producto_id:l.producto_id,categoria:finCategoryName(p,categorias),categoria_id:p?.categoria_id||'',proveedor:finSafeProvider(finProviderName(p)),cantidad:Number(l.cantidad)||0,unitario:unit,total:(Number(l.cantidad)||0)*unit});
     });
   });
   const mermaMovs=getMovimientos().filter(m=>FIN_MERMA_TYPES.has(m.tipo));
@@ -380,6 +380,7 @@ function finRowMatches(row,filters=finFilters){
   if(filters.area&&row.area!==filters.area)return false;
   if(filters.categoria&&String(row.categoria_id)!==String(filters.categoria)&&row.categoria!==filters.categoria)return false;
   if(filters.proveedor&&row.proveedor!==filters.proveedor)return false;
+  if(filters.origen&&row.doc_origen&&row.doc_origen!==filters.origen)return false;
   return true;
 }
 function finFilteredRows(data){
@@ -438,7 +439,7 @@ function finKpi({label,value,available=true,sub,note,status='info',drill,icon='f
 }
 function finRenderFilters(data){
   const opts=finFilterOptions(data);
-  return'<div class="fin-filterbar"><div class="form-group"><label class="form-label">Desde</label><input type="date" class="form-input" id="finDesde" value="'+esc(finFilters.desde)+'"></div><div class="form-group"><label class="form-label">Hasta</label><input type="date" class="form-input" id="finHasta" value="'+esc(finFilters.hasta)+'"></div><div class="form-group"><label class="form-label">Área</label><select class="form-select" id="finArea"><option value="">Todas</option>'+finOptions(opts.areas.map(a=>({value:a,label:a})),finFilters.area)+'</select></div><div class="form-group"><label class="form-label">Categoría</label><select class="form-select" id="finCategoria"><option value="">Todas</option>'+finOptions(opts.categorias,finFilters.categoria)+'</select></div><div class="form-group"><label class="form-label">Proveedor</label><select class="form-select" id="finProveedor"><option value="">Todos</option>'+finOptions(opts.proveedores.map(p=>({value:p,label:p})),finFilters.proveedor)+'</select></div><button class="btn btn-ghost" id="finClear"><i class="fas fa-filter-circle-xmark"></i> Limpiar</button><button class="btn btn-primary" id="finExport"><i class="fas fa-file-csv"></i> CSV</button></div>';
+  return'<div class="fin-filterbar"><div class="form-group"><label class="form-label">Desde</label><input type="date" class="form-input" id="finDesde" value="'+esc(finFilters.desde)+'"></div><div class="form-group"><label class="form-label">Hasta</label><input type="date" class="form-input" id="finHasta" value="'+esc(finFilters.hasta)+'"></div><div class="form-group"><label class="form-label">Área</label><select class="form-select" id="finArea"><option value="">Todas</option>'+finOptions(opts.areas.map(a=>({value:a,label:a})),finFilters.area)+'</select></div><div class="form-group"><label class="form-label">Categoría</label><select class="form-select" id="finCategoria"><option value="">Todas</option>'+finOptions(opts.categorias,finFilters.categoria)+'</select></div><div class="form-group"><label class="form-label">Proveedor</label><select class="form-select" id="finProveedor"><option value="">Todos</option>'+finOptions(opts.proveedores.map(p=>({value:p,label:p})),finFilters.proveedor)+'</select></div><div class="form-group"><label class="form-label">Origen</label><select class="form-select" id="finOrigen"><option value="">Todos</option><option value="dotacion_anual"'+(finFilters.origen==='dotacion_anual'?' selected':'')+'>Dotación anual</option><option value="salida_normal"'+(finFilters.origen==='salida_normal'?' selected':'')+'>Salidas normales</option></select></div><button class="btn btn-ghost" id="finClear"><i class="fas fa-filter-circle-xmark"></i> Limpiar</button><button class="btn btn-primary" id="finExport"><i class="fas fa-file-csv"></i> CSV</button></div>';
 }
 function finRankRows(items,type){
   if(!items.length)return'<div class="fin-empty-inline">Sin datos</div>';
@@ -524,6 +525,17 @@ function finRenderContent(){
   h+='</div>';
   h+='<div style="font-size:12px;font-weight:800;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;margin:14px 0 8px">KPIs incompletos y datos faltantes</div>';
   h+=finQualityPanel(data);
+  const dotRows=data.filtered.consumption.filter(r=>r.doc_origen==='dotacion_anual');
+  const salRows=data.filtered.consumption.filter(r=>r.doc_origen!=='dotacion_anual');
+  const costDot=finTotal(dotRows);const costSal=finTotal(salRows);
+  if(data.filtered.consumption.length){
+    h+='<div style="font-size:12px;font-weight:800;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;margin:14px 0 8px">Dotación anual vs salidas normales</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px">';
+    h+='<div class="kpi" style="border-top:2px solid #7c3aed"><div class="kpi-label">Dotación anual</div><div class="kpi-value">'+(costDot>0?fmtMoney(costDot):'Sin costo')+'</div><div class="kpi-sub">'+dotRows.length+' registros de entrega dotación</div></div>';
+    h+='<div class="kpi" style="border-top:2px solid #38bdf8"><div class="kpi-label">Salidas normales</div><div class="kpi-value">'+(costSal>0?fmtMoney(costSal):'Sin costo')+'</div><div class="kpi-sub">'+salRows.length+' registros de entrega/salida normal</div></div>';
+    if(costDot+costSal>0){const pctDot=Math.round(costDot/(costDot+costSal)*100);h+='<div class="kpi" style="border-top:2px solid #f59e0b"><div class="kpi-label">% dotación</div><div class="kpi-value">'+pctDot+'%</div><div class="kpi-sub">del consumo total valorizado</div></div>';}
+    h+='</div>';
+  }
   h+='<div class="fin-two-col"><div class="fin-panel"><div class="fin-panel-head"><div><h3>Top áreas por gasto</h3><p>Click para detalle por empleado/producto</p></div></div>'+finRankRows(data.topAreas,'area')+'</div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Top proveedores</h3><p>Click para productos asociados</p></div></div>'+finRankRows(data.topProviders,'proveedor')+'</div></div>';
   h+='<div class="fin-two-col"><div class="fin-panel"><div class="fin-panel-head"><div><h3>Top empleados por costo</h3><p>Consumo valorizado</p></div></div>'+finRankRows(data.topEmployees,'empleado')+'</div><div class="fin-panel"><div class="fin-panel-head"><div><h3>Productos con mayor impacto financiero</h3><p>Click para movimientos y costo</p></div></div>'+finRankRows(data.topProducts,'producto')+'</div></div>';
   h+=finSemaphore(data);
@@ -545,7 +557,7 @@ function finInitCharts(data){
   createChart('finPareto',{type:'bar',data:{labels:data.pareto.items.slice(0,8).map(x=>x.label),datasets:[{label:'Impacto',data:data.pareto.items.slice(0,8).map(x=>x.total),backgroundColor:'#818cf8',borderRadius:6,borderSkipped:false}]},options:{...finChartBase(),plugins:{legend:{display:false}}}});
 }
 function finSyncFilters(){
-  finFilters={desde:document.getElementById('finDesde')?.value||'',hasta:document.getElementById('finHasta')?.value||'',area:document.getElementById('finArea')?.value||'',categoria:document.getElementById('finCategoria')?.value||'',proveedor:document.getElementById('finProveedor')?.value||''};
+  finFilters={desde:document.getElementById('finDesde')?.value||'',hasta:document.getElementById('finHasta')?.value||'',area:document.getElementById('finArea')?.value||'',categoria:document.getElementById('finCategoria')?.value||'',proveedor:document.getElementById('finProveedor')?.value||'',origen:document.getElementById('finOrigen')?.value||''};
 }
 function finRefresh(){
   const root=document.getElementById('finExecRoot');
@@ -568,11 +580,11 @@ function finExportCSV(){
 function finBind(){
   const data=finBuildData();
   finInitCharts(data);
-  ['finDesde','finHasta','finArea','finCategoria','finProveedor'].forEach(id=>{
+  ['finDesde','finHasta','finArea','finCategoria','finProveedor','finOrigen'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.onchange=()=>{finSyncFilters();finDrill={type:'resumen',value:''};finDetailVisibleLimit=PAGE_SIZE;finRefresh();};
   });
-  document.getElementById('finClear')?.addEventListener('click',()=>{finFilters={desde:'',hasta:'',area:'',categoria:'',proveedor:''};finDrill={type:'resumen',value:''};finDetailVisibleLimit=PAGE_SIZE;finRefresh();});
+  document.getElementById('finClear')?.addEventListener('click',()=>{finFilters={desde:'',hasta:'',area:'',categoria:'',proveedor:'',origen:''};finDrill={type:'resumen',value:''};finDetailVisibleLimit=PAGE_SIZE;finRefresh();});
   document.getElementById('finExport')?.addEventListener('click',finExportCSV);
   const root=document.getElementById('finExecRoot');
   if(root)root.onclick=e=>{

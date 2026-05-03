@@ -1,10 +1,14 @@
 import * as reportesGeneral from './reportes.js';
 import * as centroCostos from './centro-costos.js';
+import { renderResumenDotacion, initResumenDotacion } from './dotacion.js';
 import { destroyCharts } from './ui.js';
+
+const dotacionResumenModule = { render: renderResumenDotacion, init: initResumenDotacion };
 
 const tabs = [
   { id: 'general', label: 'General', module: reportesGeneral },
   { id: 'centro-costos', label: 'Financiero Ejecutivo', module: centroCostos },
+  { id: 'dotacion', label: 'Dotación anual', module: dotacionResumenModule },
 ];
 
 let activeTab = 'general';
