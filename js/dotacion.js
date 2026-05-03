@@ -1889,7 +1889,11 @@ async function confirmarEntregaMasiva(parcial){
     quien_recibe:nombreEmpleado(emp),
     tipo_entrega:'personal',
     lineas:lineas.map(l=>({producto_id:l.producto_id,variante_id:l.variante_id||null,cantidad:l.cantidad,observaciones:'Dotación '+(dot.nombre||dot.anio)+' · talla '+l.talla})),
-    observaciones:'Entrega masiva dotación '+(dot.nombre||dot.anio)
+    observaciones:'Entrega masiva dotación '+(dot.nombre||dot.anio),
+    origen:'dotacion_anual',
+    dotacion_id:dot.id,
+    dotacion_anio:dot.anio,
+    dotacion_nombre:dot.nombre||('Dotación '+dot.anio)
   });
   if(!res.ok){notify(res.error||'No se pudo registrar la entrega','error');return;}
   const now=new Date();

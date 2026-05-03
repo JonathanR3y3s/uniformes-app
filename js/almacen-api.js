@@ -592,7 +592,7 @@ export function getEntregasNuevas(filtros = {}) {
   return result.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
 }
 
-export function registrarEntregaNueva({ id: idOverride, empleado_id, empleado_nombre, area, responsable_area, motivo, autorizado_por, firma, firma_empleado, firma_recibe, quien_entrego, quien_recibe, tipo_entrega, tipo_receptor, lineas = [], observaciones }) {
+export function registrarEntregaNueva({ id: idOverride, empleado_id, empleado_nombre, area, responsable_area, motivo, autorizado_por, firma, firma_empleado, firma_recibe, quien_entrego, quien_recibe, tipo_entrega, tipo_receptor, lineas = [], observaciones, origen = 'salida_normal', dotacion_id, dotacion_anio, dotacion_nombre }) {
   const store = getStore();
   const user = getUser();
   const receptorValido = empleado_id || (quien_recibe || empleado_nombre || '').trim();
@@ -650,6 +650,10 @@ export function registrarEntregaNueva({ id: idOverride, empleado_id, empleado_no
     entregado_por_id: user?.id || 'system',
     creado_por: user?.name || 'Sistema',
     fecha_creacion: nowISO,
+    origen,
+    ...(dotacion_id !== undefined && { dotacion_id }),
+    ...(dotacion_anio !== undefined && { dotacion_anio }),
+    ...(dotacion_nombre !== undefined && { dotacion_nombre }),
   };
 
   const snap = _cloneAlmacenState(store);
