@@ -59,11 +59,11 @@ export function render(){
     <div class="card">
       <div class="card-body">
         <div class="tabs" id="dotTabs">
-          <button class="tab active" data-tab="dotaciones">Dotaciones</button>
-          <button class="tab" data-tab="kits">Kits</button>
-          <button class="tab" data-tab="captura">Captura Tallas</button>
-          <button class="tab" data-tab="concentrado">Concentrado</button>
-          <button class="tab" data-tab="entrega">Entrega Masiva</button>
+          <button class="tab active" data-tab="dotaciones">Dotación por año</button>
+          <button class="tab" data-tab="kits">Configuración de dotación</button>
+          <button class="tab" data-tab="captura">Captura de tallas</button>
+          <button class="tab" data-tab="concentrado">Para compras</button>
+          <button class="tab" data-tab="entrega">Entrega dotación anual</button>
         </div>
         <div id="dotTabContent" class="mt-4"></div>
       </div>
@@ -117,7 +117,7 @@ function renderTab(tab){
 // ════════════════════════════════════════════════════════════════════════
 function renderDotaciones(){
   const list=dotaciones().slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0));
-  let h='<div class="flex justify-between items-center gap-3 mb-4"><div><h2 style="font-size:18px;margin:0">Dotaciones</h2><p class="text-sm text-muted">Control anual de dotaciones</p></div><button class="btn btn-primary" id="btnNuevaDotacion"><i class="fas fa-plus"></i> Nueva Dotación</button></div>';
+  let h='<div class="flex justify-between items-center gap-3 mb-4"><div><h2 style="font-size:18px;margin:0">Dotación por año</h2><p class="text-sm text-muted">Control anual de dotaciones</p></div><button class="btn btn-primary" id="btnNuevaDotacion"><i class="fas fa-plus"></i> Nueva Dotación</button></div>';
   if(!list.length){
     h+='<div class="empty-state"><i class="fas fa-box-open"></i><p>No hay dotaciones configuradas aún</p><p style="font-size:13px;color:#666;margin-top:8px">Crea una nueva dotación para comenzar</p></div>';
     return h;
@@ -228,20 +228,20 @@ function deleteDotacion(id){
 function renderKits(){
   const lista=aniosDisponibles();
   if(!lista.length){
-    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Primero crea una dotación</p><p class="text-sm text-muted">Ve al tab "Dotaciones" para crear el año a configurar.</p></div>';
+    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Primero crea una dotación</p><p class="text-sm text-muted">Ve al tab "Dotación por año" para crear el año a configurar.</p></div>';
   }
   const sel=getAnioSel();
   let h='';
   // Encabezado
   h+='<div class="flex justify-between items-center gap-3 mb-4" style="flex-wrap:wrap">';
-  h+='<div><h2 style="font-size:18px;margin:0">Tipos de Empleado y Kits</h2><p class="text-sm text-muted">Configura las prendas asignadas por tipo y año</p></div>';
+  h+='<div><h2 style="font-size:18px;margin:0">Configuración de dotación</h2><p class="text-sm text-muted">Define qué prendas y cantidades corresponden a cada tipo de empleado para el año seleccionado.</p></div>';
   h+='<div class="flex gap-2" style="flex-wrap:wrap;align-items:center">';
   h+='<label class="form-label" style="margin:0">Año:</label>';
   h+='<select class="form-input" id="kitAnioSel" style="width:auto;min-width:110px">';
   lista.forEach(a=>{h+='<option value="'+a+'"'+(a===sel?' selected':'')+'>'+a+'</option>';});
   h+='</select>';
   h+='<button class="btn btn-primary" id="btnNuevoTipo"><i class="fas fa-plus"></i> Crear Tipo</button>';
-  h+='<button class="btn btn-ghost" id="btnDuplicarKits"><i class="fas fa-copy"></i> Duplicar kits</button>';
+  h+='<button class="btn btn-ghost" id="btnDuplicarKits"><i class="fas fa-copy"></i> Duplicar configuración</button>';
   h+='</div></div>';
   // Lista de tipos
   const lstTipos=tipos();
@@ -520,7 +520,7 @@ function openDuplicarKits(){
     <div class="form-group"><label class="form-label">Año origen *</label><select class="form-input" id="dupOrigen">${opts}</select></div>
     <div class="form-group"><label class="form-label">Año destino</label><input class="form-input" value="${destino}" disabled></div>
     <div class="text-sm text-muted">Se copiarán los kits del año origen al año destino. Se generarán nuevos IDs.</div>`;
-  modal.open('Duplicar kits',body,'<button class="btn btn-ghost" id="dupCancel">Cancelar</button><button class="btn btn-primary" id="dupSave">Duplicar</button>','md');
+  modal.open('Duplicar configuración de dotación',body,'<button class="btn btn-ghost" id="dupCancel">Cancelar</button><button class="btn btn-primary" id="dupSave">Duplicar</button>','md');
   document.getElementById('dupCancel').addEventListener('click',()=>modal.close());
   document.getElementById('dupSave').addEventListener('click',()=>doDuplicarKits(destino));
 }
@@ -548,7 +548,7 @@ function doDuplicarKits(destino){
   saveDotacionKits();
   modal.close();
   renderTab('kits');
-  notify('Kits duplicados ('+origenKits.length+')','success');
+  notify('Configuración duplicada ('+origenKits.length+' tipos)','success');
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -635,7 +635,7 @@ function dotacionSeleccionada(){
 function renderCaptura(){
   const lstDot=dotaciones();
   if(!lstDot.length){
-    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Primero crea una dotación</p><p class="text-sm text-muted">Ve al tab "Dotaciones" para crearla.</p></div>';
+    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Primero crea una dotación</p><p class="text-sm text-muted">Ve al tab "Dotación por año" para crearla.</p></div>';
   }
   const dotSel=dotacionSeleccionada();
   if(!dotSel){
@@ -646,7 +646,7 @@ function renderCaptura(){
   let h='';
   // Header con selector y progreso
   h+='<div class="flex justify-between items-start gap-3 mb-4" style="flex-wrap:wrap">';
-  h+='<div><h2 style="font-size:18px;margin:0">Captura de Tallas</h2><p class="text-sm text-muted">Registra tallas y firma del empleado</p></div>';
+  h+='<div><h2 style="font-size:18px;margin:0">Captura de tallas</h2><p class="text-sm text-muted">Registra o valida las tallas que se usarán para la dotación del año.</p></div>';
   h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
   h+='<label class="form-label" style="margin:0">Dotación:</label>';
   h+='<select class="form-input" id="capDotSel" style="width:auto;min-width:180px">';
@@ -756,7 +756,7 @@ function renderFichaSinTipo(emp){
   h+='<h3 style="margin:0 0 8px;font-size:16px">#'+esc(emp.id)+' '+esc(emp.nombre||'')+' '+esc(emp.paterno||'')+'</h3>';
   h+='<p style="margin:0 0 12px"><i class="fas fa-exclamation-triangle"></i> Este empleado no tiene <strong>tipo de dotación</strong> asignado.</p>';
   if(!tipos.length){
-    h+='<p class="text-sm text-muted">No hay tipos configurados. Créalos en el tab <strong>Kits</strong> primero.</p>';
+    h+='<p class="text-sm text-muted">No hay tipos configurados. Créalos en el tab <strong>Configuración de dotación</strong> primero.</p>';
   }else{
     h+='<div class="form-row c2" style="align-items:end">';
     h+='<div class="form-group"><label class="form-label">Asignar tipo *</label><select class="form-select" id="capAsignarTipo">';
@@ -805,7 +805,7 @@ function renderFichaCaptura(emp){
     return;
   }
   if(!kit||!Array.isArray(kit.items)||!kit.items.length){
-    wrap.innerHTML='<div class="empty-state"><i class="fas fa-box-open"></i><p>El tipo "'+esc(tipo.nombre)+'" no tiene kit configurado para el año '+dot.anio+'</p><p class="text-sm text-muted">Configúralo en el tab <strong>Kits</strong>.</p></div>';
+    wrap.innerHTML='<div class="empty-state"><i class="fas fa-box-open"></i><p>El tipo "'+esc(tipo.nombre)+'" no tiene kit configurado para el año '+dot.anio+'</p><p class="text-sm text-muted">Configúralo en el tab <strong>Configuración de dotación</strong>.</p></div>';
     return;
   }
   // Cargar tallas previas si existen
@@ -1205,7 +1205,7 @@ function dotacionConcentradoSeleccionada(){
 function renderConcentrado(){
   const lista=dotaciones();
   if(!lista.length){
-    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Primero crea una dotación</p><p class="text-sm text-muted">Ve al tab "Dotaciones" para crearla.</p></div>';
+    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Primero crea una dotación</p><p class="text-sm text-muted">Ve al tab "Dotación por año" para crearla.</p></div>';
   }
   const cfg=getDotacionConfig();
   const dot=dotacionConcentradoSeleccionada();
@@ -1213,7 +1213,7 @@ function renderConcentrado(){
   _concentradoUltimo=data;
   let h='';
   h+='<div class="flex justify-between items-start gap-3 mb-4" style="flex-wrap:wrap">';
-  h+='<div><h2 style="font-size:18px;margin:0">Concentrado de Compras</h2><p class="text-sm text-muted">Costo estimado con precios actuales</p></div>';
+  h+='<div><h2 style="font-size:18px;margin:0">Para compras</h2><p class="text-sm text-muted">Genera el concentrado de prendas, tallas y cantidades para compras.</p></div>';
   h+='<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">';
   h+='<div class="form-group" style="margin:0"><label class="form-label">Dotación</label><select class="form-input" id="concDotSel" style="min-width:220px">';
   lista.slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0)).forEach(d=>{
@@ -1563,7 +1563,7 @@ function prepararEstilosPrintConcentrado(){
 
 function htmlPrintConcentrado(data){
   const s=data.resumen;
-  let h='<h1 style="margin:0 0 4px;font-size:22px">Concentrado de Compras</h1>';
+  let h='<h1 style="margin:0 0 4px;font-size:22px">Concentrado para compras</h1>';
   h+='<div style="font-size:12px;color:#4b5563;margin-bottom:10px">'+esc(s.dotacion)+' · Año '+esc(String(s.anio))+' · '+esc(s.fecha_generacion)+'</div>';
   h+='<div class="print-grid">';
   [
@@ -1614,13 +1614,13 @@ function dotacionEntregaSeleccionada(){
 function renderEntregaMasiva(){
   const lista=dotaciones();
   if(!lista.length){
-    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Primero crea una dotación</p><p class="text-sm text-muted">Ve al tab "Dotaciones" para crearla.</p></div>';
+    return '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Primero crea una dotación</p><p class="text-sm text-muted">Ve al tab "Dotación por año" para crearla.</p></div>';
   }
   const dot=dotacionEntregaSeleccionada();
   const stats=statsEntregaMasiva(dot?.id);
   let h='';
   h+='<div class="flex justify-between items-start gap-3 mb-4" style="flex-wrap:wrap">';
-  h+='<div><h2 style="font-size:18px;margin:0">Entrega Masiva</h2><p class="text-sm text-muted">Entrega anual de kits por empleado</p></div>';
+  h+='<div><h2 style="font-size:18px;margin:0">Entrega dotación anual</h2><p class="text-sm text-muted">Busca al empleado por número o por nombre para entregar su dotación anual.</p></div>';
   h+='<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">';
   h+='<div class="form-group" style="margin:0"><label class="form-label">Dotación</label><select class="form-input" id="entDotSel" style="min-width:220px">';
   lista.slice().sort((a,b)=>Number(b.anio||0)-Number(a.anio||0)).forEach(d=>{
@@ -1645,7 +1645,7 @@ function renderEntregaMasiva(){
   h+='</div>';
   h+='<div class="card"><div class="card-body">';
   h+='<div class="form-row c2" style="align-items:end">';
-  h+='<div class="form-group"><label class="form-label">Buscar empleado por número</label><input class="form-input" id="entEmpInput" placeholder="Ej. 001" autocomplete="off"></div>';
+  h+='<div class="form-group"><label class="form-label">Buscar empleado por número o nombre</label><input class="form-input" id="entEmpInput" placeholder="Ej. 001 o nombre" autocomplete="off"></div>';
   h+='<div><button class="btn btn-primary" id="entEmpBuscar"><i class="fas fa-search"></i> Buscar</button></div>';
   h+='</div>';
   h+='<div id="entFlujoWrap" class="mt-4">'+renderEntregaFicha()+'</div>';
