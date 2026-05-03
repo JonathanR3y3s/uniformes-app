@@ -1,4 +1,4 @@
-export const VERSION='8.9c';
+export const VERSION='8.9f';
 export const STORAGE_KEY='uniformes_assa_abloy_2026_v4';
 export const TALLAS={ROPA:['XCH','CH','M','G','XG','XXG','XXXG'],PANTALON:['26','28','30','32','34','36','38','40','42','44'],CALZADO:['22','23','24','25','26','27','28','29','30','31','32','33'],UNITALLA:['UNITALLA']};
 export const TIPOS_PRODUCTO=[
@@ -40,6 +40,9 @@ export const NAV=[
   {view:'entregas-personal',icon:'fa-hand-holding-hand',label:'Nueva entrega'},
   {view:'entregas',icon:'fa-list-check',label:'Historial'},
   {view:'devoluciones',icon:'fa-rotate-left',label:'Devoluciones'}
+]},
+{id:'dotacion',icon:'fa-box-open',label:'Dotación anual',defaultView:'dotacion',tabs:[
+  {view:'dotacion',icon:'fa-box-open',label:'Dotación anual',condition:dotacionVisible}
 ]},
 {id:'personal',icon:'fa-users',label:'Personal',defaultView:'empleados',tabs:[
   {view:'empleados',icon:'fa-id-badge',label:'Empleados'},
