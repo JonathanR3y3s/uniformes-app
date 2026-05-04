@@ -1,5 +1,5 @@
 import{VERSION,STORAGE_KEY}from'./config.js';
-import{getStore,saveEmployees,saveProveedores,saveEntregas,saveSalidas,saveStockExtra,saveAuditLog,buildBackup,restoreBackup,getStorageUsageKB,log,resetDatosOperativos}from'./storage.js';
+import{getStore,saveEmployees,saveProveedores,saveEntregas,saveSalidas,saveStockExtra,saveAuditLog,buildBackup,restoreBackup,getStorageUsageKB,log,resetDatosOperativos,resetDemoCompleta}from'./storage.js';
 import{calcStats}from'./rules.js';
 import{notify,confirm,modal}from'./ui.js';
 import{isAdmin}from'./user-roles.js';
@@ -66,16 +66,11 @@ function renderPage(){
   h+='<button class="btn btn-primary" style="width:100%" id="cfgUpdatePWA"><i class="fas fa-sync-alt mr-2"></i>Actualizar app</button>';
   h+='<p class="text-xs text-muted mt-2"><i class="fas fa-info-circle mr-1"></i>No borra datos. Solo actualiza archivos de la aplicación.</p>';
   h+='</div></div>';
-  // Zona peligrosa
-  h+='<div class="card" style="border-color:#dc2626"><div class="card-head" style="background:#fef2f2"><h3 style="color:#dc2626"><i class="fas fa-exclamation-triangle mr-2"></i>Zona de Riesgo</h3></div><div class="card-body"><div class="flex gap-3 flex-wrap">';
-  // Bitácora no debe eliminarse en operación real. Solo exportar/archivar.
-  h+='<button class="btn btn-danger" id="cfgClear"><i class="fas fa-trash-alt mr-1"></i> Borrar todos los datos</button>';
-  h+='</div><p class="text-xs text-muted mt-3"><i class="fas fa-info-circle mr-1"></i>El borrado de datos no se puede deshacer. Exporta un respaldo primero.</p></div></div>';
   if(isAdmin()){
     h+='<div class="card mt-4" style="border-color:#dc2626"><div class="card-head" style="background:#fef2f2"><h3 style="color:#dc2626"><i class="fas fa-flask mr-2"></i>Zona de Pruebas</h3></div><div class="card-body">';
-    h+='<p class="text-sm text-sec mb-3">Borra inventario, recepciones, entregas, devoluciones, mermas y movimientos locales. <strong>No borra empleados, usuarios ni configuración.</strong></p>';
-    h+='<button class="btn btn-danger" id="cfgResetPruebas" style="width:100%"><i class="fas fa-rotate-left mr-2"></i>Reiniciar datos operativos de prueba</button>';
-    h+='<p class="text-xs text-muted mt-2"><i class="fas fa-info-circle mr-1"></i>Genera un respaldo automático antes de borrar. Solo visible para administradores. Si tienes sync activo, revisa Supabase antes de sincronizar después del reset.</p>';
+    h+='<p class="text-sm text-sec mb-3">Reinicia los datos locales de prueba para comenzar desde cero. <strong>No borra usuarios, roles ni configuración crítica.</strong></p>';
+    h+='<button class="btn btn-danger" id="cfgResetDemo" style="width:100%"><i class="fas fa-rotate-left mr-2"></i>Reiniciar demo completa</button>';
+    h+='<p class="text-xs text-muted mt-2"><i class="fas fa-exclamation-triangle mr-1"></i>Borra empleados, proveedores, productos, inventario, recepciones, entregas, dotación, reportes y centro de costos locales.</p>';
     h+='</div></div>';
   }
   return h;
@@ -132,6 +127,14 @@ async function doResetPruebas(){
   log('RESET_OPERATIVO','Datos operativos de prueba reiniciados','CONFIG');
   notify('Datos reiniciados. Si tienes sync activo, revisa Supabase antes de sincronizar.','warning');
   setTimeout(()=>location.reload(),1500);
+}
+async function doResetDemoCompleta(){
+  const ok=await _confirmTextoModal('Reiniciar demo completa','Esta acción borra empleados, proveedores, productos, inventario, recepciones, entregas, dotación, reportes y centro de costos locales. No borra usuarios ni configuración crítica.','BORRAR TODO');
+  if(!ok){notify('Operación cancelada','info');return;}
+  resetDemoCompleta();
+  log('RESET_DEMO_COMPLETA','Reset demo completa ejecutado','CONFIG');
+  notify('Demo reiniciada. Recargando…','warning');
+  setTimeout(()=>location.reload(),1200);
 }
 function doBackup(){
   const bk=buildBackup();
@@ -228,9 +231,8 @@ async function _doFullClear(){
 
 function handleConfigClick(e){
   if(e.target.closest('#cfgUpdatePWA')){updatePWA();return;}
-  if(e.target.closest('#cfgClear')){_doFullClear();return;}
   if(e.target.closest('#cfgBackup'))doBackup();
-  if(e.target.closest('#cfgResetPruebas')){doResetPruebas();return;}
+  if(e.target.closest('#cfgResetDemo')){doResetDemoCompleta();return;}
   if(e.target.closest('#cfgV2Backup')){doV2Backup();return;}
   if(e.target.closest('#dropRestore')||e.target.closest('#fileRestore')){
     document.getElementById('fileRestore')?.click();

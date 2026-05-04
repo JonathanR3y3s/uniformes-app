@@ -1,4 +1,4 @@
-import{getStore}from'./storage.js';import{getAreaNames}from'./areas-config.js';import{esc,fmt,fmtMoney,fmtDate}from'./utils.js';import{createChart}from'./ui.js';import{getMovimientos,getProductos,getCostoUnitarioProducto,productoTieneCosto,getValorInventarioProducto,getAlmacenDataQuality}from'./almacen-api.js';
+import{getStore}from'./storage.js';import{getAreaNames}from'./areas-config.js';import{esc,fmt,fmtMoney,fmtDate}from'./utils.js';import{createChart,openDrawer}from'./ui.js';import{getMovimientos,getProductos,getCostoUnitarioProducto,productoTieneCosto,getValorInventarioProducto,getAlmacenDataQuality}from'./almacen-api.js';
 let currentYear=new Date().getFullYear().toString();
 const PAGE_SIZE=50;
 let ccVisibleLimit=PAGE_SIZE;
@@ -596,6 +596,12 @@ function finBind(){
     finDrill={type,value};
     finDetailVisibleLimit=PAGE_SIZE;
     finRefresh();
+    if(type!=='resumen'||value){
+      const titleMap={merma:'Mermas',sinPrecio:'Productos sin precio',area:'Área: '+value,proveedor:'Proveedor: '+value,producto:'Producto: '+value,categoria:'Categoría: '+value,empleado:'Empleado: '+value};
+      const drawerTitle=titleMap[type]||type+': '+value;
+      const data=finBuildData();
+      openDrawer('<div style="overflow-y:auto;max-height:70vh">'+finRenderDetail(data)+'</div>',drawerTitle);
+    }
   };
 }
 export function render(){

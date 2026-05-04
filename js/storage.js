@@ -169,6 +169,42 @@ export function resetDatosOperativos(){
   try{localStorage.removeItem('_sync_queue');}catch(e){}
   try{localStorage.setItem('_ultimo_reset_datos',new Date().toISOString());}catch(e){}
 }
+/** Borra TODOS los datos de prueba/operación — conserva usuarios, sesión y dotacionVisible */
+export function resetDemoCompleta(){
+  const s=store;
+  s.employees=[];s.proveedores=[];s.areas=[];
+  s.inventario=[];s.entregas=[];s.salidas=[];s.stockExtra={};
+  s.comprasAlmacen=[];s.campanias=[];s.stockUniformes=[];s.encuestas=[];
+  s.articulos=[];s.skus=[];s.movimientosInventario=[];
+  s.documentosEntrega=[];s.documentosDevolucion=[];
+  s.productos=[];s.categorias=[];
+  s.entradas=[];s.lineasEntrada=[];
+  s.entregasNuevas=[];s.lineasEntrega=[];
+  s.salidasNuevas=[];s.lineasSalida=[];
+  s.devolucionesNuevas=[];s.lineasDevolucion=[];
+  s.movimientos=[];
+  s.dotaciones=[];s.dotacionTipos=[];s.dotacionKits=[];s.dotacionTallas=[];s.dotacionEntregas=[];
+  s.dotacionConfig={buffer_stock:30};
+  s.auditLog=[];
+  saveEmployees();saveProveedores();saveAreas();
+  saveInventario();saveEntregas();saveSalidas();saveStockExtra();
+  saveComprasAlmacen();saveCampanias();saveStockUniformes();saveEncuestas();
+  saveArticulos();saveSkus();saveMovimientosInventario();
+  saveDocumentosEntrega();saveDocumentosDevolucion();
+  saveProductos();saveCategorias();
+  saveEntradas();saveLineasEntrada();
+  saveEntregasNuevas();saveLineasEntrega();
+  saveSalidasNuevas();saveLineasSalida();
+  saveDevolucionesNuevas();saveLineasDevolucion();
+  saveMovimientos();
+  saveDotaciones();saveDotacionTipos();saveDotacionKits();saveDotacionTallas();saveDotacionEntregas();
+  saveDotacionConfig();
+  saveAuditLog();
+  try{localStorage.removeItem('_sync_queue');}catch(e){}
+  try{localStorage.removeItem('_cats_provs');}catch(e){}
+  try{localStorage.removeItem('_areas_rules');}catch(e){}
+  try{localStorage.setItem('_ultimo_reset_demo_completa',new Date().toISOString());}catch(e){}
+}
 /** Restaura desde backup validado — retorna {ok,errors[]} */
 export function restoreBackup(bk){
   const errors=[];
